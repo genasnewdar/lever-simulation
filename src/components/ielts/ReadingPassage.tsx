@@ -22,11 +22,6 @@ function isHtmlContent(text: string): boolean {
   return /<\/?[a-z][\s\S]*?>/i.test(text);
 }
 
-/** Strip HTML tags to get plain text (used for highlight offsets on HTML content) */
-function stripHtml(html: string): string {
-  const doc = new DOMParser().parseFromString(html, "text/html");
-  return doc.body.textContent || "";
-}
 
 /**
  * Renders reading passage content with persisted highlights (yellow/pink).

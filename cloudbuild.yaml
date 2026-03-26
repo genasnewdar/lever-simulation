@@ -1,0 +1,57 @@
+steps:
+  # Build the Docker image
+  - name: 'gcr.io/cloud-builders/docker'
+    args:
+      - 'build'
+      - '--build-arg=AUTH0_SECRET=${_AUTH0_SECRET}'
+      - '--build-arg=AUTH0_DOMAIN=${_AUTH0_DOMAIN}'
+      - '--build-arg=AUTH0_CLIENT_ID=${_AUTH0_CLIENT_ID}'
+      - '--build-arg=AUTH0_CLIENT_SECRET=${_AUTH0_CLIENT_SECRET}'
+      - '--build-arg=APP_BASE_URL=${_APP_BASE_URL}'
+      - '--build-arg=AUTH0_AUDIENCE=${_AUTH0_AUDIENCE}'
+      - '--build-arg=AUTH0_SCOPE=${_AUTH0_SCOPE}'
+      - '--build-arg=NEXT_PUBLIC_API_URL=${_NEXT_PUBLIC_API_URL}'
+      - '--build-arg=SYSTEM_API_KEY=${_SYSTEM_API_KEY}'
+      - '-t'
+      - 'gcr.io/$PROJECT_ID/lever-simulation:$COMMIT_SHA'
+      - '-t'
+      - 'gcr.io/$PROJECT_ID/lever-simulation:latest'
+      - '.'
+
+  # Push the image
+  - name: 'gcr.io/cloud-builders/docker'
+    args: ['push', 'gcr.io/$PROJECT_ID/lever-simulation:$COMMIT_SHA']
+
+  - name: 'gcr.io/cloud-builders/docker'
+    args: ['push', 'gcr.io/$PROJECT_ID/lever-simulation:latest']
+
+  # Deploy to Cloud Run
+  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
+    entrypoint: gcloud
+    args:
+      - 'run'
+      - 'deploy'
+      - 'lever-simulation'
+      - '--image=gcr.io/$PROJECT_ID/lever-simulation:$COMMIT_SHA'
+      - '--region=asia-northeast1'
+      - '--platform=managed'
+      - '--allow-unauthenticated'
+      - '--memory=1Gi'
+      - '--cpu=1'
+      - '--min-instances=0'
+      - '--max-instances=3'
+      - '--set-env-vars=AUTH0_SECRET=${_AUTH0_SECRET},AUTH0_DOMAIN=${_AUTH0_DOMAIN},AUTH0_CLIENT_ID=${_AUTH0_CLIENT_ID},AUTH0_CLIENT_SECRET=${_AUTH0_CLIENT_SECRET},APP_BASE_URL=${_APP_BASE_URL},AUTH0_AUDIENCE=${_AUTH0_AUDIENCE},AUTH0_SCOPE=${_AUTH0_SCOPE},NEXT_PUBLIC_API_URL=${_NEXT_PUBLIC_API_URL},SYSTEM_API_KEY=${_SYSTEM_API_KEY}'
+
+options:
+  logging: CLOUD_LOGGING_ONLY
+
+substitutions:
+  _AUTH0_SECRET: ''
+  _AUTH0_DOMAIN: ''
+  _AUTH0_CLIENT_ID: ''
+  _AUTH0_CLIENT_SECRET: ''
+  _APP_BASE_URL: ''
+  _AUTH0_AUDIENCE: ''
+  _AUTH0_SCOPE: 'openid profile email read:shows'
+  _NEXT_PUBLIC_API_URL: ''
+  _SYSTEM_API_KEY: ''

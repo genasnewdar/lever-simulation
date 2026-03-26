@@ -34,9 +34,6 @@ import type {
   BackendQuestionGroup,
   ContentResponseMeta,
   SectionContent,
-  ListeningContent,
-  ReadingContent,
-  WritingContent,
   ContentResponse,
 } from "@/types/ielts-simulation";
 import { normalizeContentResponse } from "@/lib/ielts-test-normalizer";

@@ -7,7 +7,6 @@ import type {
   BackendReadingPassage,
   BackendQuestionGroup,
   ContentResponse,
-  SectionContent,
 } from "@/types/ielts-simulation";
 
 /** Raw section/passage from API may have question_groups instead of flat questions */
