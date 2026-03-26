@@ -4,6 +4,7 @@ import React, { useState, useCallback, useEffect } from "react";
 import { Panel, Group, Separator } from "react-resizable-panels";
 import Header from "./Header";
 import QuestionMap, { MapSection } from "./QuestionMap";
+import ReviewModal from "./ReviewModal";
 import FloatingToolbar from "../tools/FloatingToolbar";
 import AudioPlayer from "../AudioPlayer";
 import type { HighlightColor } from "../tools/FloatingToolbar";
@@ -41,6 +42,8 @@ interface CDIELTSLayoutProps {
   hideSectionTabs?: boolean;
   /** When true, audio auto-plays and controls are hidden (real IELTS behavior). */
   examMode?: boolean;
+  /** Map from question number (1-based) to student's answer string, for the review modal. */
+  reviewAnswers?: Record<number, string>;
 }
 
 const CDIELTSLayout: React.FC<CDIELTSLayoutProps> = ({
@@ -68,7 +71,9 @@ const CDIELTSLayout: React.FC<CDIELTSLayoutProps> = ({
   onTimeExpire,
   hideSectionTabs = false,
   examMode = false,
+  reviewAnswers = {},
 }) => {
+  const [reviewModalOpen, setReviewModalOpen] = useState(false);
   const [internalIndex, setInternalIndex] = useState(0);
   const currentQuestionIndex =
     controlledCurrentIndex !== undefined ? controlledCurrentIndex : internalIndex;
@@ -201,6 +206,7 @@ const CDIELTSLayout: React.FC<CDIELTSLayoutProps> = ({
         onTabChange={onTabChange}
         onTimeExpire={onTimeExpire}
         hideSectionTabs={hideSectionTabs}
+        onReviewClick={() => setReviewModalOpen(true)}
       />
 
       {activeTab === "LISTENING" && (
@@ -266,6 +272,13 @@ const CDIELTSLayout: React.FC<CDIELTSLayoutProps> = ({
         sections={sections}
         activePartIndex={activePartIndex}
         onPartChange={onPartChange}
+      />
+
+      <ReviewModal
+        isOpen={reviewModalOpen}
+        onClose={() => setReviewModalOpen(false)}
+        totalQuestions={totalQuestions}
+        answers={reviewAnswers}
       />
 
       <style jsx global>{`

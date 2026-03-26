@@ -2,7 +2,7 @@
 
 import React, { useState } from "react";
 import Timer from "./Timer";
-import { HelpCircle } from "lucide-react";
+import { HelpCircle, ClipboardList } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface HeaderProps {
@@ -13,6 +13,7 @@ interface HeaderProps {
   onTimeExpire?: () => void;
   /** When true, section navigation buttons (Listening/Reading/Writing) are hidden; user cannot switch sections manually. */
   hideSectionTabs?: boolean;
+  onReviewClick?: () => void;
 }
 
 const Header: React.FC<HeaderProps> = ({
@@ -22,6 +23,7 @@ const Header: React.FC<HeaderProps> = ({
   onTabChange,
   onTimeExpire,
   hideSectionTabs = false,
+  onReviewClick,
 }) => {
   const [showTimer, setShowTimer] = useState(true);
 
@@ -77,6 +79,15 @@ const Header: React.FC<HeaderProps> = ({
             {showTimer ? "Hide" : "Show"}
           </button>
         </div>
+        {onReviewClick && (
+          <button
+            onClick={onReviewClick}
+            className="flex items-center gap-1.5 text-white hover:bg-white/10 px-3 py-1.5 rounded-lg transition-colors"
+          >
+            <ClipboardList className="w-4 h-4" />
+            <span className="text-xs font-bold uppercase tracking-wider">Review</span>
+          </button>
+        )}
         <button className="text-white hover:bg-white/10 p-1.5 rounded-full transition-colors">
           <HelpCircle className="w-4 h-4" />
         </button>

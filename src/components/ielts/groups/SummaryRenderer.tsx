@@ -28,7 +28,7 @@ export default function SummaryRenderer({
         />
         <div className="border border-gray-300 rounded-xl p-5 bg-white space-y-4">
           {layout.paragraphs.map((para, i) => (
-            <p key={i} className="text-gray-800 text-[15px] leading-relaxed">
+            <p key={i} className="text-gray-800 text-base leading-relaxed">
               <LayoutCells
                 cells={para.content}
                 questions={group.questions}
@@ -78,7 +78,7 @@ export default function SummaryRenderer({
       )}
 
       <div className="border border-gray-300 rounded-xl p-5 bg-white">
-        <div className="text-gray-800 text-[15px] leading-[2]">
+        <div className="text-gray-800 text-base leading-[2]">
           {group.questions.map((q) => {
             const parts = (q.question_text ?? "").split("______");
             const regKey = `questions.${q.id}.answer`;

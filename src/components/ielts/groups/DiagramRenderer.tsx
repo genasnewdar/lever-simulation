@@ -45,7 +45,7 @@ export default function DiagramRenderer({
         <div className="border-2 border-gray-300 rounded-xl bg-gray-50 p-4">
           <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
             {options.map((opt) => (
-              <div key={opt.id} className="flex items-baseline gap-2 text-sm">
+              <div key={opt.id} className="flex items-baseline gap-2 text-base">
                 <span className="font-bold text-gray-900 min-w-[20px]">
                   {opt.id}
                 </span>
@@ -73,7 +73,7 @@ export default function DiagramRenderer({
                 {q.question_number}
               </span>
               {q.question_text && (
-                <span className="text-gray-800 font-medium text-sm flex-1 min-w-0">
+                <span className="text-gray-800 font-medium text-base flex-1 min-w-0">
                   {q.question_text}
                 </span>
               )}

@@ -78,13 +78,13 @@ export function GroupHeader({
   return (
     <div className="space-y-2 mb-4">
       {title && (
-        <h3 className="text-[17px] font-bold text-[#2b5a9e]">{title}</h3>
+        <h3 className="text-xl font-bold text-[#2b5a9e]">{title}</h3>
       )}
       {instructions && (
-        <p className="text-gray-800 text-[14px] font-medium">{instructions}</p>
+        <p className="text-gray-800 text-base font-medium">{instructions}</p>
       )}
       {wordLimitText && (
-        <p className="text-[14px] font-medium">
+        <p className="text-base font-medium">
           Write{" "}
           <span className="font-bold text-red-600 uppercase">
             {wordLimitText}

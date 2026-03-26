@@ -625,6 +625,44 @@ export default function IeltsTakeTestPage(props: PageProps) {
     return answered;
   }, [watchAll, allQuestions, sectionContent]);
 
+  /** Map question number → answer string for the Review modal */
+  const reviewAnswers = useMemo(() => {
+    const map: Record<number, string> = {};
+    if (!watchAll || !sectionContent) return map;
+
+    if (watchAll.questions && typeof watchAll.questions === "object") {
+      Object.entries(watchAll.questions as Record<string, unknown>).forEach(
+        ([id, qObj]) => {
+          const obj = qObj as Record<string, unknown>;
+          const answer = obj?.answer;
+          if (answer === undefined || answer === null) return;
+          const str = Array.isArray(answer) ? answer.join(", ") : String(answer);
+          if (str.trim() === "") return;
+          const q = allQuestions.find((item) => item.id === id);
+          if (q) map[q.question_number] = str;
+        },
+      );
+    }
+
+    Object.keys(watchAll).forEach((key) => {
+      if (key === "questions" || key.startsWith("writing_task")) return;
+      const value = watchAll[key];
+      if (value === undefined || value === null) return;
+      const str = typeof value === "string" ? value : Array.isArray(value) ? value.join(", ") : String(value);
+      if (str.trim() === "") return;
+      if (key.startsWith("gap_")) {
+        const rest = key.replace("gap_", "");
+        const num = parseInt(rest.split("_")[0], 10);
+        if (Number.isFinite(num)) map[num] = str;
+        return;
+      }
+      const q = allQuestions.find((item) => item.id === key);
+      if (q) map[q.question_number] = str;
+    });
+
+    return map;
+  }, [watchAll, allQuestions, sectionContent]);
+
   const isWritingTaskAnswered = useCallback(
     (taskNum: number) => {
       const key = `writing_task_${taskNum}`;
@@ -1036,6 +1074,7 @@ export default function IeltsTakeTestPage(props: PageProps) {
             setCurrentQIndex(sections[partIndex].start - 1);
           }
         }}
+        reviewAnswers={reviewAnswers}
       >
         {/* Left Panel: Content (Reading/Writing) */}
         <div className="space-y-12">

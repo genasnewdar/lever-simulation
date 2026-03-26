@@ -42,7 +42,7 @@ export default function MCQListRenderer({
                 <span className="flex-shrink-0 w-8 h-8 flex items-center justify-center bg-blue-600 text-white rounded-lg text-sm font-black mt-0.5">
                   {q.question_number}
                 </span>
-                <span className="text-gray-900 font-medium text-[15px] leading-relaxed">
+                <span className="text-gray-900 font-medium text-base leading-relaxed">
                   {q.question_text ?? ""}
                 </span>
               </div>
@@ -70,7 +70,7 @@ export default function MCQListRenderer({
                         className="mt-0.5 w-4 h-4 border-gray-300 text-primary focus:ring-primary"
                       />
                     )}
-                    <span className="text-sm text-gray-800">
+                    <span className="text-base text-gray-800">
                       <span className="font-bold">{opt.label}.</span> {opt.text}
                     </span>
                   </label>

@@ -27,7 +27,7 @@ export default function SentencesRenderer({
         />
         <div className="space-y-3">
           {layout.sentences.map((sentence, i) => (
-            <div key={i} className="flex flex-wrap items-baseline gap-x-1.5 text-[15px] text-gray-800 leading-relaxed">
+            <div key={i} className="flex flex-wrap items-baseline gap-x-1.5 text-base text-gray-800 leading-relaxed">
               <LayoutCells
                 cells={sentence.content}
                 questions={group.questions}
@@ -70,7 +70,7 @@ export default function SentencesRenderer({
               key={q.id}
               id={`q-${q.question_number}`}
               className={cn(
-                "flex flex-wrap items-baseline gap-x-1.5 gap-y-2 text-[15px] text-gray-800 leading-relaxed",
+                "flex flex-wrap items-baseline gap-x-1.5 gap-y-2 text-base text-gray-800 leading-relaxed",
                 flashQuestionNumber === q.question_number && "ielts-question-flash rounded-lg bg-blue-50/40 p-2 -mx-2",
               )}
             >

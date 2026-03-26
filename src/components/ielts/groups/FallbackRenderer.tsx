@@ -119,7 +119,7 @@ export default function FallbackRenderer({
                         disabled={disabled}
                         className="mt-0.5 w-4 h-4 border-gray-300 text-primary focus:ring-primary"
                       />
-                      <span className="text-sm text-gray-800">
+                      <span className="text-base text-gray-800">
                         <span className="font-bold">{opt.label}.</span> {opt.text}
                       </span>
                     </label>

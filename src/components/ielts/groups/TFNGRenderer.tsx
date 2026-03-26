@@ -42,7 +42,7 @@ export default function TFNGRenderer({
 
       {/* Instruction box */}
       <div className="border border-gray-300 rounded-lg overflow-hidden bg-white">
-        <table className="w-full border-collapse text-sm">
+        <table className="w-full border-collapse text-base">
           <tbody>
             {optionLabels.map((opt, i) => (
               <tr key={opt.value} className={i < optionLabels.length - 1 ? "border-b border-gray-300" : ""}>
@@ -84,7 +84,7 @@ export default function TFNGRenderer({
                   </option>
                 ))}
               </select>
-              <span className="text-gray-800 font-medium leading-relaxed">
+              <span className="text-gray-800 font-medium text-base leading-relaxed">
                 {q.question_text ?? ""}
               </span>
               <ReviewCheckbox

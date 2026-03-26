@@ -66,7 +66,7 @@ export default function TableGroupRenderer({
                     <td
                       key={cellIdx}
                       className={cn(
-                        "p-2 text-sm text-gray-800 align-middle",
+                        "p-2 text-base text-gray-800 align-middle",
                         cellIdx < row.cells.length - 1 && "border-r border-black",
                       )}
                       colSpan={cell.colspan}

@@ -33,7 +33,7 @@ export default function NotesRenderer({
               </h4>
               <ul className="space-y-2 ml-4">
                 {section.items.map((item, iIdx) => (
-                  <li key={iIdx} className="flex flex-wrap items-baseline gap-x-1.5 text-sm text-gray-800">
+                  <li key={iIdx} className="flex flex-wrap items-baseline gap-x-1.5 text-base text-gray-800">
                     <span className="text-gray-400 mr-1">&bull;</span>
                     <LayoutCells
                       cells={item.content}
