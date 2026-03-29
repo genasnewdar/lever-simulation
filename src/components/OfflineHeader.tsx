@@ -25,7 +25,7 @@ export const OfflineHeader = async () => {
 
       {/* Right Side: Garah (Exit) Button */}
       <div className="flex items-center gap-4">
-        {user ? (
+        {user && (
           <Link href={logoutUrl}>
             <Button
               variant="ghost"
@@ -34,10 +34,6 @@ export const OfflineHeader = async () => {
               <LogOut size={18} />
               <span className="hidden sm:inline">Exit</span>
             </Button>
-          </Link>
-        ) : (
-          <Link href="/auth/login">
-            <Button>Nevtreh</Button>
           </Link>
         )}
       </div>
