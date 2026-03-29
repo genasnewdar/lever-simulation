@@ -21,7 +21,7 @@ const getAccessToken = async (): Promise<string | null> => {
       if (axios.isAxiosError(error) && error.response?.status === 401) {
         // Session expired — redirect to login immediately
         if (typeof window !== "undefined") {
-          window.location.href = "/api/auth/logout?returnTo=/api/auth/login";
+          window.location.href = "/auth/logout?returnTo=/auth/login";
         }
         return null;
       }

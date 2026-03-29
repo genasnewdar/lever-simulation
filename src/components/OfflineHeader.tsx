@@ -14,7 +14,7 @@ export const OfflineHeader = async () => {
     user = null;
   }
 
-  const logoutUrl = "/api/auth/logout?returnTo=/api/auth/login";
+  const logoutUrl = "/auth/logout?returnTo=/auth/login";
 
   return (
     <header className="w-full border-b border-bordercolor bg-white py-4 px-8 flex justify-between items-center fixed z-30 top-0 left-0 h-[72px]">
@@ -36,7 +36,7 @@ export const OfflineHeader = async () => {
             </Button>
           </Link>
         ) : (
-          <Link href="/api/auth/login">
+          <Link href="/auth/login">
             <Button>Nevtreh</Button>
           </Link>
         )}

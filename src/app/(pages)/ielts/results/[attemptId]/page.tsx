@@ -529,7 +529,7 @@ export default function ResultsPage() {
           </button>
           {/* eslint-disable-next-line @next/next/no-html-link-for-pages */}
           <a
-            href="/api/auth/logout?returnTo=/api/auth/login"
+            href="/auth/logout?returnTo=/auth/login"
             className="px-8 py-3 bg-gray-100 text-gray-700 rounded-xl font-bold hover:bg-red-50 hover:text-red-600 transition-colors flex items-center gap-2"
           >
             <LogOut className="w-4 h-4" />

@@ -18,7 +18,7 @@ export default function LoginPage() {
   useEffect(() => {
     const audience = process.env.NEXT_PUBLIC_AUTH0_AUDIENCE;
     const scope = "openid profile email read:shows";
-    window.location.href = `/api/auth/login?audience=${audience}&scope=${encodeURIComponent(
+    window.location.href = `/auth/login?audience=${audience}&scope=${encodeURIComponent(
       scope
     )}`;
   }, []);

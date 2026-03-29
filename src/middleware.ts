@@ -15,7 +15,7 @@ export async function middleware(request: NextRequest) {
         err.message?.includes("timestamp check failed") ||
         err.message?.includes("decryption"));
     if (isAuthError) {
-      const res = NextResponse.redirect(`${origin}/api/auth/logout?returnTo=/api/auth/login`);
+      const res = NextResponse.redirect(`${origin}/auth/logout?returnTo=/auth/login`);
       // Clear the corrupted session cookie
       res.cookies.delete("appSession");
       return res;
@@ -41,7 +41,7 @@ export async function middleware(request: NextRequest) {
         (getSessionErr.message?.includes("timestamp check failed") ?? false) ||
         (getSessionErr.message?.includes("decryption") ?? false));
     if (isAuthError) {
-      const res = NextResponse.redirect(`${origin}/api/auth/logout?returnTo=/api/auth/login`);
+      const res = NextResponse.redirect(`${origin}/auth/logout?returnTo=/auth/login`);
       res.cookies.delete("appSession");
       return res;
     }
