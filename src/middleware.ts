@@ -7,13 +7,18 @@ export async function middleware(request: NextRequest) {
     authRes = await auth0.middleware(request);
   } catch (err: unknown) {
     const { origin } = new URL(request.url);
-    const isJwtExpired =
+    const isAuthError =
       err instanceof Error &&
       (err.name === "JWTExpired" ||
+        (err as { code?: string }).code === "ERR_JWE_DECRYPTION_FAILED" ||
         err.message?.includes("exp") ||
-        err.message?.includes("timestamp check failed"));
-    if (isJwtExpired) {
-      return NextResponse.redirect(`${origin}/auth/login`);
+        err.message?.includes("timestamp check failed") ||
+        err.message?.includes("decryption"));
+    if (isAuthError) {
+      const res = NextResponse.redirect(`${origin}/api/auth/logout?returnTo=/api/auth/login`);
+      // Clear the corrupted session cookie
+      res.cookies.delete("appSession");
+      return res;
     }
     throw err;
   }
@@ -28,13 +33,17 @@ export async function middleware(request: NextRequest) {
   try {
     session = await auth0.getSession(request);
   } catch (getSessionErr: unknown) {
-    const isJwtExpired =
+    const isAuthError =
       getSessionErr instanceof Error &&
       (getSessionErr.name === "JWTExpired" ||
+        (getSessionErr as { code?: string }).code === "ERR_JWE_DECRYPTION_FAILED" ||
         (getSessionErr.message?.includes("exp") ?? false) ||
-        (getSessionErr.message?.includes("timestamp check failed") ?? false));
-    if (isJwtExpired) {
-      return NextResponse.redirect(`${origin}/auth/login`);
+        (getSessionErr.message?.includes("timestamp check failed") ?? false) ||
+        (getSessionErr.message?.includes("decryption") ?? false));
+    if (isAuthError) {
+      const res = NextResponse.redirect(`${origin}/api/auth/logout?returnTo=/api/auth/login`);
+      res.cookies.delete("appSession");
+      return res;
     }
     throw getSessionErr;
   }

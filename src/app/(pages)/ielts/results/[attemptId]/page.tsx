@@ -13,6 +13,7 @@ import {
   Headphones,
   PenLine,
   Mic,
+  LogOut,
 } from "lucide-react";
 
 // ── Types ────────────────────────────────────────────────────────────────────
@@ -518,14 +519,21 @@ export default function ResultsPage() {
           </section>
         )}
 
-        {/* ── Back button ──────────────────────────────────── */}
-        <div className="text-center pb-8">
+        {/* ── Back + Logout buttons ────────────────────────── */}
+        <div className="flex items-center justify-center gap-4 pb-8">
           <button
             onClick={() => router.push("/ielts")}
             className="px-8 py-3 bg-primary text-white rounded-xl font-bold hover:bg-primary/90 transition-colors"
           >
             Нүүр хуудас руу буцах
           </button>
+          <a
+            href="/api/auth/logout?returnTo=/api/auth/login"
+            className="px-8 py-3 bg-gray-100 text-gray-700 rounded-xl font-bold hover:bg-red-50 hover:text-red-600 transition-colors flex items-center gap-2"
+          >
+            <LogOut className="w-4 h-4" />
+            Гарах
+          </a>
         </div>
       </div>
     </div>

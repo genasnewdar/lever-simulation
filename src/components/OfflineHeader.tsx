@@ -5,8 +5,14 @@ import { UserMenu } from "./UserMenu";
 import { LogOut } from "lucide-react";
 
 export const OfflineHeader = async () => {
-  const session = await auth0.getSession();
-  const user = session?.user;
+  let user = null;
+  try {
+    const session = await auth0.getSession();
+    user = session?.user ?? null;
+  } catch {
+    // Bad/expired session cookie — show login link
+    user = null;
+  }
 
   const logoutUrl = "/api/auth/logout?returnTo=/api/auth/login";
 

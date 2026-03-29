@@ -7,7 +7,6 @@ const authApi = axios.create();
 
 let accessToken: string | null = null;
 let tokenFetchPromise: Promise<string | null> | null = null;
-let sessionExpired = false;
 
 const getAccessToken = async (): Promise<string | null> => {
   if (accessToken) return accessToken;
@@ -15,13 +14,16 @@ const getAccessToken = async (): Promise<string | null> => {
 
   tokenFetchPromise = (async () => {
     try {
-      // Calls the Next.js API route that wraps Auth0 session retrieval
       const { data } = await authApi.get("/api/auth/token");
       accessToken = data.accessToken || null;
       return accessToken;
     } catch (error) {
       if (axios.isAxiosError(error) && error.response?.status === 401) {
-        sessionExpired = true;
+        // Session expired — redirect to login immediately
+        if (typeof window !== "undefined") {
+          window.location.href = "/api/auth/logout?returnTo=/api/auth/login";
+        }
+        return null;
       }
       console.error("Failed to fetch access token:", error);
       return null;
@@ -63,10 +65,7 @@ api.interceptors.response.use(
         originalRequest.headers.Authorization = `Bearer ${newToken}`;
         return api(originalRequest);
       }
-      // Session is truly expired (401 from /api/auth/token) — redirect to login
-      if (typeof window !== "undefined" && sessionExpired) {
-        window.location.href = "/auth/login";
-      }
+      // getAccessToken already redirects on 401 from token route
     }
     return Promise.reject(error);
   }
