@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input";
 import { toast } from "react-toastify";
 import { CheckCircle2, Loader2, AlertTriangle, Maximize } from "lucide-react";
 
+import axios from "axios";
 import { useMockExamStore } from "@/lib/stores/mock-exam-store";
 import { api } from "@/lib";
 
@@ -129,8 +130,12 @@ export default function IeltsMockExamPage() {
           response.data.message || "Joined with unexpected status.",
         );
       }
-    } catch {
-      toast.error("Failed to join session");
+    } catch (err) {
+      if (axios.isAxiosError(err) && err.response?.data?.detail) {
+        toast.error(err.response.data.detail);
+      } else {
+        toast.error("Failed to join session");
+      }
     }
   };
 
