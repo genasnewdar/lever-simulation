@@ -1,7 +1,27 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth0 } from "./lib/auth0";
 
+// Public paths — no Auth0 required (exam code-based access)
+const PUBLIC_PATHS = [
+  "/ielts/mock-exam",
+  "/ielts/take-test",
+  "/ielts/results",
+];
+
+function isPublicPath(pathname: string): boolean {
+  return PUBLIC_PATHS.some(
+    (p) => pathname === p || pathname.startsWith(`${p}/`),
+  );
+}
+
 export async function middleware(request: NextRequest) {
+  const { pathname } = request.nextUrl;
+
+  // Public exam pages — pass through, no Auth0
+  if (isPublicPath(pathname)) {
+    return NextResponse.next();
+  }
+
   let authRes: NextResponse;
   try {
     authRes = await auth0.middleware(request);
@@ -24,7 +44,7 @@ export async function middleware(request: NextRequest) {
   }
 
   // authentication routes — let the middleware handle it
-  if (request.nextUrl.pathname.startsWith("/auth")) {
+  if (pathname.startsWith("/auth")) {
     return authRes;
   }
 

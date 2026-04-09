@@ -8,7 +8,18 @@ const authApi = axios.create();
 let accessToken: string | null = null;
 let tokenFetchPromise: Promise<string | null> | null = null;
 
+// Public paths that don't need Auth0 tokens
+const PUBLIC_PATHS = ["/ielts/mock-exam", "/ielts/take-test", "/ielts/results"];
+
+function isPublicPage(): boolean {
+  if (typeof window === "undefined") return false;
+  return PUBLIC_PATHS.some((p) => window.location.pathname.startsWith(p));
+}
+
 const getAccessToken = async (): Promise<string | null> => {
+  // On public exam pages, skip Auth0 token entirely
+  if (isPublicPage()) return null;
+
   if (accessToken) return accessToken;
   if (tokenFetchPromise) return tokenFetchPromise;
 
@@ -19,8 +30,8 @@ const getAccessToken = async (): Promise<string | null> => {
       return accessToken;
     } catch (error) {
       if (axios.isAxiosError(error) && error.response?.status === 401) {
-        // Session expired — redirect to login immediately
-        if (typeof window !== "undefined") {
+        // Session expired — redirect to login (only on protected pages)
+        if (typeof window !== "undefined" && !isPublicPage()) {
           window.location.href = "/auth/logout?returnTo=/auth/login";
         }
         return null;
@@ -44,9 +55,25 @@ export const api = axios.create({
 
 api.interceptors.request.use(async (config) => {
   if (typeof window !== "undefined") {
-    const token = await getAccessToken();
-    if (token && config.headers) {
-      config.headers.Authorization = `Bearer ${token}`;
+    if (isPublicPage()) {
+      // On public exam pages, send exam code header instead of Auth0 token
+      const stored = localStorage.getItem("exam-code-storage");
+      if (stored) {
+        try {
+          const parsed = JSON.parse(stored);
+          const examCode = parsed?.state?.examCode;
+          if (examCode && config.headers) {
+            config.headers["X-Exam-Code"] = examCode;
+          }
+        } catch {
+          // Ignore parse errors
+        }
+      }
+    } else {
+      const token = await getAccessToken();
+      if (token && config.headers) {
+        config.headers.Authorization = `Bearer ${token}`;
+      }
     }
   }
   return config;
@@ -65,7 +92,8 @@ api.interceptors.response.use(
         originalRequest.headers.Authorization = `Bearer ${newToken}`;
         return api(originalRequest);
       }
-      // getAccessToken already redirects on 401 from token route
+      // On public pages, just reject — don't redirect
+      // getAccessToken already redirects on 401 from token route for protected pages
     }
     return Promise.reject(error);
   }

@@ -20,6 +20,7 @@ import { Loader2, CheckCircle2 } from "lucide-react";
 import { toast } from "react-toastify";
 import { useRouter } from "next/navigation";
 import { useMockExamStore } from "@/lib/stores/mock-exam-store";
+import { useExamCodeStore } from "@/lib/stores/exam-code-store";
 import {
   useExamStore,
   formValuesToAnswers,
@@ -77,6 +78,7 @@ export default function IeltsTakeTestPage(props: PageProps) {
   const params = use(props.params);
   const router = useRouter();
   const resetMockExamStore = useMockExamStore((s) => s.reset);
+  const clearExamCode = useExamCodeStore((s) => s.clear);
 
   // ── Core state ──────────────────────────────────────────────────────────────
   const [contentMeta, setContentMeta] = useState<ContentResponseMeta | null>(null);
@@ -1002,6 +1004,7 @@ export default function IeltsTakeTestPage(props: PageProps) {
                 document.exitFullscreen().catch(() => {});
               }
               resetMockExamStore();
+              // Don't clear exam code — results page needs it for API auth
               router.push(`/ielts/results/${params.id}`);
             }}
             className="w-full py-4 bg-primary text-white rounded-2xl font-black text-lg hover:bg-primary/90 transition-all shadow-xl shadow-primary/20 active:scale-95"
@@ -1015,6 +1018,7 @@ export default function IeltsTakeTestPage(props: PageProps) {
                 document.exitFullscreen().catch(() => {});
               }
               resetMockExamStore();
+              clearExamCode();
               router.push("/ielts");
             }}
             className="w-full py-3 bg-gray-100 text-gray-700 rounded-2xl font-bold text-base hover:bg-gray-200 transition-all"
