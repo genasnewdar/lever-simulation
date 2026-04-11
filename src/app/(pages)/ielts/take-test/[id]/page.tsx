@@ -898,6 +898,44 @@ export default function IeltsTakeTestPage(props: PageProps) {
     setAnswersInStore,
   ]);
 
+  // ── Anti-cheat: fullscreen + tab switch warnings ───────────────────────────
+  useEffect(() => {
+    if (!isStarted || isFinished) return;
+
+    const handleFullscreenChange = () => {
+      if (!document.fullscreenElement) {
+        toast.warning(
+          "Анхааруулга: Бүтэн дэлгэцээс гарах нь шалгалтын дүрэм зөрчилд тооцогдоно!",
+          { position: "top-center", autoClose: 5000 },
+        );
+      }
+    };
+
+    const handleVisibilityChange = () => {
+      if (document.hidden) {
+        toast.warning("Анхааруулга: Шалгалтын үеэр таб солих хориотой!", {
+          position: "top-center",
+          autoClose: 10000,
+        });
+      }
+    };
+
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+      e.preventDefault();
+      e.returnValue = "";
+    };
+
+    document.addEventListener("fullscreenchange", handleFullscreenChange);
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+    window.addEventListener("beforeunload", handleBeforeUnload);
+
+    return () => {
+      document.removeEventListener("fullscreenchange", handleFullscreenChange);
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+      window.removeEventListener("beforeunload", handleBeforeUnload);
+    };
+  }, [isStarted, isFinished]);
+
   // ── Reset timeExpireCalledRef when activeTab changes ────────────────────────
   useEffect(() => {
     timeExpireCalledRef.current = false;
