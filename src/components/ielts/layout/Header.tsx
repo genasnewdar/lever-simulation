@@ -1,6 +1,7 @@
 "use client";
 
-import React, { useState } from "react";
+import React from "react";
+import Image from "next/image";
 import Timer from "./Timer";
 import { HelpCircle, ClipboardList } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -25,8 +26,6 @@ const Header: React.FC<HeaderProps> = ({
   hideSectionTabs = false,
   onReviewClick,
 }) => {
-  const [showTimer, setShowTimer] = useState(true);
-
   const sections: Array<{
     id: "LISTENING" | "READING" | "WRITING";
     label: string;
@@ -38,7 +37,14 @@ const Header: React.FC<HeaderProps> = ({
 
   return (
     <header className="h-[60px] bg-primary px-12 flex items-center justify-between shadow-xl z-50 fixed top-0 w-full border-b border-white/10">
-      <div className="flex items-center space-x-2 min-w-[350px]">
+      <div className="flex items-center space-x-4 min-w-[350px]">
+        <Image
+          src="/logo.png"
+          alt="Lever Edu"
+          width={40}
+          height={40}
+          className="rounded-lg"
+        />
         {!hideSectionTabs &&
           sections.map((section) => (
             <button
@@ -57,28 +63,17 @@ const Header: React.FC<HeaderProps> = ({
       </div>
 
       <div className="flex-1 flex justify-center">
-        {showTimer && (
-          <Timer
-            key={activeTab}
-            initialSeconds={initialSeconds}
-            onTimeExpire={onTimeExpire}
-          />
-        )}
+        <Timer
+          key={activeTab}
+          initialSeconds={initialSeconds}
+          onTimeExpire={onTimeExpire}
+        />
       </div>
 
       <div className="flex items-center space-x-8 min-w-[300px] justify-end">
-        <div className="flex items-center space-x-4 text-white">
-          <span className="text-xs font-bold tracking-tight opacity-90">
-            {userName}
-          </span>
-          <div className="w-[1px] h-4 bg-white/30" />
-          <button
-            onClick={() => setShowTimer(!showTimer)}
-            className="text-[11px] font-black uppercase tracking-wider bg-white/10 hover:bg-white/20 px-3 py-1 rounded transition-colors"
-          >
-            {showTimer ? "Hide" : "Show"}
-          </button>
-        </div>
+        <span className="text-xs font-bold tracking-tight text-white opacity-90">
+          {userName}
+        </span>
         {onReviewClick && (
           <button
             onClick={onReviewClick}

@@ -10,7 +10,6 @@ interface TimerProps {
 
 const Timer: React.FC<TimerProps> = ({ initialSeconds, onTimeExpire }) => {
   const [seconds, setSeconds] = useState(initialSeconds);
-  const [isVisible, setIsVisible] = useState(true);
 
   // Update internal seconds if initialSeconds changes (e.g. section change)
   useEffect(() => {
@@ -44,24 +43,15 @@ const Timer: React.FC<TimerProps> = ({ initialSeconds, onTimeExpire }) => {
   const isLowTime = seconds <= 600; // 10 minutes
 
   return (
-    <div className="flex items-center space-x-4">
-      <div 
-        className={cn(
-          "px-4 py-1.5 rounded bg-white/10 border border-white/20 transition-all min-w-[120px] text-center",
-          !isVisible && "opacity-0 invisible",
-          isLowTime && "bg-red-600 border-red-400 animate-pulse"
-        )}
-      >
-        <span className="text-xl font-bold font-mono tracking-wider tabular-nums text-white">
-          {formatTime(seconds)}
-        </span>
-      </div>
-      <button 
-        onClick={() => setIsVisible(!isVisible)}
-        className="px-3 py-1.5 text-[10px] font-bold uppercase tracking-widest bg-black/20 hover:bg-black/40 text-white rounded transition-colors border border-white/10"
-      >
-        {isVisible ? 'Hide' : 'Show'}
-      </button>
+    <div
+      className={cn(
+        "px-4 py-1.5 rounded bg-white/10 border border-white/20 transition-all min-w-[120px] text-center",
+        isLowTime && "bg-red-600 border-red-400 animate-pulse"
+      )}
+    >
+      <span className="text-xl font-bold font-mono tracking-wider tabular-nums text-white">
+        {formatTime(seconds)}
+      </span>
     </div>
   );
 };

@@ -218,7 +218,7 @@ const CDIELTSLayout: React.FC<CDIELTSLayoutProps> = ({
       <main
         className={cn(
           "flex-1 relative overflow-hidden min-h-0",
-          activeTab === "LISTENING" ? "mt-0 mb-[88px]" : "mt-[60px] mb-[56px]"
+          activeTab === "LISTENING" ? "mt-0 mb-[56px]" : "mt-[60px] mb-[56px]"
         )}
       >
         {layoutMode === "SPLIT" ? (

@@ -85,8 +85,7 @@ export default function IeltsMockExamPage() {
       setStatus("idle");
       if (axios.isAxiosError(err) && err.response?.data?.detail) {
         const detail = err.response.data.detail;
-        const message =
-          typeof detail === "object" ? detail.message : detail;
+        const message = typeof detail === "object" ? detail.message : detail;
         toast.error(message || "Код шалгахад алдаа гарлаа.");
       } else {
         toast.error("Код шалгахад алдаа гарлаа.");
@@ -120,10 +119,10 @@ export default function IeltsMockExamPage() {
 
     const handleVisibilityChange = () => {
       if (document.hidden) {
-        toast.warning(
-          "Анхааруулга: Шалгалтын үеэр таб солих хориотой!",
-          { position: "top-center", autoClose: 10000 },
-        );
+        toast.warning("Анхааруулга: Шалгалтын үеэр таб солих хориотой!", {
+          position: "top-center",
+          autoClose: 10000,
+        });
       }
     };
 
@@ -299,11 +298,12 @@ export default function IeltsMockExamPage() {
       </div>
 
       <p className="mt-8 text-xs text-textsecondary text-center">
-        Шалгалтад орсноор та шалгалтын дүрэм болон хяналтын бодлогыг хүлээн зөвшөөрч байна.
+        Шалгалтад орсноор та шалгалтын дүрэм болон хяналтын бодлогыг хүлээн
+        зөвшөөрч байна.
       </p>
 
       {/* Exit Fullscreen Button */}
-      <button
+      {/* <button
         onClick={async () => {
           if (document.fullscreenElement) {
             await document.exitFullscreen();
@@ -317,7 +317,7 @@ export default function IeltsMockExamPage() {
       >
         <Maximize className="w-4 h-4" />
         Бүтэн дэлгэцээс гарах
-      </button>
+      </button> */}
     </div>
   );
 }

@@ -122,6 +122,8 @@ export default function IeltsTakeTestPage(props: PageProps) {
   const getAnswersFromStore = useExamStore((s) => s.getAnswers);
   const setHighlightsInStore = useExamStore((s) => s.setHighlights);
   const getHighlightsFromStore = useExamStore((s) => s.getHighlights);
+  const clearHighlightsInStore = useExamStore((s) => s.clearHighlights);
+  const clearAnswersInStore = useExamStore((s) => s.clearAnswers);
   const hasHydrated = useExamStore((s) => s._hasHydrated);
 
   const examId = params.id != null ? String(params.id) : "";
@@ -1004,6 +1006,8 @@ export default function IeltsTakeTestPage(props: PageProps) {
                 document.exitFullscreen().catch(() => {});
               }
               resetMockExamStore();
+              clearHighlightsInStore(examId);
+              clearAnswersInStore(examId);
               // Don't clear exam code — results page needs it for API auth
               router.push(`/ielts/results/${params.id}`);
             }}
@@ -1018,6 +1022,8 @@ export default function IeltsTakeTestPage(props: PageProps) {
                 document.exitFullscreen().catch(() => {});
               }
               resetMockExamStore();
+              clearHighlightsInStore(examId);
+              clearAnswersInStore(examId);
               clearExamCode();
               router.push("/ielts");
             }}

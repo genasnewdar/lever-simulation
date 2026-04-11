@@ -184,6 +184,19 @@ const AudioPlayer: React.FC<AudioPlayerProps> = ({
             style={{ width: `${progress}%` }}
           />
         </div>
+        <div className="flex items-center gap-2 flex-shrink-0">
+          <Volume2 className="w-4 h-4 text-gray-500" />
+          <input
+            type="range"
+            min={0}
+            max={1}
+            step={0.05}
+            value={volume}
+            onChange={handleVolume}
+            disabled={!hasAudio}
+            className="w-20 h-1.5 rounded-full appearance-none bg-gray-200 accent-teal-500 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+          />
+        </div>
       </div>
     );
   }

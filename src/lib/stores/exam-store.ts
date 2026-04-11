@@ -25,6 +25,8 @@ interface ExamState {
   /** Replace all answers for the current exam (e.g. when syncing from form) */
   setAnswers: (answers: ExamAnswers) => void;
   clearAnswers: (examId?: string) => void;
+  /** Clear highlights for an exam (or all exams if no id given) */
+  clearHighlights: (examId?: string) => void;
   /** Get answers for current exam (or for given examId) */
   getAnswers: (examId?: string) => ExamAnswers;
   /** Set highlights for one passage (adds to existing). Call after user marks text. */
@@ -96,6 +98,17 @@ export const useExamStore = create<ExamState>()(
           set({ answersByExam: next });
         } else {
           set({ answersByExam: {} });
+        }
+      },
+
+      clearHighlights: (examId) => {
+        const { highlightsByExam } = get();
+        if (examId != null && examId !== "") {
+          const next = { ...highlightsByExam };
+          delete next[String(examId)];
+          set({ highlightsByExam: next });
+        } else {
+          set({ highlightsByExam: {} });
         }
       },
 
