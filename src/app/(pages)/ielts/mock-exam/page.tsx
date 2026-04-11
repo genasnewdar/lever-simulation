@@ -256,8 +256,8 @@ export default function IeltsMockExamPage() {
               <Input
                 value={code}
                 onChange={(e) => setCode(e.target.value.toUpperCase())}
-                placeholder="Ex: IELTS-6TAV6X"
-                maxLength={20}
+                placeholder="Ex: IELTS-XXXXXX"
+                maxLength={12}
                 className="text-center text-lg font-mono tracking-widest bg-gray-50 border-none h-12 rounded-xl focus-visible:ring-2 focus-visible:ring-blue-500"
                 disabled={status !== "idle"}
                 onKeyDown={(e) => {
