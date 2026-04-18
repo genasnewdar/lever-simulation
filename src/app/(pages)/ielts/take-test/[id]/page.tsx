@@ -1213,7 +1213,7 @@ export default function IeltsTakeTestPage(props: PageProps) {
                     key={group.id ?? idx}
                     group={group}
                     reviewSet={reviewSet}
-                    toggleReview={toggleReview}
+                    toggleReview={undefined}
                     flashQuestionNumber={flashQuestionNumber}
                     disabled={isFinished}
                   />
