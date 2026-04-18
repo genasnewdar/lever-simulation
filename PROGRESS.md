@@ -1,6 +1,7 @@
 # lever-offline — Progress Tracker
 
-Last updated: 2026-03-26
+Last updated: 2026-04-18
+**Production plan:** [/home/senge/proj/PRODUCTION_PLAN.md](../PRODUCTION_PLAN.md)
 
 ---
 
@@ -50,31 +51,30 @@ Last updated: 2026-03-26
 
 ---
 
-## In Progress
+## v1 Scope (W1 — 2026-04-18 → 2026-04-25)
 
-### Dynamic Question Group Rendering (2026-03-26)
+### Dynamic Question Group Rendering (CRITICAL PATH)
 - [ ] Replace hardcoded rendering blocks in take-test page with `GroupDispatcher`
-- [ ] Create group renderer components (`TableGroupRenderer`, `MatchingPanelRenderer`, `TFNGRenderer`, etc.)
+- [ ] Create group renderer components (`TableGroupRenderer`, `MatchingPanelRenderer`, `TFNGRenderer`, `FallbackRenderer`)
 - [ ] Use backend `question_groups[].layout_type` + `layout_data` instead of hardcoded question number ranges
 - Plan: `/home/senge/.claude/plans/expressive-bubbling-creek.md`
 
+### Production Cleanup
+- [x] Console cleanup — bare `console.log` replaced with `debugLog()` wrapper (2026-03-24)
+- [ ] Remove hardcoded telemetry calls to 127.0.0.1:7242
+- [ ] Add React error boundary at app layout level
+- [ ] Clean up commented-out auth code in `/api/auth/token/route.ts`
+
 ---
 
-## Backlog
+## Deferred to v1.1
 
 ### Results
 - [ ] Speaking results — band + per-criterion feedback + turn-by-turn breakdown
 - [ ] Listening/Reading per-question review (show student answers, correct/incorrect)
 
 ### Polish
-- [x] Console cleanup — bare `console.log` in take-test page replaced with `debugLog()` wrapper (gated by `DEBUG` flag) (2026-03-24)
-- [ ] Remove hardcoded telemetry calls to 127.0.0.1:7242
-- [ ] Add error boundary component
-- [ ] Clean up commented-out auth code in `/api/auth/token/route.ts`
-- [ ] Fix DiagramLabeling hardcoded inputs
+- [ ] Fix DiagramLabeling hardcoded inputs (verify: if v1 tests use DiagramLabeling, promote to v1)
 - [ ] Standardize UI text language (Mongolian vs English)
-
-### Infrastructure
-- [ ] Error boundary for unhandled errors
 - [ ] Offline detection / network error handling
 - [ ] Image optimization (remove `unoptimized={true}` where possible)
