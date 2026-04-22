@@ -12,11 +12,12 @@ interface ExamCodeState {
   setExamSession: (data: {
     examCode: string;
     studentName: string;
-    attemptId: string;
-    attemptStatus: string;
+    attemptId: string | null;
+    attemptStatus: string | null;
     testTitle: string | null;
     examDate: string | null;
   }) => void;
+  setAttempt: (attemptId: string, attemptStatus: string) => void;
   clear: () => void;
 }
 
@@ -31,6 +32,7 @@ export const useExamCodeStore = create<ExamCodeState>()(
       examDate: null,
 
       setExamSession: (data) => set({ ...data }),
+      setAttempt: (attemptId, attemptStatus) => set({ attemptId, attemptStatus }),
       clear: () =>
         set({
           examCode: null,

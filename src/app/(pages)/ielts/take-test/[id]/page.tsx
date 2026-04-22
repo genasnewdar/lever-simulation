@@ -1115,6 +1115,7 @@ export default function IeltsTakeTestPage(props: PageProps) {
               null)
             : null
         }
+        audioStorageKey={examId ? `ielts-audio:${examId}` : null}
         activePartIndex={activePartIndex}
         currentQuestionIndex={currentQIndex}
         onPartChange={(partIndex) => {

@@ -4,6 +4,7 @@ import { auth0 } from "./lib/auth0";
 // Public paths — no Auth0 required (exam code-based access)
 const PUBLIC_PATHS = [
   "/ielts/mock-exam",
+  "/ielts/waiting",
   "/ielts/take-test",
   "/ielts/results",
 ];

@@ -11,6 +11,8 @@ interface AudioPlayerProps {
   stepSeconds?: number;
   /** Exam mode: auto-plays, hides all controls (play/pause/seek/speed/rewind/forward). Only shows progress and time. */
   examMode?: boolean;
+  /** When set, the playback position is persisted to localStorage under this key so refreshes resume mid-audio. */
+  storageKey?: string | null;
 }
 
 const formatTime = (seconds: number) => {
@@ -26,6 +28,7 @@ const AudioPlayer: React.FC<AudioPlayerProps> = ({
   className,
   stepSeconds = 5,
   examMode = false,
+  storageKey = null,
 }) => {
   const audioRef = useRef<HTMLAudioElement>(null);
   const [isPlaying, setIsPlaying] = useState(false);
@@ -39,6 +42,31 @@ const AudioPlayer: React.FC<AudioPlayerProps> = ({
     const el = audioRef.current;
     if (el) setCurrentTime(el.currentTime);
   }, []);
+
+  // Persist playback position so a refresh mid-audio resumes where it left off.
+  const persistKey = storageKey && audioUrl ? `${storageKey}:${audioUrl}` : null;
+  useEffect(() => {
+    if (!persistKey) return;
+    const el = audioRef.current;
+    if (!el) return;
+    const save = () => {
+      try {
+        if (el.currentTime > 0) {
+          localStorage.setItem(persistKey, String(el.currentTime));
+        }
+      } catch {
+        // ignore quota / disabled storage
+      }
+    };
+    const interval = window.setInterval(save, 2000);
+    el.addEventListener("pause", save);
+    window.addEventListener("beforeunload", save);
+    return () => {
+      window.clearInterval(interval);
+      el.removeEventListener("pause", save);
+      window.removeEventListener("beforeunload", save);
+    };
+  }, [persistKey]);
 
   useEffect(() => {
     const el = audioRef.current;
@@ -58,12 +86,35 @@ const AudioPlayer: React.FC<AudioPlayerProps> = ({
   useEffect(() => {
     if (!audioUrl) return;
     const el = audioRef.current;
-    if (el) {
-      el.src = audioUrl;
-      setCurrentTime(0);
-      setDuration(0);
+    if (!el) return;
+    el.src = audioUrl;
+    setDuration(0);
+
+    // Restore persisted playback position (if any) once metadata is available.
+    let saved = 0;
+    if (persistKey) {
+      try {
+        const raw = localStorage.getItem(persistKey);
+        if (raw) saved = parseFloat(raw) || 0;
+      } catch {
+        // ignore
+      }
     }
-  }, [audioUrl]);
+    setCurrentTime(saved);
+
+    if (saved > 0) {
+      const seek = () => {
+        if (el.duration && saved < el.duration - 1) {
+          el.currentTime = saved;
+        }
+      };
+      if (el.readyState >= 1) {
+        seek();
+      } else {
+        el.addEventListener("loadedmetadata", seek, { once: true });
+      }
+    }
+  }, [audioUrl, persistKey]);
 
   // Auto-play in exam mode when audio is loaded
   useEffect(() => {

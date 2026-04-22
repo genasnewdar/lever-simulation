@@ -72,6 +72,13 @@ export default function IeltsMockExamPage() {
       });
 
       setStatus("verified");
+
+      if (data.status === "WAITING") {
+        toast.info("Хүлээлгийн өрөөнд шилжиж байна...");
+        router.push(`/ielts/waiting/${data.session_id}`);
+        return;
+      }
+
       toggleFullscreen();
 
       if (data.status === "RESUME") {

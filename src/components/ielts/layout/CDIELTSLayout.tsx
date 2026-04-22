@@ -43,6 +43,8 @@ interface CDIELTSLayoutProps {
   examMode?: boolean;
   /** Map from question number (1-based) to student's answer string, for the review modal. */
   reviewAnswers?: Record<number, string>;
+  /** When set, listening audio position is persisted under this key (for resume-on-refresh). */
+  audioStorageKey?: string | null;
 }
 
 const CDIELTSLayout: React.FC<CDIELTSLayoutProps> = ({
@@ -71,6 +73,7 @@ const CDIELTSLayout: React.FC<CDIELTSLayoutProps> = ({
   hideSectionTabs = false,
   examMode = false,
   reviewAnswers = {},
+  audioStorageKey = null,
 }) => {
   const [internalIndex, setInternalIndex] = useState(0);
   const currentQuestionIndex =
@@ -208,7 +211,7 @@ const CDIELTSLayout: React.FC<CDIELTSLayoutProps> = ({
 
       {activeTab === "LISTENING" && (
         <div className="flex-shrink-0 border-b border-gray-100">
-          <AudioPlayer audioUrl={audioUrl ?? null} className="mt-[60px]" examMode={examMode} />
+          <AudioPlayer audioUrl={audioUrl ?? null} className="mt-[60px]" examMode={examMode} storageKey={audioStorageKey} />
         </div>
       )}
 
