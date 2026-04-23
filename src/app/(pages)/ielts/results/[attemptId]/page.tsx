@@ -14,6 +14,8 @@ import {
   PenLine,
   Mic,
   LogOut,
+  Check,
+  X,
 } from "lucide-react";
 
 // ── Types ────────────────────────────────────────────────────────────────────
@@ -50,6 +52,23 @@ interface WritingResponse {
   word_count: number;
 }
 
+interface ReviewOption {
+  id: string;
+  label: string | null;
+  text: string | null;
+}
+
+interface ReviewResponse {
+  question_number: number;
+  question_text: string | null;
+  question_category: string;
+  student_answer: string;
+  correct_answer: string;
+  is_correct: boolean;
+  options: ReviewOption[];
+  passage_number?: number;
+}
+
 interface SkillScore {
   band?: number;
   raw_score?: number;
@@ -57,6 +76,7 @@ interface SkillScore {
   status?: string;
   evaluations?: WritingEvaluation[];
   responses?: WritingResponse[];
+  review?: ReviewResponse[];
   evaluation?: Record<string, unknown>;
 }
 
@@ -306,6 +326,25 @@ export default function ResultsPage() {
           />
         </div>
 
+        {/* ── Listening Review ─────────────────────────────── */}
+        {scores.listening.review && scores.listening.review.length > 0 && (
+          <AnswerReviewSection
+            icon={<Headphones className="w-5 h-5" />}
+            title="Listening — Хариултын задаргаа"
+            review={scores.listening.review}
+          />
+        )}
+
+        {/* ── Reading Review ───────────────────────────────── */}
+        {scores.reading.review && scores.reading.review.length > 0 && (
+          <AnswerReviewSection
+            icon={<BookOpen className="w-5 h-5" />}
+            title="Reading — Хариултын задаргаа"
+            review={scores.reading.review}
+            groupByPassage
+          />
+        )}
+
         {/* ── Writing Feedback ─────────────────────────────── */}
         {scores.writing.evaluations && scores.writing.evaluations.length > 0 && (
           <section className="space-y-4">
@@ -536,6 +575,222 @@ export default function ResultsPage() {
             Гарах
           </a>
         </div>
+      </div>
+    </div>
+  );
+}
+
+// ── AnswerReviewSection ──────────────────────────────────────────────────────
+
+function formatAnswerDisplay(
+  raw: string,
+  options: ReviewOption[],
+): string {
+  if (!raw) return "—";
+  if (!options.length) return raw;
+
+  const byId = new Map(options.map((o) => [o.id, o]));
+  const byLabel = new Map(
+    options.filter((o) => o.label).map((o) => [o.label as string, o]),
+  );
+
+  const parts = raw
+    .split(",")
+    .map((p) => p.trim())
+    .filter(Boolean);
+
+  const resolved = parts.map((p) => {
+    const opt = byId.get(p) || byLabel.get(p);
+    if (!opt) return p;
+    const label = opt.label ?? "";
+    const text = opt.text ?? "";
+    if (label && text) return `${label}. ${text}`;
+    return text || label || p;
+  });
+
+  return resolved.join(", ");
+}
+
+function AnswerReviewSection({
+  icon,
+  title,
+  review,
+  groupByPassage = false,
+}: {
+  icon: React.ReactNode;
+  title: string;
+  review: ReviewResponse[];
+  groupByPassage?: boolean;
+}) {
+  const [expanded, setExpanded] = useState(false);
+  const [incorrectOnly, setIncorrectOnly] = useState(false);
+
+  const total = review.length;
+  const correctCount = review.filter((r) => r.is_correct).length;
+  const incorrectCount = total - correctCount;
+
+  const visible = incorrectOnly
+    ? review.filter((r) => !r.is_correct)
+    : review;
+
+  const groups = groupByPassage
+    ? Array.from(
+        visible.reduce<Map<number | null, ReviewResponse[]>>((acc, r) => {
+          const key = r.passage_number ?? null;
+          const arr = acc.get(key) ?? [];
+          arr.push(r);
+          acc.set(key, arr);
+          return acc;
+        }, new Map()),
+      ).sort(([a], [b]) => (a ?? 0) - (b ?? 0))
+    : [[null, visible] as const];
+
+  return (
+    <section className="bg-white rounded-2xl border shadow-sm overflow-hidden">
+      <button
+        onClick={() => setExpanded((v) => !v)}
+        className="w-full flex items-center justify-between px-6 py-4 hover:bg-gray-50 transition-colors"
+        aria-expanded={expanded}
+      >
+        <div className="flex items-center gap-3 min-w-0">
+          <span className="text-gray-500 shrink-0">{icon}</span>
+          <h2 className="text-base font-bold text-gray-900 truncate">
+            {title}
+          </h2>
+        </div>
+        <div className="flex items-center gap-3 shrink-0">
+          <span className="text-xs font-semibold text-green-700 bg-green-50 px-2.5 py-1 rounded-full tabular-nums">
+            {correctCount} зөв
+          </span>
+          <span className="text-xs font-semibold text-red-700 bg-red-50 px-2.5 py-1 rounded-full tabular-nums">
+            {incorrectCount} буруу
+          </span>
+          {expanded ? (
+            <ChevronUp className="w-5 h-5 text-gray-400" />
+          ) : (
+            <ChevronDown className="w-5 h-5 text-gray-400" />
+          )}
+        </div>
+      </button>
+
+      {expanded && (
+        <div className="border-t">
+          {/* Filter toggle */}
+          <div className="px-6 py-3 border-b bg-gray-50 flex items-center justify-between">
+            <p className="text-xs text-gray-500">
+              {incorrectOnly
+                ? `Зөвхөн буруу хариултууд (${incorrectCount})`
+                : `Бүх асуулт (${total})`}
+            </p>
+            <div className="inline-flex rounded-lg bg-white border overflow-hidden text-xs font-semibold">
+              <button
+                onClick={() => setIncorrectOnly(false)}
+                className={`px-3 py-1.5 transition-colors ${
+                  !incorrectOnly
+                    ? "bg-primary text-white"
+                    : "text-gray-600 hover:bg-gray-50"
+                }`}
+              >
+                Бүгд
+              </button>
+              <button
+                onClick={() => setIncorrectOnly(true)}
+                className={`px-3 py-1.5 transition-colors ${
+                  incorrectOnly
+                    ? "bg-primary text-white"
+                    : "text-gray-600 hover:bg-gray-50"
+                }`}
+              >
+                Зөвхөн буруу
+              </button>
+            </div>
+          </div>
+
+          {/* Review list */}
+          <div className="divide-y">
+            {groups.map(([passageNum, rows]) => (
+              <div key={passageNum ?? "all"}>
+                {groupByPassage && passageNum != null && (
+                  <div className="px-6 py-2 bg-gray-50 text-xs font-semibold text-gray-500 uppercase tracking-wide">
+                    Passage {passageNum}
+                  </div>
+                )}
+                {rows.length === 0 ? (
+                  <div className="px-6 py-6 text-sm text-gray-400 text-center">
+                    Буруу хариулт алга.
+                  </div>
+                ) : (
+                  rows.map((r) => (
+                    <ReviewRow key={r.question_number} item={r} />
+                  ))
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+    </section>
+  );
+}
+
+function ReviewRow({ item }: { item: ReviewResponse }) {
+  const studentDisplay = formatAnswerDisplay(item.student_answer, item.options);
+  const correctDisplay = formatAnswerDisplay(item.correct_answer, item.options);
+
+  return (
+    <div
+      className={`px-6 py-4 flex gap-4 ${
+        item.is_correct ? "bg-white" : "bg-red-50/30"
+      }`}
+    >
+      <div className="flex flex-col items-center gap-1 shrink-0 w-10">
+        <span className="text-xs font-bold text-gray-400 tabular-nums">
+          {item.question_number}
+        </span>
+        <span
+          className={`w-6 h-6 rounded-full flex items-center justify-center ${
+            item.is_correct
+              ? "bg-green-100 text-green-700"
+              : "bg-red-100 text-red-700"
+          }`}
+          aria-label={item.is_correct ? "Зөв" : "Буруу"}
+        >
+          {item.is_correct ? (
+            <Check className="w-3.5 h-3.5" />
+          ) : (
+            <X className="w-3.5 h-3.5" />
+          )}
+        </span>
+      </div>
+
+      <div className="flex-1 min-w-0 space-y-2">
+        {item.question_text && (
+          <p className="text-sm text-gray-700 leading-snug">
+            {item.question_text}
+          </p>
+        )}
+        <dl className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-sm">
+          <div className="bg-gray-50 rounded-lg px-3 py-2">
+            <dt className="text-[11px] font-semibold text-gray-500 uppercase tracking-wide mb-0.5">
+              Таны хариулт
+            </dt>
+            <dd
+              className={`font-medium break-words ${
+                item.is_correct ? "text-gray-800" : "text-red-700"
+              }`}
+            >
+              {studentDisplay}
+            </dd>
+          </div>
+          <div className="bg-green-50 rounded-lg px-3 py-2">
+            <dt className="text-[11px] font-semibold text-green-700 uppercase tracking-wide mb-0.5">
+              Зөв хариулт
+            </dt>
+            <dd className="font-medium text-green-800 break-words">
+              {correctDisplay}
+            </dd>
+          </div>
+        </dl>
       </div>
     </div>
   );
