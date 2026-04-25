@@ -1,11 +1,11 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { toast } from "react-toastify";
-import { CheckCircle2, Loader2, AlertTriangle, Maximize } from "lucide-react";
+import { CheckCircle2, Loader2, AlertTriangle, ArrowLeft } from "lucide-react";
 
 import axios from "axios";
 import { useExamCodeStore } from "@/lib/stores/exam-code-store";
@@ -14,6 +14,7 @@ type PageStatus = "idle" | "verifying" | "verified" | "resuming";
 
 export default function IeltsMockExamPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { examCode, attemptId, setExamSession, clear } = useExamCodeStore();
   const [code, setCode] = useState("");
   const [status, setStatus] = useState<PageStatus>("idle");
@@ -23,7 +24,14 @@ export default function IeltsMockExamPage() {
     setIsHydrated(true);
   }, []);
 
-  // If store already has an active attempt, offer to resume
+  useEffect(() => {
+    const queryCode = searchParams.get("code");
+    if (queryCode && !code) {
+      setCode(queryCode.toUpperCase());
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   useEffect(() => {
     if (!isHydrated) return;
     if (examCode && attemptId) {
@@ -36,7 +44,7 @@ export default function IeltsMockExamPage() {
       try {
         await document.documentElement.requestFullscreen();
       } catch {
-        // Fullscreen not supported or denied
+        // not supported / denied
       }
     }
   }, []);
@@ -50,10 +58,7 @@ export default function IeltsMockExamPage() {
 
     setStatus("verifying");
     try {
-      const resp = await axios.post("/api/ielts/verify-code", {
-        code: trimmed,
-      });
-
+      const resp = await axios.post("/api/ielts/verify-code", { code: trimmed });
       const data = resp.data;
       if (!data.valid) {
         toast.error(data.error || "Буруу код байна.");
@@ -61,7 +66,6 @@ export default function IeltsMockExamPage() {
         return;
       }
 
-      // Store exam session info
       setExamSession({
         examCode: trimmed,
         studentName: data.student_name,
@@ -111,7 +115,6 @@ export default function IeltsMockExamPage() {
     setCode("");
   };
 
-  // Anti-cheat: fullscreen + visibility tracking
   useEffect(() => {
     if (status === "idle") return;
 
@@ -149,182 +152,127 @@ export default function IeltsMockExamPage() {
     };
   }, [status]);
 
-  const statusInfo = (() => {
-    switch (status) {
-      case "verifying":
-        return {
-          icon: <Loader2 className="w-5 h-5 animate-spin text-blue-500" />,
-          label: "Код шалгаж байна...",
-          color: "text-blue-500",
-        };
-      case "verified":
-        return {
-          icon: <CheckCircle2 className="w-5 h-5 text-green-500" />,
-          label: "Шалгалт эхэллээ! Шилжүүлж байна...",
-          color: "text-green-500",
-        };
-      default:
-        return null;
-    }
-  })();
-
   if (!isHydrated) return null;
 
   // Resume existing session
   if (status === "resuming" && examCode && attemptId) {
     return (
-      <div className="min-h-screen bg-background flex flex-col items-center justify-center p-6">
-        <div className="w-full max-w-md bg-white rounded-3xl p-8 border border-bordercolor shadow-sm">
-          <div className="flex flex-col items-center text-center space-y-6">
-            <div className="w-16 h-16 bg-green-50 rounded-2xl flex items-center justify-center">
-              <CheckCircle2 className="w-8 h-8 text-green-500" />
-            </div>
+      <div className="min-h-screen bg-paper flex flex-col items-center justify-center px-6">
+        <div className="w-full max-w-[440px]">
+          <div className="flex items-center gap-2 pb-7 text-[13px] text-mint-deep font-serif">
+            <CheckCircle2 className="w-4 h-4" />
+            <span>Saved session</span>
+          </div>
 
-            <div className="space-y-2">
-              <h1 className="text-2xl font-bold text-textprimary">
-                Шалгалт үргэлжлүүлэх
-              </h1>
-              <p className="text-textsecondary text-sm">
-                Таны өмнөх шалгалт хадгалагдсан байна.
-              </p>
-              <p className="text-xs font-mono text-textsecondary">
-                Код: {examCode}
-              </p>
-            </div>
+          <h1 className="font-serif text-[2.1rem] font-semibold text-ink leading-[1.1] tracking-[-0.022em]">
+            Pick up where you left off.
+          </h1>
+          <p className="mt-3 text-[15px] text-ink-soft leading-relaxed">
+            Your previous exam is still in progress. You can resume on this device with the same code.
+          </p>
+          <p className="mt-2 text-[12px] text-muted font-mono tracking-wider">
+            {examCode}
+          </p>
 
-            <div className="w-full space-y-3">
-              <Button
-                onClick={handleResume}
-                className="w-full h-12 rounded-xl text-base font-bold bg-green-600 hover:bg-green-700 text-white shadow-lg transition-all active:scale-95"
-              >
-                Үргэлжлүүлэх
-              </Button>
-              <Button
-                onClick={handleNewCode}
-                variant="outline"
-                className="w-full h-12 rounded-xl text-base font-semibold"
-              >
-                Шинэ код оруулах
-              </Button>
-            </div>
+          <div className="mt-9 flex flex-col gap-3">
+            <Button
+              onClick={handleResume}
+              className="w-full h-11 rounded-md text-[14px] font-medium tracking-tight bg-ink hover:bg-ink-soft text-paper transition-all active:scale-[0.99]"
+            >
+              Үргэлжлүүлэх
+            </Button>
+            <Button
+              onClick={handleNewCode}
+              variant="ghost"
+              className="w-full h-11 rounded-md text-[14px] font-medium tracking-tight text-ink-soft hover:text-ink hover:bg-paper-2"
+            >
+              Шинэ код оруулах
+            </Button>
           </div>
         </div>
       </div>
     );
   }
 
-  // Code entry form
+  const isVerifying = status === "verifying";
+  const isVerified = status === "verified";
+
   return (
-    <div className="min-h-screen bg-background flex flex-col items-center justify-center p-6 relative">
-      {/* Back Button */}
+    <div className="min-h-screen bg-paper flex flex-col px-6">
+      {/* Back */}
       {status === "idle" && (
         <button
           onClick={() => router.back()}
-          className="absolute top-8 left-8 flex items-center gap-2 px-4 py-2 bg-white border border-bordercolor rounded-xl text-sm font-semibold text-textprimary shadow-sm hover:bg-gray-50 transition-all active:scale-95"
+          className="absolute top-7 left-7 inline-flex items-center gap-2 px-2 py-1.5 text-[13px] font-medium text-ink-soft hover:text-ink rounded-md transition-colors"
         >
-          <svg
-            xmlns="http://www.w3.org/2000/svg"
-            width="18"
-            height="18"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-          >
-            <path d="m15 18-6-6 6-6" />
-          </svg>
+          <ArrowLeft className="w-4 h-4" />
           Буцах
         </button>
       )}
 
-      {/* Main UI */}
-      <div className="w-full max-w-md bg-white rounded-3xl p-8 border border-bordercolor shadow-sm">
-        <div className="flex flex-col items-center text-center space-y-6">
-          <div className="w-16 h-16 bg-blue-50 rounded-2xl flex items-center justify-center">
-            <Maximize className="w-8 h-8 text-blue-500" />
+      <div className="flex-1 flex items-center justify-center">
+        <div className="w-full max-w-[440px]">
+          <div className="flex items-center gap-2 pb-7 text-[12px] uppercase tracking-[0.2em] text-muted">
+            <span className="h-1 w-1 rounded-full bg-mint" />
+            IELTS Mock
           </div>
 
-          <div className="space-y-2">
-            <h1 className="text-2xl font-bold text-textprimary">
-              IELTS Mock Exam
-            </h1>
-            <p className="text-textsecondary text-sm">
-              Шалгалтын кодоо оруулна уу.
-            </p>
-          </div>
+          <h1 className="font-serif text-[2.1rem] font-semibold text-ink leading-[1.08] tracking-[-0.022em]">
+            Шалгалтын кодоо оруулна уу.
+          </h1>
+          <p className="mt-3 text-[15px] text-ink-soft leading-relaxed max-w-[42ch]">
+            Имэйлээр илгээсэн 12 оронтой кодыг доор оруулаад шалгалтаа эхлүүлээрэй.
+          </p>
 
-          <div className="w-full space-y-4">
-            <div className="space-y-1">
-              <label className="text-xs font-semibold text-textsecondary uppercase tracking-wider">
-                Шалгалтын код
-              </label>
-              <Input
-                value={code}
-                onChange={(e) => setCode(e.target.value.toUpperCase())}
-                placeholder="Ex: IELTS-XXXXXX"
-                maxLength={12}
-                className="text-center text-lg font-mono tracking-widest bg-gray-50 border-none h-12 rounded-xl focus-visible:ring-2 focus-visible:ring-blue-500"
-                disabled={status !== "idle"}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter" && code.trim()) handleVerify();
-                }}
-              />
-            </div>
-
-            {statusInfo && (
-              <div className="flex items-center justify-center gap-2 p-3 rounded-xl bg-gray-50 border border-bordercolor animate-in fade-in zoom-in duration-300">
-                {statusInfo.icon}
-                <span className={`text-sm font-semibold ${statusInfo.color}`}>
-                  {statusInfo.label}
-                </span>
-              </div>
-            )}
+          <div className="mt-9 space-y-3">
+            <Input
+              value={code}
+              onChange={(e) => setCode(e.target.value.toUpperCase())}
+              placeholder="IELTS-XXXXXX"
+              maxLength={12}
+              autoFocus
+              className="h-12 text-center text-[15px] tracking-[0.18em] font-mono bg-paper-2 border border-rule rounded-md focus-visible:ring-1 focus-visible:ring-ink-soft focus-visible:border-ink-soft"
+              disabled={!isVerifying ? false : true}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" && code.trim()) handleVerify();
+              }}
+            />
 
             <Button
               onClick={handleVerify}
-              disabled={status !== "idle" || !code.trim()}
-              className={`w-full h-12 rounded-xl text-base font-bold shadow-lg transition-all active:scale-95 ${
-                status !== "idle" || !code.trim()
-                  ? "bg-gray-100 text-gray-400"
-                  : "bg-blue-600 hover:bg-blue-700 text-white"
-              }`}
+              disabled={isVerifying || !code.trim()}
+              className="w-full h-11 rounded-md text-[14px] font-medium tracking-tight bg-ink hover:bg-ink-soft text-paper disabled:bg-paper-3 disabled:text-muted transition-all active:scale-[0.99]"
             >
-              {status === "idle" ? "Шалгалт эхлэх" : "Шалгаж байна..."}
+              {isVerified ? (
+                <span className="inline-flex items-center gap-2">
+                  <CheckCircle2 className="w-4 h-4 text-mint" />
+                  Шилжүүлж байна…
+                </span>
+              ) : isVerifying ? (
+                <span className="inline-flex items-center gap-2">
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  Шалгаж байна…
+                </span>
+              ) : (
+                "Шалгалт эхлэх"
+              )}
             </Button>
           </div>
 
-          {status !== "idle" && (
-            <div className="flex items-center gap-2 text-orange-600 bg-orange-50 p-3 rounded-xl text-xs font-semibold">
-              <AlertTriangle className="w-4 h-4" />
-              Анхааруулга: Бүтэн дэлгэц болон таб хяналт идэвхжсэн.
+          {!isVerifying && status === "idle" && (
+            <p className="mt-7 text-[12px] text-muted leading-relaxed max-w-[42ch]">
+              Шалгалтад орсноор та шалгалтын дүрэм болон хяналтын бодлогыг хүлээн зөвшөөрч байна. Бүтэн дэлгэц болон таб хяналт шалгалт эхэлмэгц идэвхжинэ.
+            </p>
+          )}
+
+          {(isVerifying || isVerified) && (
+            <div className="mt-7 inline-flex items-center gap-2 text-[12px] text-ink-soft">
+              <AlertTriangle className="w-3.5 h-3.5 text-mint-deep" />
+              Бүтэн дэлгэц болон таб хяналт идэвхжсэн.
             </div>
           )}
         </div>
       </div>
-
-      <p className="mt-8 text-xs text-textsecondary text-center">
-        Шалгалтад орсноор та шалгалтын дүрэм болон хяналтын бодлогыг хүлээн
-        зөвшөөрч байна.
-      </p>
-
-      {/* Exit Fullscreen Button */}
-      {/* <button
-        onClick={async () => {
-          if (document.fullscreenElement) {
-            await document.exitFullscreen();
-            toast.warning(
-              "Анхааруулга: Бүтэн дэлгэцээс гарах нь шалгалтын дүрэм зөрчилд тооцогдоно!",
-              { position: "bottom-right", autoClose: 5000 },
-            );
-          }
-        }}
-        className="fixed bottom-4 right-4 flex items-center gap-2 px-4 py-2 bg-red-50 hover:bg-red-100 border border-red-200 rounded-xl text-sm font-semibold text-red-600 shadow-sm transition-all active:scale-95"
-      >
-        <Maximize className="w-4 h-4" />
-        Бүтэн дэлгэцээс гарах
-      </button> */}
     </div>
   );
 }
