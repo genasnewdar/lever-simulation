@@ -10,6 +10,7 @@ import React, {
 } from "react";
 import { useForm, FormProvider } from "react-hook-form";
 import CDIELTSLayout from "@/components/ielts/layout/CDIELTSLayout";
+import { SectionIntroCard } from "@/components/ielts/SectionIntroCard";
 import type { MapSection } from "@/components/ielts/layout/QuestionMap";
 import ReadingPassage from "@/components/ielts/ReadingPassage";
 import type { PassageHighlight } from "@/components/ielts/ReadingPassage";
@@ -89,6 +90,11 @@ export default function IeltsTakeTestPage(props: PageProps) {
   const [isFinished, setIsFinished] = useState(false);
   const [retryKey, setRetryKey] = useState(0);
   const [sectionTimerSeconds, setSectionTimerSeconds] = useState<number>(0);
+  type SectionId = "listening" | "reading" | "writing";
+  const [pendingSectionIntro, setPendingSectionIntro] = useState<{
+    section: SectionId;
+    duration: number;
+  } | null>(null);
 
   // ── Exam UI state ───────────────────────────────────────────────────────────
   const [currentQIndex, setCurrentQIndex] = useState(0);
@@ -201,6 +207,10 @@ export default function IeltsTakeTestPage(props: PageProps) {
         setContentMeta(response);
         setSectionContent(response.content ?? null);
         setSectionTimerSeconds(response.section_time_remaining_seconds);
+        setPendingSectionIntro({
+          section: section as SectionId,
+          duration: response.section_time_remaining_seconds,
+        });
         setActiveTab(tab);
         setIsStarted(true);
         setIsLoading(false);
@@ -269,6 +279,10 @@ export default function IeltsTakeTestPage(props: PageProps) {
           setContentMeta(response);
           setSectionContent(response.content ?? null);
           setSectionTimerSeconds(response.section_time_remaining_seconds);
+          setPendingSectionIntro({
+            section: section as SectionId,
+            duration: response.section_time_remaining_seconds,
+          });
           setActiveTab(section.toUpperCase() as "LISTENING" | "READING" | "WRITING");
           setCurrentQIndex(0);
           timeExpireCalledRef.current = false;
@@ -790,6 +804,10 @@ export default function IeltsTakeTestPage(props: PageProps) {
       setContentMeta(response);
       setSectionContent(response.content ?? null);
       setSectionTimerSeconds(response.section_time_remaining_seconds);
+      setPendingSectionIntro({
+        section: section as SectionId,
+        duration: response.section_time_remaining_seconds,
+      });
       setActiveTab(section.toUpperCase() as "LISTENING" | "READING" | "WRITING");
       setCurrentQIndex(0);
       timeExpireCalledRef.current = false;
@@ -1077,8 +1095,16 @@ export default function IeltsTakeTestPage(props: PageProps) {
   // ── Render: Main Exam UI ───────────────────────────────────────────────────
   if (!sectionContent) return null;
   return (
-    <FormProvider {...methods}>
-      <CDIELTSLayout
+    <>
+      {pendingSectionIntro && (
+        <SectionIntroCard
+          section={pendingSectionIntro.section}
+          durationSeconds={pendingSectionIntro.duration}
+          onDismiss={() => setPendingSectionIntro(null)}
+        />
+      )}
+      <FormProvider {...methods}>
+        <CDIELTSLayout
         title={contentMeta?.test_title ?? ""}
         totalQuestions={totalQuestions}
         userName="IELTS Candidate"
@@ -1224,7 +1250,8 @@ export default function IeltsTakeTestPage(props: PageProps) {
           )}
 
         </div>
-      </CDIELTSLayout>
-    </FormProvider>
+        </CDIELTSLayout>
+      </FormProvider>
+    </>
   );
 }
