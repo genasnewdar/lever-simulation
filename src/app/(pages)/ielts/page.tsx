@@ -1,9 +1,10 @@
 "use client";
 
+import { Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { ArrowRight } from "lucide-react";
 
-const IeltsPage = () => {
+const IeltsPageInner = () => {
   const router = useRouter();
   const searchParams = useSearchParams();
 
@@ -73,4 +74,10 @@ const IeltsPage = () => {
   );
 };
 
-export default IeltsPage;
+export default function IeltsPage() {
+  return (
+    <Suspense fallback={null}>
+      <IeltsPageInner />
+    </Suspense>
+  );
+}

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { Suspense, useState, useEffect, useCallback } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -12,7 +12,7 @@ import { useExamCodeStore } from "@/lib/stores/exam-code-store";
 
 type PageStatus = "idle" | "verifying" | "verified" | "resuming";
 
-export default function IeltsMockExamPage() {
+function IeltsMockExamPageInner() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { examCode, attemptId, setExamSession, clear } = useExamCodeStore();
@@ -274,5 +274,13 @@ export default function IeltsMockExamPage() {
         </div>
       </div>
     </div>
+  );
+}
+
+export default function IeltsMockExamPage() {
+  return (
+    <Suspense fallback={null}>
+      <IeltsMockExamPageInner />
+    </Suspense>
   );
 }
