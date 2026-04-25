@@ -1093,7 +1093,7 @@ export default function IeltsTakeTestPage(props: PageProps) {
               clearHighlightsInStore(examId);
               clearAnswersInStore(examId);
               // Don't clear exam code — results page needs it for API auth
-              router.push(`/ielts/results/${params.id}`);
+              router.push(`/ielts/finished/${params.id}`);
             }}
             className="w-full py-4 bg-primary text-white rounded-2xl font-semibold text-lg hover:bg-primary/90 transition-all shadow-xl shadow-primary/20 active:scale-95"
           >
