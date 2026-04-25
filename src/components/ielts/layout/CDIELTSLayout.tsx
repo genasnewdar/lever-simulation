@@ -2,12 +2,48 @@
 
 import React, { useState, useCallback, useEffect } from "react";
 import { Panel, Group, Separator } from "react-resizable-panels";
+import { AnimatePresence, motion, MotionConfig } from "framer-motion";
 import Header from "./Header";
 import QuestionMap, { MapSection } from "./QuestionMap";
 import FloatingToolbar from "../tools/FloatingToolbar";
 import AudioPlayer from "../AudioPlayer";
 import type { HighlightColor } from "../tools/FloatingToolbar";
 import { cn } from "@/lib/utils";
+
+/**
+ * Page-turn motion: pivot from the bottom-right corner so the outgoing page
+ * lifts and folds away in the same gesture as the brand mark's mint corner-curl.
+ * Outgoing page peels off; incoming page is what was underneath, so it just
+ * rises and resolves into place.
+ */
+const PAGE_TURN_INITIAL = {
+  opacity: 0,
+  rotateX: -8,
+  rotateY: 6,
+  rotateZ: 1.5,
+  scale: 0.985,
+};
+const PAGE_TURN_ANIMATE = {
+  opacity: 1,
+  rotateX: 0,
+  rotateY: 0,
+  rotateZ: 0,
+  scale: 1,
+};
+const PAGE_TURN_EXIT = {
+  opacity: 0,
+  rotateX: -22,
+  rotateY: 22,
+  rotateZ: -5,
+  scale: 0.94,
+  filter: "drop-shadow(-12px 12px 18px color-mix(in oklch, var(--ink) 22%, transparent))",
+};
+const PAGE_TURN_TRANSITION = { duration: 0.6, ease: [0.32, 0.04, 0.18, 1] as const };
+const PAGE_TURN_STYLE = {
+  transformOrigin: "100% 100%" as const,
+  transformStyle: "preserve-3d" as const,
+  backfaceVisibility: "hidden" as const,
+};
 
 interface CDIELTSLayoutProps {
   children: [React.ReactNode, React.ReactNode]; // [LeftPanel, RightPanel]
@@ -199,7 +235,8 @@ const CDIELTSLayout: React.FC<CDIELTSLayoutProps> = ({
   }, [activeTab, controlledCurrentIndex]);
 
   return (
-    <div className="h-screen flex flex-col bg-white overflow-hidden select-none font-sans">
+    <MotionConfig reducedMotion="user">
+    <div className="h-screen flex flex-col bg-paper overflow-hidden select-none font-sans">
       <Header
         userName={userName}
         initialSeconds={initialSeconds}
@@ -210,31 +247,44 @@ const CDIELTSLayout: React.FC<CDIELTSLayoutProps> = ({
       />
 
       {activeTab === "LISTENING" && (
-        <div className="flex-shrink-0 border-b border-gray-100">
-          <AudioPlayer audioUrl={audioUrl ?? null} className="mt-[60px]" examMode={examMode} storageKey={audioStorageKey} />
+        <div className="flex-shrink-0 border-b border-rule">
+          <AudioPlayer audioUrl={audioUrl ?? null} className="mt-[64px]" examMode={examMode} storageKey={audioStorageKey} />
         </div>
       )}
 
       <main
         className={cn(
-          "flex-1 relative overflow-hidden min-h-0",
-          activeTab === "LISTENING" ? "mt-0 mb-[56px]" : "mt-[60px] mb-[56px]"
+          "flex-1 relative overflow-hidden min-h-0 page-turn-stage",
+          activeTab === "LISTENING" ? "mt-0 mb-[56px]" : "mt-[64px] mb-[56px]"
         )}
       >
         {layoutMode === "SPLIT" ? (
           <Group orientation="horizontal">
-            {/* Left Panel: Content / Passage */}
+            {/* Left Panel: Content / Passage — stable; inner content page-turns */}
             <Panel
               defaultSize={50}
               minSize={20}
-              className="h-full border-r border-bordercolor"
+              className="h-full border-r border-rule"
             >
               <div
                 ref={passageContainerRef}
-                className="h-full overflow-y-auto custom-scrollbar p-6 lg:p-12 select-text bg-background"
+                className="h-full overflow-y-auto custom-scrollbar px-8 lg:px-16 py-10 lg:py-14 select-text bg-paper"
                 onMouseUp={handleSelection}
               >
-                <div className="max-w-3xl mx-auto">{children[0]}</div>
+                <div className="max-w-[72ch] mx-auto">
+                  <AnimatePresence mode="wait" initial={false}>
+                    <motion.div
+                      key={`L-${activeTab}`}
+                      initial={PAGE_TURN_INITIAL}
+                      animate={PAGE_TURN_ANIMATE}
+                      exit={PAGE_TURN_EXIT}
+                      transition={PAGE_TURN_TRANSITION}
+                      style={PAGE_TURN_STYLE}
+                    >
+                      {children[0]}
+                    </motion.div>
+                  </AnimatePresence>
+                </div>
                 <FloatingToolbar
                   selection={selection}
                   onHighlight={handleHighlight}
@@ -243,18 +293,44 @@ const CDIELTSLayout: React.FC<CDIELTSLayoutProps> = ({
               </div>
             </Panel>
 
-            <Separator className="w-1 px-0 hover:bg-primary transition-colors cursor-col-resize flex items-center justify-center bg-bordercolor" />
+            <Separator className="w-px px-0 hover:bg-mint transition-colors cursor-col-resize flex items-center justify-center bg-rule" />
 
-            {/* Right Panel: Questions */}
+            {/* Right Panel: Questions — stable; inner content page-turns */}
             <Panel defaultSize={50} minSize={20} className="h-full">
-              <div className="h-full overflow-y-auto custom-scrollbar p-6 lg:p-12 bg-white right-panel-scroll">
-                <div className="max-w-3xl mx-auto">{children[1]}</div>
+              <div className="h-full overflow-y-auto custom-scrollbar px-8 lg:px-14 py-10 lg:py-14 bg-paper-2 right-panel-scroll">
+                <div className="max-w-[60ch] mx-auto">
+                  <AnimatePresence mode="wait" initial={false}>
+                    <motion.div
+                      key={`R-${activeTab}`}
+                      initial={PAGE_TURN_INITIAL}
+                      animate={PAGE_TURN_ANIMATE}
+                      exit={PAGE_TURN_EXIT}
+                      transition={{ ...PAGE_TURN_TRANSITION, delay: 0.08 }}
+                      style={PAGE_TURN_STYLE}
+                    >
+                      {children[1]}
+                    </motion.div>
+                  </AnimatePresence>
+                </div>
               </div>
             </Panel>
           </Group>
         ) : (
-          <div className="h-full overflow-y-auto custom-scrollbar p-6 lg:p-12 bg-white right-panel-scroll">
-            <div className="max-w-3xl mx-auto">{children[1]}</div>
+          <div className="h-full overflow-y-auto custom-scrollbar px-8 lg:px-14 py-10 lg:py-14 bg-paper-2 right-panel-scroll">
+            <div className="max-w-[60ch] mx-auto">
+              <AnimatePresence mode="wait" initial={false}>
+                <motion.div
+                  key={`S-${activeTab}`}
+                  initial={PAGE_TURN_INITIAL}
+                  animate={PAGE_TURN_ANIMATE}
+                  exit={PAGE_TURN_EXIT}
+                  transition={PAGE_TURN_TRANSITION}
+                  style={PAGE_TURN_STYLE}
+                >
+                  {children[1]}
+                </motion.div>
+              </AnimatePresence>
+            </div>
           </div>
         )}
       </main>
@@ -275,45 +351,19 @@ const CDIELTSLayout: React.FC<CDIELTSLayoutProps> = ({
       />
 
       <style jsx global>{`
-        .custom-scrollbar::-webkit-scrollbar {
-          width: 8px;
-        }
-        .custom-scrollbar::-webkit-scrollbar-track {
-          background: #FAFAFA;
-        }
-        .custom-scrollbar::-webkit-scrollbar-thumb {
-          background: #dee2e6;
-          border-radius: 4px;
-        }
-        .custom-scrollbar::-webkit-scrollbar-thumb:hover {
-          background: #ced4da;
-        }
-
-        ::selection {
-          background-color: #ffeb3b;
-          color: #000;
-        }
-
-        *:focus {
-          outline: none;
-        }
+        *:focus { outline: none; }
 
         @keyframes ielts-question-flash {
-          0% {
-            background-color: rgba(59, 130, 246, 0.35);
-          }
-          70% {
-            background-color: rgba(59, 130, 246, 0.12);
-          }
-          100% {
-            background-color: transparent;
-          }
+          0%   { background-color: color-mix(in oklch, var(--mint) 30%, transparent); }
+          70%  { background-color: color-mix(in oklch, var(--mint) 10%, transparent); }
+          100% { background-color: transparent; }
         }
         .ielts-question-flash {
-          animation: ielts-question-flash 0.6s ease-out;
+          animation: ielts-question-flash 600ms cubic-bezier(0.22, 0.61, 0.36, 1);
         }
       `}</style>
     </div>
+    </MotionConfig>
   );
 };
 

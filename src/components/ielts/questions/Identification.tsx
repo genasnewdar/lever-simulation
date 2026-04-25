@@ -28,14 +28,14 @@ const Identification: React.FC<IdentificationProps> = ({ question, disabled, onT
   const registrationKey = `questions.${id}.answer`;
 
   return (
-    <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 p-6 border-2 border-gray-100 rounded-2xl bg-white shadow-sm hover:border-blue-100 transition-all">
+    <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 p-6 border border-rule rounded-lg bg-paper-2 hover:border-rule transition-all">
       <div className="flex items-start gap-4 max-w-2xl min-w-0">
         {questionNumber && (
-          <span className="flex-shrink-0 w-8 h-8 flex items-center justify-center bg-blue-600 text-white rounded-lg text-sm font-black">
+          <span className="flex-shrink-0 w-8 h-8 flex items-center justify-center bg-ink text-paper rounded-lg text-sm font-semibold">
             {questionNumber}
           </span>
         )}
-        <p className="text-gray-700 font-bold text-lg leading-relaxed">
+        <p className="text-ink-soft font-semibold text-lg leading-relaxed">
           {typeof statement === "string" ? statement : content}
         </p>
       </div>
@@ -43,16 +43,16 @@ const Identification: React.FC<IdentificationProps> = ({ question, disabled, onT
       <div className="flex items-center gap-4 shrink-0">
         {onToggleReview && (
           <label className="flex items-center gap-2 cursor-pointer">
-            <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Review</span>
-            <input type="checkbox" checked={isReviewChecked?.(qNum) ?? false} onChange={() => onToggleReview(qNum)} className="w-4 h-4 rounded border-gray-300 text-primary focus:ring-primary" />
+            <span className="text-[10px] font-semibold text-muted uppercase tracking-widest">Review</span>
+            <input type="checkbox" checked={isReviewChecked?.(qNum) ?? false} onChange={() => onToggleReview(qNum)} className="w-4 h-4 rounded border-rule text-ink focus:ring-mint" />
           </label>
         )}
       <div className="flex gap-2 min-w-[200px]">
         <select
           disabled={disabled}
           {...register(registrationKey)}
-          className={`w-full p-3 border-2 border-bordercolor rounded-xl focus:ring-2 focus:ring-primary focus:border-primary bg-foreground font-black text-primary outline-none transition-all ${
-            disabled ? 'bg-gray-200 cursor-not-allowed text-gray-400 opacity-50' : 'cursor-pointer hover:border-blue-200'
+          className={`w-full p-3 border border-rule rounded-md focus:ring-1 focus:ring-mint focus:border-mint bg-foreground font-semibold text-primary outline-none transition-all ${
+            disabled ? 'bg-paper-3 cursor-not-allowed text-muted opacity-50' : 'cursor-pointer hover:border-ink-soft'
           }`}
         >
           <option value="">Select Option</option>

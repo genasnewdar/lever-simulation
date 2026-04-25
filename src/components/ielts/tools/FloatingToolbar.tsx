@@ -47,8 +47,8 @@ const FloatingToolbar: React.FC<ToolbarProps> = ({
         className="flex items-center space-x-2 px-3 py-1.5 hover:bg-white/10 text-white rounded transition-colors"
         title="Highlight in yellow"
       >
-        <span className="w-4 h-4 rounded-sm bg-yellow-300 border border-yellow-400" />
-        <span className="text-xs font-bold">Yellow</span>
+        <span className="w-4 h-4 rounded-sm bg-yellow-200 border border-yellow-300" />
+        <span className="text-xs font-semibold">Yellow</span>
       </button>
       <button
         type="button"
@@ -58,7 +58,7 @@ const FloatingToolbar: React.FC<ToolbarProps> = ({
         title="Highlight in pink"
       >
         <span className="w-4 h-4 rounded-sm bg-pink-300 border border-pink-400" />
-        <span className="text-xs font-bold">Pink</span>
+        <span className="text-xs font-semibold">Pink</span>
       </button>
       <div className="w-px h-4 bg-white/20 mx-1" />
       <button
@@ -67,8 +67,8 @@ const FloatingToolbar: React.FC<ToolbarProps> = ({
         onClick={onNote}
         className="flex items-center space-x-2 px-3 py-1.5 hover:bg-white/10 text-white rounded transition-colors"
       >
-        <FileText className="w-4 h-4 text-blue-400" />
-        <span className="text-xs font-bold">Note</span>
+        <FileText className="w-4 h-4 text-mint-deep" />
+        <span className="text-xs font-semibold">Note</span>
       </button>
     </div>
   );

@@ -13,7 +13,6 @@ import {
   Headphones,
   PenLine,
   Mic,
-  LogOut,
   Check,
   X,
 } from "lucide-react";
@@ -115,17 +114,15 @@ interface ResultsData {
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
 function bandColor(band: number | undefined): string {
-  if (!band) return "text-gray-400";
-  if (band >= 7) return "text-green-600";
-  if (band >= 5.5) return "text-amber-600";
-  return "text-red-600";
+  if (!band) return "text-muted";
+  if (band >= 7) return "text-mint-deep";
+  return "text-ink";
 }
 
 function bandBg(band: number | undefined): string {
-  if (!band) return "bg-gray-50";
-  if (band >= 7) return "bg-green-50";
-  if (band >= 5.5) return "bg-amber-50";
-  return "bg-red-50";
+  if (!band) return "bg-paper-2";
+  if (band >= 7) return "bg-mint-soft";
+  return "bg-paper-2";
 }
 
 function criterionLabel(key: string): string {
@@ -201,10 +198,10 @@ export default function ResultsPage() {
   // ── Loading ──
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-background">
+      <div className="min-h-screen flex items-center justify-center bg-paper">
         <div className="flex flex-col items-center gap-4">
-          <Loader2 className="w-10 h-10 animate-spin text-primary" />
-          <p className="text-gray-500 font-medium">Үр дүн ачааллаж байна...</p>
+          <Loader2 className="w-7 h-7 animate-spin text-ink-soft" />
+          <p className="text-[13px] text-ink-soft tracking-tight">Үр дүн ачааллаж байна…</p>
         </div>
       </div>
     );
@@ -213,13 +210,13 @@ export default function ResultsPage() {
   // ── Error ──
   if (error) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-background">
-        <div className="max-w-md text-center space-y-4 p-6">
-          <AlertTriangle className="w-12 h-12 text-red-500 mx-auto" />
-          <h1 className="text-xl font-bold text-gray-900">{error}</h1>
+      <div className="min-h-screen flex items-center justify-center bg-paper px-6">
+        <div className="max-w-md text-center space-y-5">
+          <AlertTriangle className="w-9 h-9 text-mint-deep mx-auto" />
+          <h1 className="font-serif text-[1.6rem] font-semibold text-ink leading-tight">{error}</h1>
           <button
             onClick={() => router.back()}
-            className="px-5 py-2.5 bg-primary text-white rounded-xl font-semibold hover:bg-primary/90"
+            className="inline-flex items-center h-10 px-5 bg-ink text-paper rounded-md text-[13px] font-medium tracking-tight hover:bg-ink-soft transition-colors"
           >
             Буцах
           </button>
@@ -231,15 +228,17 @@ export default function ResultsPage() {
   // ── Pending grading ──
   if (data?.status === "pending") {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-background">
-        <div className="max-w-md text-center space-y-6 p-6">
-          <Loader2 className="w-12 h-12 animate-spin text-primary mx-auto" />
-          <h1 className="text-2xl font-bold text-gray-900">Дүн гарч байна...</h1>
-          <p className="text-gray-500">
+      <div className="min-h-screen flex items-center justify-center bg-paper px-6">
+        <div className="max-w-md text-center space-y-5">
+          <Loader2 className="w-7 h-7 animate-spin text-ink-soft mx-auto" />
+          <h1 className="font-serif text-[1.6rem] font-semibold text-ink leading-tight">
+            Дүн гарч байна…
+          </h1>
+          <p className="text-[14px] text-ink-soft leading-relaxed">
             Таны шалгалт засагдаж байна. Хэдэн минутын дараа бэлэн болно.
           </p>
-          <p className="text-xs text-gray-400">
-            Статус: {data.attempt_status}
+          <p className="text-[11px] text-muted tracking-wider uppercase">
+            {data.attempt_status}
           </p>
         </div>
       </div>
@@ -255,21 +254,22 @@ export default function ResultsPage() {
     scores.writing.responses?.find((r) => r.task_number === taskNum);
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-paper">
       {/* Header */}
-      <div className="bg-white border-b sticky top-0 z-10">
-        <div className="max-w-4xl mx-auto px-4 py-4 flex items-center gap-4">
+      <div className="bg-paper/90 backdrop-blur border-b border-rule sticky top-0 z-10">
+        <div className="max-w-4xl mx-auto px-6 py-4 flex items-center gap-4">
           <button
             onClick={() => router.push("/ielts")}
-            className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+            className="inline-flex items-center gap-2 p-1.5 -ml-1.5 rounded-md text-ink-soft hover:text-ink hover:bg-paper-2 transition-colors"
+            aria-label="Home"
           >
-            <ArrowLeft className="w-5 h-5" />
+            <ArrowLeft className="w-4 h-4" />
           </button>
-          <div>
-            <h1 className="text-lg font-bold text-gray-900">
+          <div className="min-w-0">
+            <h1 className="font-serif text-[16px] font-semibold text-ink leading-tight tracking-tight truncate">
               {attempt.test_title}
             </h1>
-            <p className="text-xs text-gray-500">
+            <p className="text-[11px] text-muted uppercase tracking-[0.18em] mt-0.5">
               {attempt.submitted_at
                 ? new Date(attempt.submitted_at).toLocaleDateString("mn-MN", {
                     year: "numeric",
@@ -282,23 +282,26 @@ export default function ResultsPage() {
         </div>
       </div>
 
-      <div className="max-w-4xl mx-auto px-4 py-8 space-y-8">
-        {/* ── Overall Band ─────────────────────────────────── */}
-        <div className="bg-white rounded-2xl p-8 shadow-sm border text-center">
-          <p className="text-sm font-semibold text-gray-500 uppercase tracking-wider mb-2">
-            Ерөнхий оноо
+      <div className="max-w-4xl mx-auto px-6 py-12 space-y-10">
+        {/* ── Overall Band — editorial, no card chrome ── */}
+        <section className="grid gap-3 pt-4 pb-2">
+          <p className="text-[11px] uppercase tracking-[0.22em] text-muted">
+            Ерөнхий оноо · Overall band
           </p>
           <p
-            className={`text-6xl font-black ${bandColor(scores.overall.band)}`}
+            className={`font-serif font-semibold leading-none tracking-[-0.04em] ${bandColor(scores.overall.band)}`}
+            style={{ fontSize: "clamp(5rem, 14vw, 9rem)", fontFeatureSettings: "'lnum'" }}
           >
             {scores.overall.band ?? "—"}
           </p>
           {scores.overall.descriptor && (
-            <p className="text-sm text-gray-500 mt-2">
+            <p className="text-[15px] text-ink-soft leading-relaxed max-w-[58ch]">
               {scores.overall.descriptor}
             </p>
           )}
-        </div>
+        </section>
+
+        <hr className="border-rule" />
 
         {/* ── Skill Bands Grid ─────────────────────────────── */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
@@ -348,7 +351,7 @@ export default function ResultsPage() {
         {/* ── Writing Feedback ─────────────────────────────── */}
         {scores.writing.evaluations && scores.writing.evaluations.length > 0 && (
           <section className="space-y-4">
-            <h2 className="text-xl font-bold text-gray-900">
+            <h2 className="text-xl font-semibold text-ink">
               Writing — Дэлгэрэнгүй үнэлгээ
             </h2>
 
@@ -360,20 +363,20 @@ export default function ResultsPage() {
               return (
                 <div
                   key={ev.task_number}
-                  className="bg-white rounded-2xl border shadow-sm overflow-hidden"
+                  className="bg-paper-2 rounded-lg border border-rule overflow-hidden"
                 >
                   {/* Task header */}
                   <button
                     onClick={() =>
                       setExpandedTask(isExpanded ? null : ev.task_number)
                     }
-                    className="w-full flex items-center justify-between px-6 py-4 hover:bg-gray-50 transition-colors"
+                    className="w-full flex items-center justify-between px-6 py-4 hover:bg-paper-2 transition-colors"
                   >
                     <div className="flex items-center gap-3">
-                      <span className="text-sm font-bold text-primary bg-primary/10 px-3 py-1 rounded-full">
+                      <span className="text-sm font-semibold text-primary bg-primary/10 px-3 py-1 rounded-full">
                         Task {ev.task_number}
                       </span>
-                      <span className="text-sm text-gray-500 hidden sm:block">
+                      <span className="text-sm text-muted hidden sm:block">
                         {ev.task_prompt
                           ? ev.task_prompt.slice(0, 60) + (ev.task_prompt.length > 60 ? "..." : "")
                           : ""}
@@ -381,14 +384,14 @@ export default function ResultsPage() {
                     </div>
                     <div className="flex items-center gap-3">
                       <span
-                        className={`text-2xl font-black ${bandColor(ev.overall_band)}`}
+                        className={`text-2xl font-semibold ${bandColor(ev.overall_band)}`}
                       >
                         {ev.overall_band}
                       </span>
                       {isExpanded ? (
-                        <ChevronUp className="w-5 h-5 text-gray-400" />
+                        <ChevronUp className="w-5 h-5 text-muted" />
                       ) : (
-                        <ChevronDown className="w-5 h-5 text-gray-400" />
+                        <ChevronDown className="w-5 h-5 text-muted" />
                       )}
                     </div>
                   </button>
@@ -414,11 +417,11 @@ export default function ResultsPage() {
                               key={key}
                               className={`rounded-xl p-3 text-center ${bandBg(score)}`}
                             >
-                              <p className="text-xs font-medium text-gray-500 mb-1">
+                              <p className="text-xs font-medium text-muted mb-1">
                                 {criterionLabel(key)}
                               </p>
                               <p
-                                className={`text-2xl font-black ${bandColor(score)}`}
+                                className={`text-2xl font-semibold ${bandColor(score)}`}
                               >
                                 {score}
                               </p>
@@ -429,11 +432,11 @@ export default function ResultsPage() {
 
                       {/* Summary feedback */}
                       {ev.feedback && (
-                        <div className="bg-blue-50 rounded-xl p-4">
-                          <p className="text-sm font-semibold text-blue-800 mb-1">
+                        <div className="bg-paper-3 rounded-xl p-4">
+                          <p className="text-sm font-semibold text-ink mb-1">
                             Ерөнхий үнэлгээ
                           </p>
-                          <p className="text-sm text-blue-700 leading-relaxed whitespace-pre-line">
+                          <p className="text-sm text-ink-soft leading-relaxed whitespace-pre-line">
                             {ev.feedback}
                           </p>
                         </div>
@@ -442,7 +445,7 @@ export default function ResultsPage() {
                       {/* Per-criterion rationales */}
                       {ev.criteria_rationales && (
                         <div className="space-y-3">
-                          <p className="text-sm font-semibold text-gray-700">
+                          <p className="text-sm font-semibold text-ink-soft">
                             Шалгуур тус бүрийн тайлбар
                           </p>
                           {(
@@ -463,19 +466,19 @@ export default function ResultsPage() {
                             return (
                               <div
                                 key={key}
-                                className="bg-gray-50 rounded-xl p-4"
+                                className="bg-paper-2 rounded-xl p-4"
                               >
                                 <div className="flex items-center justify-between mb-1">
-                                  <p className="text-sm font-semibold text-gray-700">
+                                  <p className="text-sm font-semibold text-ink-soft">
                                     {criterionLabel(key)}
                                   </p>
                                   <span
-                                    className={`text-sm font-bold ${bandColor(score)}`}
+                                    className={`text-sm font-semibold ${bandColor(score)}`}
                                   >
                                     Band {score}
                                   </span>
                                 </div>
-                                <p className="text-sm text-gray-600 leading-relaxed whitespace-pre-line">
+                                <p className="text-sm text-ink-soft leading-relaxed whitespace-pre-line">
                                   {rationale}
                                 </p>
                               </div>
@@ -487,25 +490,25 @@ export default function ResultsPage() {
                       {/* Key errors */}
                       {ev.key_errors && ev.key_errors.length > 0 && (
                         <div className="space-y-3">
-                          <p className="text-sm font-semibold text-gray-700">
+                          <p className="text-sm font-semibold text-ink-soft">
                             Гол алдаанууд
                           </p>
                           <div className="space-y-2">
                             {ev.key_errors.map((err, i) => (
                               <div
                                 key={i}
-                                className="bg-red-50 rounded-xl p-4 space-y-1"
+                                className="bg-paper-3 rounded-xl p-4 space-y-1"
                               >
                                 <div className="flex flex-wrap items-center gap-2 text-sm">
-                                  <span className="line-through text-red-500">
+                                  <span className="line-through text-mint-deep">
                                     {err.original}
                                   </span>
-                                  <span className="text-gray-400">→</span>
-                                  <span className="font-semibold text-green-700">
+                                  <span className="text-muted">→</span>
+                                  <span className="font-semibold text-mint-deep">
                                     {err.correction}
                                   </span>
                                 </div>
-                                <p className="text-xs text-gray-500">
+                                <p className="text-xs text-muted">
                                   {err.issue}
                                 </p>
                               </div>
@@ -534,16 +537,16 @@ export default function ResultsPage() {
                             )}
                           </button>
                           {essayVisible && (
-                            <div className="mt-2 bg-gray-50 rounded-xl p-4">
+                            <div className="mt-2 bg-paper-2 rounded-xl p-4">
                               <div className="flex justify-between items-center mb-2">
-                                <p className="text-xs text-gray-400 font-medium">
+                                <p className="text-xs text-muted font-medium">
                                   Таны бичсэн эссэ
                                 </p>
-                                <span className="text-xs text-gray-400">
+                                <span className="text-xs text-muted">
                                   {essay.word_count} үг
                                 </span>
                               </div>
-                              <p className="text-sm text-gray-700 leading-relaxed whitespace-pre-wrap">
+                              <p className="text-sm text-ink-soft leading-relaxed whitespace-pre-wrap">
                                 {essay.content}
                               </p>
                             </div>
@@ -558,22 +561,13 @@ export default function ResultsPage() {
           </section>
         )}
 
-        {/* ── Back + Logout buttons ────────────────────────── */}
         <div className="flex items-center justify-center gap-4 pb-8">
           <button
             onClick={() => router.push("/ielts")}
-            className="px-8 py-3 bg-primary text-white rounded-xl font-bold hover:bg-primary/90 transition-colors"
+            className="px-8 py-3 bg-primary text-white rounded-xl font-semibold hover:bg-primary/90 transition-colors"
           >
             Нүүр хуудас руу буцах
           </button>
-          {/* eslint-disable-next-line @next/next/no-html-link-for-pages */}
-          <a
-            href="/auth/logout?returnTo=/auth/login"
-            className="px-8 py-3 bg-gray-100 text-gray-700 rounded-xl font-bold hover:bg-red-50 hover:text-red-600 transition-colors flex items-center gap-2"
-          >
-            <LogOut className="w-4 h-4" />
-            Гарах
-          </a>
         </div>
       </div>
     </div>
@@ -646,29 +640,29 @@ function AnswerReviewSection({
     : [[null, visible] as const];
 
   return (
-    <section className="bg-white rounded-2xl border shadow-sm overflow-hidden">
+    <section className="bg-paper-2 rounded-lg border border-rule overflow-hidden">
       <button
         onClick={() => setExpanded((v) => !v)}
-        className="w-full flex items-center justify-between px-6 py-4 hover:bg-gray-50 transition-colors"
+        className="w-full flex items-center justify-between px-6 py-4 hover:bg-paper-2 transition-colors"
         aria-expanded={expanded}
       >
         <div className="flex items-center gap-3 min-w-0">
-          <span className="text-gray-500 shrink-0">{icon}</span>
-          <h2 className="text-base font-bold text-gray-900 truncate">
+          <span className="text-muted shrink-0">{icon}</span>
+          <h2 className="text-base font-semibold text-ink truncate">
             {title}
           </h2>
         </div>
         <div className="flex items-center gap-3 shrink-0">
-          <span className="text-xs font-semibold text-green-700 bg-green-50 px-2.5 py-1 rounded-full tabular-nums">
+          <span className="text-xs font-semibold text-mint-deep bg-mint-soft px-2.5 py-1 rounded-full tabular-nums">
             {correctCount} зөв
           </span>
-          <span className="text-xs font-semibold text-red-700 bg-red-50 px-2.5 py-1 rounded-full tabular-nums">
+          <span className="text-xs font-semibold text-ink bg-paper-3 px-2.5 py-1 rounded-full tabular-nums">
             {incorrectCount} буруу
           </span>
           {expanded ? (
-            <ChevronUp className="w-5 h-5 text-gray-400" />
+            <ChevronUp className="w-5 h-5 text-muted" />
           ) : (
-            <ChevronDown className="w-5 h-5 text-gray-400" />
+            <ChevronDown className="w-5 h-5 text-muted" />
           )}
         </div>
       </button>
@@ -676,19 +670,19 @@ function AnswerReviewSection({
       {expanded && (
         <div className="border-t">
           {/* Filter toggle */}
-          <div className="px-6 py-3 border-b bg-gray-50 flex items-center justify-between">
-            <p className="text-xs text-gray-500">
+          <div className="px-6 py-3 border-b bg-paper-2 flex items-center justify-between">
+            <p className="text-xs text-muted">
               {incorrectOnly
                 ? `Зөвхөн буруу хариултууд (${incorrectCount})`
                 : `Бүх асуулт (${total})`}
             </p>
-            <div className="inline-flex rounded-lg bg-white border overflow-hidden text-xs font-semibold">
+            <div className="inline-flex rounded-md bg-paper-2 border border-rule overflow-hidden text-xs font-semibold">
               <button
                 onClick={() => setIncorrectOnly(false)}
                 className={`px-3 py-1.5 transition-colors ${
                   !incorrectOnly
                     ? "bg-primary text-white"
-                    : "text-gray-600 hover:bg-gray-50"
+                    : "text-ink-soft hover:bg-paper-2"
                 }`}
               >
                 Бүгд
@@ -698,7 +692,7 @@ function AnswerReviewSection({
                 className={`px-3 py-1.5 transition-colors ${
                   incorrectOnly
                     ? "bg-primary text-white"
-                    : "text-gray-600 hover:bg-gray-50"
+                    : "text-ink-soft hover:bg-paper-2"
                 }`}
               >
                 Зөвхөн буруу
@@ -711,12 +705,12 @@ function AnswerReviewSection({
             {groups.map(([passageNum, rows]) => (
               <div key={passageNum ?? "all"}>
                 {groupByPassage && passageNum != null && (
-                  <div className="px-6 py-2 bg-gray-50 text-xs font-semibold text-gray-500 uppercase tracking-wide">
+                  <div className="px-6 py-2 bg-paper-2 text-xs font-semibold text-muted uppercase tracking-wide">
                     Passage {passageNum}
                   </div>
                 )}
                 {rows.length === 0 ? (
-                  <div className="px-6 py-6 text-sm text-gray-400 text-center">
+                  <div className="px-6 py-6 text-sm text-muted text-center">
                     Буруу хариулт алга.
                   </div>
                 ) : (
@@ -740,18 +734,18 @@ function ReviewRow({ item }: { item: ReviewResponse }) {
   return (
     <div
       className={`px-6 py-4 flex gap-4 ${
-        item.is_correct ? "bg-white" : "bg-red-50/30"
+        item.is_correct ? "bg-white" : "bg-paper-3"
       }`}
     >
       <div className="flex flex-col items-center gap-1 shrink-0 w-10">
-        <span className="text-xs font-bold text-gray-400 tabular-nums">
+        <span className="text-xs font-semibold text-muted tabular-nums">
           {item.question_number}
         </span>
         <span
           className={`w-6 h-6 rounded-full flex items-center justify-center ${
             item.is_correct
-              ? "bg-green-100 text-green-700"
-              : "bg-red-100 text-red-700"
+              ? "bg-green-100 text-mint-deep"
+              : "bg-paper-3 text-ink"
           }`}
           aria-label={item.is_correct ? "Зөв" : "Буруу"}
         >
@@ -765,28 +759,28 @@ function ReviewRow({ item }: { item: ReviewResponse }) {
 
       <div className="flex-1 min-w-0 space-y-2">
         {item.question_text && (
-          <p className="text-sm text-gray-700 leading-snug">
+          <p className="text-sm text-ink-soft leading-snug">
             {item.question_text}
           </p>
         )}
         <dl className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-sm">
-          <div className="bg-gray-50 rounded-lg px-3 py-2">
-            <dt className="text-[11px] font-semibold text-gray-500 uppercase tracking-wide mb-0.5">
+          <div className="bg-paper-2 rounded-lg px-3 py-2">
+            <dt className="text-[11px] font-semibold text-muted uppercase tracking-wide mb-0.5">
               Таны хариулт
             </dt>
             <dd
               className={`font-medium break-words ${
-                item.is_correct ? "text-gray-800" : "text-red-700"
+                item.is_correct ? "text-ink" : "text-ink"
               }`}
             >
               {studentDisplay}
             </dd>
           </div>
-          <div className="bg-green-50 rounded-lg px-3 py-2">
-            <dt className="text-[11px] font-semibold text-green-700 uppercase tracking-wide mb-0.5">
+          <div className="bg-mint-soft rounded-lg px-3 py-2">
+            <dt className="text-[11px] font-semibold text-mint-deep uppercase tracking-wide mb-0.5">
               Зөв хариулт
             </dt>
-            <dd className="font-medium text-green-800 break-words">
+            <dd className="font-medium text-mint-ink break-words">
               {correctDisplay}
             </dd>
           </div>
@@ -810,17 +804,20 @@ function SkillCard({
   stats?: Statistics;
 }) {
   return (
-    <div className="bg-white rounded-2xl p-5 border shadow-sm text-center space-y-2">
-      <div className="flex items-center justify-center gap-2 text-gray-500">
-        {icon}
-        <span className="text-sm font-semibold">{label}</span>
+    <div className="bg-paper-2 rounded-lg p-5 border border-rule">
+      <div className="flex items-center gap-2 text-muted mb-3">
+        <span className="text-ink-soft">{icon}</span>
+        <span className="text-[11px] uppercase tracking-[0.18em]">{label}</span>
       </div>
-      <p className={`text-3xl font-black ${bandColor(band)}`}>
+      <p
+        className={`font-serif font-semibold leading-none tracking-[-0.022em] ${bandColor(band)}`}
+        style={{ fontSize: "2.4rem" }}
+      >
         {band ?? "—"}
       </p>
       {stats && (
-        <p className="text-xs text-gray-400">
-          {stats.correct}/{stats.total} ({stats.percentage}%)
+        <p className="text-[12px] text-muted mt-2 tabular-nums">
+          {stats.correct}/{stats.total} <span className="opacity-60">·</span> {stats.percentage}%
         </p>
       )}
     </div>

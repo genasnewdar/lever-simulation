@@ -28,22 +28,22 @@ export default function TableGroupRenderer({
         instructions={group.instructions}
         wordLimitText={group.word_limit_text}
       />
-      <div className="border border-black rounded-lg overflow-hidden">
+      <div className="border border-rule rounded-lg overflow-hidden">
         <table className="w-full border-collapse">
           <thead>
-            <tr className="bg-gray-100 border-b border-black">
+            <tr className="bg-paper-3 border-b border-rule">
               {layout.headers.map((header, i) => (
                 <th
                   key={i}
                   className={cn(
-                    "p-2 text-left font-bold text-gray-900",
-                    i < layout.headers.length - 1 && "border-r border-black",
+                    "p-2 text-left font-semibold text-ink",
+                    i < layout.headers.length - 1 && "border-r border-rule",
                   )}
                 >
                   {header}
                 </th>
               ))}
-              <th className="p-2 text-left font-bold text-gray-900 w-[90px]">
+              <th className="p-2 text-left font-semibold text-ink w-[90px]">
                 Review
               </th>
             </tr>
@@ -60,14 +60,14 @@ export default function TableGroupRenderer({
               return (
                 <tr
                   key={rowIdx}
-                  className="border-b border-black last:border-b-0 hover:bg-gray-50/50 transition-colors"
+                  className="border-b border-rule last:border-b-0 hover:bg-paper-2 transition-colors"
                 >
                   {row.cells.map((cell, cellIdx) => (
                     <td
                       key={cellIdx}
                       className={cn(
-                        "p-2 text-base text-gray-800 align-middle",
-                        cellIdx < row.cells.length - 1 && "border-r border-black",
+                        "p-2 text-base text-ink align-middle",
+                        cellIdx < row.cells.length - 1 && "border-r border-rule",
                       )}
                       colSpan={cell.colspan}
                       rowSpan={cell.rowspan}
@@ -121,14 +121,14 @@ function TableFallback({
         instructions={group.instructions}
         wordLimitText={group.word_limit_text}
       />
-      <div className="border border-black rounded-lg overflow-hidden">
+      <div className="border border-rule rounded-lg overflow-hidden">
         <table className="w-full border-collapse">
           <thead>
-            <tr className="bg-gray-50 border-b border-black">
-              <th className="border-r border-black p-2 text-left font-bold text-gray-900">
+            <tr className="bg-paper-2 border-b border-rule">
+              <th className="border-r border-rule p-2 text-left font-semibold text-ink">
                 Question
               </th>
-              <th className="p-2 text-left font-bold text-gray-900 w-[90px]">
+              <th className="p-2 text-left font-semibold text-ink w-[90px]">
                 Review
               </th>
             </tr>
@@ -142,13 +142,13 @@ function TableFallback({
                   key={q.id}
                   id={`q-${q.question_number}`}
                   className={cn(
-                    "border-b border-black hover:bg-gray-50/50 transition-colors",
-                    flashQuestionNumber === q.question_number && "ielts-question-flash bg-blue-50/30",
+                    "border-b border-rule hover:bg-paper-2 transition-colors",
+                    flashQuestionNumber === q.question_number && "ielts-question-flash bg-mint-soft",
                   )}
                 >
-                  <td className="border-r border-black p-2 align-middle text-sm font-medium text-gray-800">
+                  <td className="border-r border-rule p-2 align-middle text-sm font-medium text-ink">
                     <div className="flex items-center gap-2 flex-wrap">
-                      <span className="flex-shrink-0 w-8 h-8 flex items-center justify-center bg-blue-600 text-white rounded-lg text-sm font-black">
+                      <span className="flex-shrink-0 w-8 h-8 flex items-center justify-center bg-ink text-paper rounded-lg text-sm font-semibold">
                         {q.question_number}
                       </span>
                       <span className="flex flex-wrap items-baseline gap-x-1 gap-y-1">
@@ -160,7 +160,7 @@ function TableFallback({
                                 {...register(regKey)}
                                 disabled={disabled}
                                 placeholder="..."
-                                className="inline-block min-w-[100px] max-w-[220px] mx-0.5 px-2 py-0.5 border-b border-black bg-transparent focus:bg-blue-50 outline-none font-medium text-gray-900"
+                                className="inline-block min-w-[100px] max-w-[220px] mx-0.5 px-2 py-0.5 border-b border-rule bg-transparent focus:bg-paper-3 outline-none font-medium text-ink"
                               />
                             )}
                           </React.Fragment>

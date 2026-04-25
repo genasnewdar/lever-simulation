@@ -31,7 +31,7 @@ export default function DiagramRenderer({
 
       {/* Diagram image */}
       {group.image_url && (
-        <div className="bg-white p-3 rounded-2xl border border-gray-200 shadow-sm">
+        <div className="bg-white p-3 rounded-lg border border-rule shadow-sm">
           <img
             src={group.image_url}
             alt={group.image_alt_text ?? "Diagram"}
@@ -42,14 +42,14 @@ export default function DiagramRenderer({
 
       {/* Options pool box */}
       {options.length > 0 && (
-        <div className="border-2 border-gray-300 rounded-xl bg-gray-50 p-4">
+        <div className="border border-rule rounded-md bg-paper-2 p-4">
           <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
             {options.map((opt) => (
               <div key={opt.id} className="flex items-baseline gap-2 text-base">
-                <span className="font-bold text-gray-900 min-w-[20px]">
+                <span className="font-semibold text-ink min-w-[20px]">
                   {opt.id}
                 </span>
-                <span className="text-gray-700">{opt.text}</span>
+                <span className="text-ink-soft">{opt.text}</span>
               </div>
             ))}
           </div>
@@ -65,15 +65,15 @@ export default function DiagramRenderer({
               key={q.id}
               id={`q-${q.question_number}`}
               className={cn(
-                "flex flex-wrap items-center gap-x-3 gap-y-2 border-b border-gray-100 pb-3 last:border-0 last:pb-0",
-                flashQuestionNumber === q.question_number && "ielts-question-flash rounded-lg bg-blue-50/40",
+                "flex flex-wrap items-center gap-x-3 gap-y-2 border-b border-rule pb-3 last:border-0 last:pb-0",
+                flashQuestionNumber === q.question_number && "ielts-question-flash rounded-lg bg-mint-soft",
               )}
             >
-              <span className="flex-shrink-0 w-8 h-8 flex items-center justify-center bg-blue-600 text-white rounded-lg text-sm font-black">
+              <span className="flex-shrink-0 w-8 h-8 flex items-center justify-center bg-ink text-paper rounded-lg text-sm font-semibold">
                 {q.question_number}
               </span>
               {q.question_text && (
-                <span className="text-gray-800 font-medium text-base flex-1 min-w-0">
+                <span className="text-ink font-medium text-base flex-1 min-w-0">
                   {q.question_text}
                 </span>
               )}
@@ -81,7 +81,7 @@ export default function DiagramRenderer({
                 <select
                   {...register(regKey)}
                   disabled={disabled}
-                  className="min-w-[80px] px-3 py-2 border-2 border-gray-300 rounded-lg bg-white font-semibold text-gray-800 focus:ring-2 focus:ring-primary focus:border-primary outline-none"
+                  className="min-w-[80px] px-3 py-2 border border-rule rounded-lg bg-white font-semibold text-ink focus:ring-1 focus:ring-mint focus:border-mint outline-none"
                 >
                   <option value="">—</option>
                   {options.map((opt) => (
@@ -95,7 +95,7 @@ export default function DiagramRenderer({
                   {...register(regKey)}
                   disabled={disabled}
                   placeholder="..."
-                  className="min-w-[100px] max-w-[180px] px-2 py-1 border-b-2 border-gray-400 bg-transparent focus:bg-blue-50 outline-none font-medium text-gray-900"
+                  className="min-w-[100px] max-w-[180px] px-2 py-1 border-b border-rule bg-transparent focus:bg-paper-3 outline-none font-medium text-ink"
                 />
               )}
               <ReviewCheckbox

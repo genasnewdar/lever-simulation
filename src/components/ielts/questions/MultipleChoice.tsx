@@ -23,31 +23,31 @@ const MultipleChoice: React.FC<MultipleChoiceProps> = ({ question, disabled, onT
   const displayOptions = options || rawData?.options?.map(o => ({ id: o.label.toLowerCase(), label: o.text })) || [];
 
   return (
-    <div className="space-y-4 p-6 border-2 border-gray-100 rounded-2xl bg-white shadow-sm hover:border-blue-100 transition-all">
+    <div className="space-y-4 p-6 border border-rule rounded-lg bg-paper-2 hover:border-rule transition-all">
       <div className="flex items-start justify-between gap-4">
         <div className="flex items-start gap-4 min-w-0">
           {questionNumber && (
-            <span className="flex-shrink-0 w-8 h-8 flex items-center justify-center bg-blue-600 text-white rounded-lg text-sm font-black">
+            <span className="flex-shrink-0 w-8 h-8 flex items-center justify-center bg-ink text-paper rounded-lg text-sm font-semibold">
               {questionNumber}
             </span>
           )}
           <div className="flex flex-col min-w-0">
-             <h3 className="text-xl font-black text-gray-900 leading-tight">
+             <h3 className="text-xl font-semibold text-ink leading-tight">
                {rawData?.question_text || title || 'Select the correct option'}
              </h3>
-             <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mt-1">
+             <p className="text-[10px] font-semibold text-muted uppercase tracking-widest mt-1">
                {rawData?.instructions || (allowMultiple ? 'Select all that apply' : 'Choose one response')}
              </p>
           </div>
         </div>
         {onToggleReview && (
           <label className="flex items-center gap-2 shrink-0 cursor-pointer">
-            <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Review</span>
+            <span className="text-[10px] font-semibold text-muted uppercase tracking-widest">Review</span>
             <input
               type="checkbox"
               checked={isReviewChecked?.(qNum) ?? false}
               onChange={() => onToggleReview(qNum)}
-              className="w-4 h-4 rounded border-gray-300 text-primary focus:ring-primary"
+              className="w-4 h-4 rounded border-rule text-ink focus:ring-mint"
             />
           </label>
         )}
@@ -62,10 +62,10 @@ const MultipleChoice: React.FC<MultipleChoiceProps> = ({ question, disabled, onT
           return (
             <label
               key={option.id}
-              className={`flex items-center gap-4 p-4 rounded-xl border-2 cursor-pointer transition-all ${
+              className={`flex items-center gap-4 p-4 rounded-md border-2 cursor-pointer transition-all ${
                 isSelected
                   ? 'border-primary bg-secondary shadow-sm'
-                  : 'border-gray-50 bg-background hover:border-primary'
+                  : 'border-rule bg-background hover:border-ink-soft'
               } ${disabled ? 'opacity-50 cursor-not-allowed grayscale shadow-none' : ''}`}
             >
               <div className={`w-6 h-6 border-2 flex items-center justify-center transition-colors ${
@@ -88,8 +88,8 @@ const MultipleChoice: React.FC<MultipleChoiceProps> = ({ question, disabled, onT
                 {...register(registrationKey)}
                 className="hidden"
               />
-              <span className="text-gray-700 font-bold">
-                <span className="font-black mr-2 opacity-30">{option.id.toUpperCase()}.</span>
+              <span className="text-ink-soft font-semibold">
+                <span className="font-semibold mr-2 opacity-30">{option.id.toUpperCase()}.</span>
                 {option.label}
               </span>
             </label>

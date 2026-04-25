@@ -1,7 +1,23 @@
 # lever-offline — Progress Tracker
 
-Last updated: 2026-04-18
+Last updated: 2026-04-25
 **Production plan:** [/home/senge/proj/PRODUCTION_PLAN.md](../PRODUCTION_PLAN.md)
+
+---
+
+## Up Next
+
+### User-flow brainstorm (CRITICAL — informs everything below)
+- [ ] Map the full student journey end-to-end:
+  - **Pre-exam:** booking on lever-app → email with code → arrival at lever-offline
+  - **Entry:** landing → mock-exam code page → fullscreen + anti-cheat → take-test
+  - **In-exam:** Listening → Reading (with highlighting/clear) → Writing → completion
+  - **Post-exam:** completion screen → results polling → graded results page → feedback PDF
+  - **Edge cases:** browser crash mid-exam, disconnection, code re-entry on different device, session-gated waiting room, code already used, code cancelled
+- [ ] Decide: should there be an onboarding/instructions screen between code-entry and the actual exam? (currently jumps straight in)
+- [ ] Decide: post-exam — should we show "Шалгалт дууслаа" success state with ETA for results, or send straight to the polling results page?
+- [ ] Identify confusion/anxiety points in the current flow that the redesign should address with copy or motion cues
+- [ ] Output: a flow diagram + copy decisions before any further UI work
 
 ---
 

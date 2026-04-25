@@ -27,7 +27,7 @@ export default function SentencesRenderer({
         />
         <div className="space-y-3">
           {layout.sentences.map((sentence, i) => (
-            <div key={i} className="flex flex-wrap items-baseline gap-x-1.5 text-base text-gray-800 leading-relaxed">
+            <div key={i} className="flex flex-wrap items-baseline gap-x-1.5 text-base text-ink leading-relaxed">
               <LayoutCells
                 cells={sentence.content}
                 questions={group.questions}
@@ -40,7 +40,7 @@ export default function SentencesRenderer({
         <div className="flex flex-wrap gap-4 pt-1">
           {group.questions.map((q) => (
             <div key={q.id} className="flex items-center gap-1">
-              <span className="text-xs text-gray-600">Q{q.question_number}</span>
+              <span className="text-xs text-ink-soft">Q{q.question_number}</span>
               <ReviewCheckbox
                 questionNumber={q.question_number}
                 reviewSet={reviewSet}
@@ -70,11 +70,11 @@ export default function SentencesRenderer({
               key={q.id}
               id={`q-${q.question_number}`}
               className={cn(
-                "flex flex-wrap items-baseline gap-x-1.5 gap-y-2 text-base text-gray-800 leading-relaxed",
-                flashQuestionNumber === q.question_number && "ielts-question-flash rounded-lg bg-blue-50/40 p-2 -mx-2",
+                "flex flex-wrap items-baseline gap-x-1.5 gap-y-2 text-base text-ink leading-relaxed",
+                flashQuestionNumber === q.question_number && "ielts-question-flash rounded-lg bg-mint-soft p-2 -mx-2",
               )}
             >
-              <span className="font-bold text-gray-900">{q.question_number}.</span>
+              <span className="font-semibold text-ink">{q.question_number}.</span>
               {parts.map((part, idx) => (
                 <React.Fragment key={idx}>
                   <span>{part}</span>
@@ -83,7 +83,7 @@ export default function SentencesRenderer({
                       {...register(regKey)}
                       disabled={disabled}
                       placeholder="..."
-                      className="inline-block min-w-[100px] max-w-[180px] mx-0.5 px-2 py-0.5 border-b-2 border-gray-500 bg-transparent focus:bg-blue-50 outline-none font-medium text-gray-900"
+                      className="inline-block min-w-[100px] max-w-[180px] mx-0.5 px-2 py-0.5 border-b border-rule bg-transparent focus:bg-paper-3 outline-none font-medium text-ink"
                     />
                   )}
                 </React.Fragment>

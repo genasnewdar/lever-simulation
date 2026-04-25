@@ -1,9 +1,8 @@
 "use client";
 
 import React from "react";
-import Image from "next/image";
 import Timer from "./Timer";
-import { HelpCircle, ClipboardList } from "lucide-react";
+import { ClipboardList } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface HeaderProps {
@@ -12,10 +11,38 @@ interface HeaderProps {
   activeTab: "LISTENING" | "READING" | "WRITING";
   onTabChange: (tab: "LISTENING" | "READING" | "WRITING") => void;
   onTimeExpire?: () => void;
-  /** When true, section navigation buttons (Listening/Reading/Writing) are hidden; user cannot switch sections manually. */
   hideSectionTabs?: boolean;
   onReviewClick?: () => void;
 }
+
+const sections: Array<{
+  id: "LISTENING" | "READING" | "WRITING";
+  label: string;
+}> = [
+  { id: "LISTENING", label: "Listening" },
+  { id: "READING", label: "Reading" },
+  { id: "WRITING", label: "Writing" },
+];
+
+/** Tiny Lever-edu brand mark — wordmark with the mint page-curl. */
+const BrandMark: React.FC = () => (
+  <div
+    aria-label="Lever edu"
+    className="relative flex items-center justify-center h-8 w-[70px] rounded-md bg-ink text-paper font-serif font-semibold tracking-tight"
+    style={{ letterSpacing: "-0.035em" }}
+  >
+    <span className="text-[13px] leading-none translate-y-[-1px]">Lever</span>
+    <span
+      aria-hidden
+      className="absolute right-0 bottom-0 h-[10px] w-[10px]"
+      style={{
+        background:
+          "linear-gradient(135deg, transparent 50%, var(--mint) 50%)",
+        borderBottomRightRadius: "0.375rem",
+      }}
+    />
+  </div>
+);
 
 const Header: React.FC<HeaderProps> = ({
   userName,
@@ -26,40 +53,41 @@ const Header: React.FC<HeaderProps> = ({
   hideSectionTabs = false,
   onReviewClick,
 }) => {
-  const sections: Array<{
-    id: "LISTENING" | "READING" | "WRITING";
-    label: string;
-  }> = [
-    { id: "LISTENING", label: "Listening" },
-    { id: "READING", label: "Reading" },
-    { id: "WRITING", label: "Writing" },
-  ];
-
   return (
-    <header className="h-[60px] bg-primary px-12 flex items-center justify-between shadow-xl z-50 fixed top-0 w-full border-b border-white/10">
-      <div className="flex items-center space-x-4 min-w-[350px]">
-        <Image
-          src="/logo.png"
-          alt="Lever Edu"
-          width={40}
-          height={40}
-          className="rounded-lg"
-        />
-        {!hideSectionTabs &&
-          sections.map((section) => (
-            <button
-              key={section.id}
-              onClick={() => onTabChange(section.id)}
-              className={cn(
-                "px-4 py-1.5 rounded-md text-sm font-bold transition-all uppercase tracking-wider",
-                activeTab === section.id
-                  ? "bg-white text-primary shadow-md"
-                  : "text-white/70 hover:text-white hover:bg-white/10"
-              )}
-            >
-              {section.label}
-            </button>
-          ))}
+    <header className="h-[64px] bg-paper px-8 flex items-center justify-between fixed top-0 w-full z-50 border-b border-rule">
+      <div className="flex items-center gap-6 min-w-[360px]">
+        <BrandMark />
+        {!hideSectionTabs && (
+          <nav className="flex items-center gap-1" aria-label="Exam sections">
+            {sections.map((section) => {
+              const active = activeTab === section.id;
+              return (
+                <button
+                  key={section.id}
+                  onClick={() => onTabChange(section.id)}
+                  aria-current={active ? "page" : undefined}
+                  className={cn(
+                    "relative px-3 py-1.5 text-[13px] font-semibold tracking-tight transition-colors",
+                    active
+                      ? "text-ink"
+                      : "text-muted hover:text-ink-soft",
+                  )}
+                >
+                  {section.label}
+                  <span
+                    aria-hidden
+                    className={cn(
+                      "absolute left-3 right-3 -bottom-[19px] h-[2px] rounded-full transition-all",
+                      active
+                        ? "bg-mint opacity-100"
+                        : "bg-transparent opacity-0",
+                    )}
+                  />
+                </button>
+              );
+            })}
+          </nav>
+        )}
       </div>
 
       <div className="flex-1 flex justify-center">
@@ -70,22 +98,19 @@ const Header: React.FC<HeaderProps> = ({
         />
       </div>
 
-      <div className="flex items-center space-x-8 min-w-[300px] justify-end">
-        <span className="text-xs font-bold tracking-tight text-white opacity-90">
+      <div className="flex items-center gap-5 min-w-[300px] justify-end">
+        <span className="text-[13px] font-medium text-ink-soft tracking-tight">
           {userName}
         </span>
         {onReviewClick && (
           <button
             onClick={onReviewClick}
-            className="flex items-center gap-1.5 text-white hover:bg-white/10 px-3 py-1.5 rounded-lg transition-colors"
+            className="flex items-center gap-1.5 text-ink-soft hover:text-ink px-2.5 py-1.5 rounded-md transition-colors"
           >
             <ClipboardList className="w-4 h-4" />
-            <span className="text-xs font-bold uppercase tracking-wider">Review</span>
+            <span className="text-xs font-semibold tracking-tight">Review</span>
           </button>
         )}
-        <button className="text-white hover:bg-white/10 p-1.5 rounded-full transition-colors">
-          <HelpCircle className="w-4 h-4" />
-        </button>
       </div>
     </header>
   );

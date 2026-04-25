@@ -32,29 +32,28 @@ const ReviewModal: React.FC<ReviewModalProps> = ({
       />
 
       {/* Modal */}
-      <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-[700px] max-h-[80vh] flex flex-col mx-4">
-        {/* Close button */}
+      <div className="relative bg-paper rounded-lg shadow-page w-full max-w-[720px] max-h-[80vh] flex flex-col mx-4 border border-rule">
         <button
           onClick={onClose}
-          className="absolute top-4 right-4 p-1 rounded-full hover:bg-gray-100 transition-colors z-10"
+          className="absolute top-4 right-4 p-1.5 rounded-md hover:bg-paper-2 text-muted hover:text-ink transition-colors z-10"
+          aria-label="Close"
         >
-          <X className="w-5 h-5 text-gray-500" />
+          <X className="w-4 h-4" />
         </button>
 
-        {/* Header */}
-        <div className="px-6 pt-6 pb-4 border-b border-gray-200 text-center">
-          <h2 className="text-xl font-bold text-gray-900">Review your answers</h2>
-          <p className="text-sm text-gray-500 mt-1">
-            * This window is to review your answers only, you cannot change the answers in here
+        <div className="px-7 pt-7 pb-5 border-b border-rule">
+          <p className="text-[11px] uppercase tracking-[0.18em] text-muted mb-2">Review</p>
+          <h2 className="font-serif text-[1.4rem] font-semibold text-ink tracking-[-0.02em]">Your answers so far</h2>
+          <p className="text-[13px] text-ink-soft mt-2">
+            Read-only — go back to a question to change your answer.
           </p>
         </div>
 
-        {/* Answer grid */}
-        <div className="flex-1 overflow-y-auto px-6 py-4">
+        <div className="flex-1 overflow-y-auto px-7 py-5">
           <table className="w-full border-collapse">
             <tbody>
               {Array.from({ length: rows }, (_, rowIdx) => (
-                <tr key={rowIdx} className="border-b border-gray-200 last:border-b-0">
+                <tr key={rowIdx} className="border-b border-rule last:border-b-0">
                   {Array.from({ length: COLS }, (_, colIdx) => {
                     const qNum = rowIdx * COLS + colIdx + 1;
                     if (qNum > totalQuestions) {
@@ -64,12 +63,14 @@ const ReviewModal: React.FC<ReviewModalProps> = ({
                     return (
                       <td
                         key={colIdx}
-                        className="p-2.5 border-r border-gray-200 last:border-r-0"
+                        className="p-2.5 align-top"
                       >
-                        <span className="text-sm text-gray-500">Q{qNum}: </span>
+                        <div className="text-[11px] text-muted tabular-nums">Q{qNum}</div>
                         {answer ? (
-                          <span className="text-sm font-bold text-gray-900">{answer}</span>
-                        ) : null}
+                          <div className="text-[13px] font-medium text-ink truncate">{answer}</div>
+                        ) : (
+                          <div className="text-[13px] text-muted/70">—</div>
+                        )}
                       </td>
                     );
                   })}
@@ -79,11 +80,10 @@ const ReviewModal: React.FC<ReviewModalProps> = ({
           </table>
         </div>
 
-        {/* Footer */}
-        <div className="px-6 py-4 border-t border-gray-200 flex justify-center">
+        <div className="px-7 py-4 border-t border-rule flex justify-end">
           <button
             onClick={onClose}
-            className="px-8 py-2.5 bg-[#2d6a4f] hover:bg-[#245a42] text-white font-bold rounded-xl transition-colors"
+            className="px-5 h-10 bg-ink hover:bg-ink-soft text-paper text-[13px] font-medium tracking-tight rounded-md transition-colors"
           >
             Close
           </button>

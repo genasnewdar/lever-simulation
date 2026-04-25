@@ -26,11 +26,11 @@ export default function FlowchartRenderer({
           instructions={group.instructions}
           wordLimitText={group.word_limit_text}
         />
-        <div className="border border-black overflow-hidden">
+        <div className="border border-rule overflow-hidden">
           {layout.boxes.map((box, i) => (
             <div
               key={i}
-              className="border-b border-black last:border-b-0 px-4 py-3 flex flex-wrap items-baseline gap-x-1.5 gap-y-2 min-h-[44px]"
+              className="border-b border-rule last:border-b-0 px-4 py-3 flex flex-wrap items-baseline gap-x-1.5 gap-y-2 min-h-[44px]"
             >
               <LayoutCells
                 cells={box.content}
@@ -44,7 +44,7 @@ export default function FlowchartRenderer({
         <div className="flex flex-wrap gap-4 pt-1">
           {group.questions.map((q) => (
             <div key={q.id} className="flex items-center gap-1">
-              <span className="text-xs text-gray-600">Q{q.question_number}</span>
+              <span className="text-xs text-ink-soft">Q{q.question_number}</span>
               <ReviewCheckbox
                 questionNumber={q.question_number}
                 reviewSet={reviewSet}
@@ -65,7 +65,7 @@ export default function FlowchartRenderer({
         instructions={group.instructions}
         wordLimitText={group.word_limit_text}
       />
-      <div className="border border-black overflow-hidden">
+      <div className="border border-rule overflow-hidden">
         {group.questions.map((q) => {
           const text = q.question_text ?? "";
           const parts = text.split("______");
@@ -76,8 +76,8 @@ export default function FlowchartRenderer({
               key={q.id}
               id={`q-${q.question_number}`}
               className={cn(
-                "border-b border-black last:border-b-0 px-4 py-3 flex flex-wrap items-baseline gap-x-1.5 gap-y-2 min-h-[44px]",
-                isFlash && "ielts-question-flash bg-blue-50/40",
+                "border-b border-rule last:border-b-0 px-4 py-3 flex flex-wrap items-baseline gap-x-1.5 gap-y-2 min-h-[44px]",
+                isFlash && "ielts-question-flash bg-mint-soft",
               )}
             >
               <span className="flex-1 min-w-0 inline-flex flex-wrap items-baseline gap-x-1.5">
@@ -86,14 +86,14 @@ export default function FlowchartRenderer({
                 ) : (
                   <>
                     <span>{parts[0]}</span>
-                    <span className="font-bold text-gray-900">
+                    <span className="font-semibold text-ink">
                       {q.question_number}
                     </span>
                     <input
                       type="text"
                       disabled={disabled}
                       {...register(regKey)}
-                      className="inline-block min-w-[100px] max-w-[180px] border-b-2 border-gray-500 bg-transparent px-1 py-0.5 font-medium text-gray-900 outline-none focus:border-primary focus:bg-blue-50/30"
+                      className="inline-block min-w-[100px] max-w-[180px] border-b border-rule bg-transparent px-1 py-0.5 font-medium text-ink outline-none focus:border-mint focus:bg-mint-soft/40"
                     />
                     <span>{parts.slice(1).join("______")}</span>
                   </>

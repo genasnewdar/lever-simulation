@@ -19,17 +19,17 @@ const MatchingTask: React.FC<MatchingTaskProps> = ({ question, disabled, onToggl
   if (!matchingData) return null;
 
   return (
-    <div className="space-y-8 p-6 border rounded-xl bg-white shadow-sm hover:shadow-md transition-shadow">
+    <div className="space-y-8 p-6 border rounded-md bg-paper-2 hover:shadow-md transition-shadow">
       <div className="flex items-start justify-between gap-4">
         {(title || question.content) && (
-          <h3 className="text-xl font-bold text-textprimary min-w-0">
+          <h3 className="text-xl font-semibold text-textprimary min-w-0">
             {title || question.content}
           </h3>
         )}
         {onToggleReview && (
           <label className="flex items-center gap-2 shrink-0 cursor-pointer">
-            <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Review</span>
-            <input type="checkbox" checked={isReviewChecked?.(qNum) ?? false} onChange={() => onToggleReview(qNum)} className="w-4 h-4 rounded border-gray-300 text-primary focus:ring-primary" />
+            <span className="text-[10px] font-semibold text-muted uppercase tracking-widest">Review</span>
+            <input type="checkbox" checked={isReviewChecked?.(qNum) ?? false} onChange={() => onToggleReview(qNum)} className="w-4 h-4 rounded border-rule text-ink focus:ring-mint" />
           </label>
         )}
       </div>
@@ -42,9 +42,9 @@ const MatchingTask: React.FC<MatchingTaskProps> = ({ question, disabled, onToggl
               {matchingData.items.map((item) => (
                 <div
                   key={item.id}
-                  className="p-4 bg-gray-50 rounded-xl border-2 border-dashed border-bordercolor text-textprimary flex items-start gap-3"
+                  className="p-4 bg-paper-2 rounded-md border-2 border-dashed border-bordercolor text-textprimary flex items-start gap-3"
                 >
-                  <span className="bg-blue-600 text-white w-6 h-6 flex items-center justify-center rounded text-xs font-bold flex-shrink-0 mt-1">
+                  <span className="bg-ink text-paper w-6 h-6 flex items-center justify-center rounded text-xs font-semibold flex-shrink-0 mt-1">
                     {item.id}
                   </span>
                   <span className="font-semibold leading-relaxed">
@@ -57,8 +57,8 @@ const MatchingTask: React.FC<MatchingTaskProps> = ({ question, disabled, onToggl
         )}
 
         {/* Targets */}
-        <div className="lg:col-span-12 space-y-4 pt-10 border-t items-center border-gray-100">
-          <h4 className="text-sm font-black text-gray-400 uppercase tracking-widest mb-6">
+        <div className="lg:col-span-12 space-y-4 pt-10 border-t items-center border-rule">
+          <h4 className="text-sm font-semibold text-muted uppercase tracking-widest mb-6">
             {matchingData.items.length > 0
               ? "Match features to the correct scientist/periods"
               : "Write the correct letter for each statement"}
@@ -70,13 +70,13 @@ const MatchingTask: React.FC<MatchingTaskProps> = ({ question, disabled, onToggl
               return (
                 <div
                   key={target.id}
-                  className="flex flex-col md:flex-row md:items-center gap-6 p-5 border-2 border-gray-50 rounded-xl hover:bg-gray-50/50 transition-colors"
+                  className="flex flex-col md:flex-row md:items-center gap-6 p-5 border border-rule rounded-md hover:bg-paper-2 transition-colors"
                 >
                   <div className="flex-grow flex items-start gap-4">
-                    <span className="bg-blue-600 text-white w-7 h-7 flex items-center justify-center rounded text-xs font-bold mt-1 flex-shrink-0">
+                    <span className="bg-ink text-paper w-7 h-7 flex items-center justify-center rounded text-xs font-semibold mt-1 flex-shrink-0">
                       {target.id}
                     </span>
-                    <p className="text-lg font-bold text-textprimary leading-snug">
+                    <p className="text-lg font-semibold text-textprimary leading-snug">
                       {target.description}
                     </p>
                   </div>
@@ -85,10 +85,10 @@ const MatchingTask: React.FC<MatchingTaskProps> = ({ question, disabled, onToggl
                       <select
                         disabled={disabled}
                         {...register(registrationKey)}
-                        className={`w-full p-3 border-2 border-gray-100 rounded-lg focus:ring-2 focus:ring-blue-500 bg-white font-bold text-center outline-none transition-all ${
+                        className={`w-full p-3 border border-rule rounded-lg focus:ring-2 focus:ring-blue-500 bg-white font-semibold text-center outline-none transition-all ${
                           disabled
-                            ? "bg-gray-200 cursor-not-allowed text-gray-400"
-                            : "cursor-pointer hover:border-blue-200"
+                            ? "bg-paper-3 cursor-not-allowed text-muted"
+                            : "cursor-pointer hover:border-ink-soft"
                         }`}
                       >
                         <option value="">A - Z</option>
@@ -104,10 +104,10 @@ const MatchingTask: React.FC<MatchingTaskProps> = ({ question, disabled, onToggl
                         disabled={disabled}
                         {...register(registrationKey)}
                         placeholder="e.g. A"
-                        className={`w-full p-3 border-2 border-gray-100 rounded-lg focus:ring-2 focus:ring-blue-500 bg-white font-bold text-center outline-none transition-all ${
+                        className={`w-full p-3 border border-rule rounded-lg focus:ring-2 focus:ring-blue-500 bg-white font-semibold text-center outline-none transition-all ${
                           disabled
-                            ? "bg-gray-200 cursor-not-allowed text-gray-400"
-                            : "hover:border-blue-200"
+                            ? "bg-paper-3 cursor-not-allowed text-muted"
+                            : "hover:border-ink-soft"
                         }`}
                       />
                     )}

@@ -42,3 +42,6 @@ next-env.d.ts
 
 # brainstorm session artifacts
 /.superpowers/
+
+# pnpm lockfile — CI/Docker uses npm via package-lock.json
+pnpm-lock.yaml

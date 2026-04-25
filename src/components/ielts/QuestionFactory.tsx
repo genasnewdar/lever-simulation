@@ -52,7 +52,7 @@ const QuestionFactory: React.FC<QuestionFactoryProps> = ({
 
   if (!Component) {
     return (
-      <div className="p-6 border-2 border-dashed border-red-200 rounded-2xl bg-red-50 text-red-600 font-bold flex items-center gap-3 animate-pulse">
+      <div className="p-6 border-2 border-dashed border-rule rounded-2xl bg-paper-3 text-mint-deep font-semibold flex items-center gap-3 animate-pulse">
         <span className="text-2xl">⚠️</span>
         <div className="flex flex-col">
           <span className="text-sm uppercase tracking-widest opacity-60">

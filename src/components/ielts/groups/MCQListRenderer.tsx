@@ -34,15 +34,15 @@ export default function MCQListRenderer({
               key={q.id}
               id={`q-${q.question_number}`}
               className={cn(
-                "space-y-3 border-b border-gray-100 pb-5 last:border-0 last:pb-0",
-                flashQuestionNumber === q.question_number && "ielts-question-flash rounded-xl bg-blue-50/30 p-3 -mx-3",
+                "space-y-3 border-b border-rule pb-5 last:border-0 last:pb-0",
+                flashQuestionNumber === q.question_number && "ielts-question-flash rounded-md bg-mint-soft p-3 -mx-3",
               )}
             >
               <div className="flex items-start gap-2">
-                <span className="flex-shrink-0 w-8 h-8 flex items-center justify-center bg-blue-600 text-white rounded-lg text-sm font-black mt-0.5">
+                <span className="flex-shrink-0 w-8 h-8 flex items-center justify-center bg-ink text-paper rounded-lg text-sm font-semibold mt-0.5">
                   {q.question_number}
                 </span>
-                <span className="text-gray-900 font-medium text-base leading-relaxed">
+                <span className="text-ink font-medium text-base leading-relaxed">
                   {q.question_text ?? ""}
                 </span>
               </div>
@@ -51,7 +51,7 @@ export default function MCQListRenderer({
                 {q.options.map((opt) => (
                   <label
                     key={opt.id}
-                    className="flex items-start gap-3 cursor-pointer hover:bg-gray-50 rounded-lg px-3 py-2 -mx-3 transition-colors"
+                    className="flex items-start gap-3 cursor-pointer hover:bg-paper-2 rounded-lg px-3 py-2 -mx-3 transition-colors"
                   >
                     {isMultiple ? (
                       <input
@@ -59,7 +59,7 @@ export default function MCQListRenderer({
                         value={opt.label}
                         {...register(regKey)}
                         disabled={disabled}
-                        className="mt-0.5 w-4 h-4 rounded border-gray-300 text-primary focus:ring-primary"
+                        className="mt-0.5 w-4 h-4 rounded border-rule text-ink focus:ring-mint"
                       />
                     ) : (
                       <input
@@ -67,11 +67,11 @@ export default function MCQListRenderer({
                         value={opt.label}
                         {...register(regKey)}
                         disabled={disabled}
-                        className="mt-0.5 w-4 h-4 border-gray-300 text-primary focus:ring-primary"
+                        className="mt-0.5 w-4 h-4 border-rule text-ink focus:ring-mint"
                       />
                     )}
-                    <span className="text-base text-gray-800">
-                      <span className="font-bold">{opt.label}.</span> {opt.text}
+                    <span className="text-base text-ink">
+                      <span className="font-semibold">{opt.label}.</span> {opt.text}
                     </span>
                   </label>
                 ))}

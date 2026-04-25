@@ -41,15 +41,15 @@ export default function TFNGRenderer({
       />
 
       {/* Instruction box */}
-      <div className="border border-gray-300 rounded-lg overflow-hidden bg-white">
+      <div className="border border-rule rounded-lg overflow-hidden bg-white">
         <table className="w-full border-collapse text-base">
           <tbody>
             {optionLabels.map((opt, i) => (
-              <tr key={opt.value} className={i < optionLabels.length - 1 ? "border-b border-gray-300" : ""}>
-                <td className="p-3 font-bold text-gray-900 align-top w-[120px]">
+              <tr key={opt.value} className={i < optionLabels.length - 1 ? "border-b border-rule" : ""}>
+                <td className="p-3 font-semibold text-ink align-top w-[120px]">
                   {opt.label}
                 </td>
-                <td className="p-3 text-gray-700">{opt.description}</td>
+                <td className="p-3 text-ink-soft">{opt.description}</td>
               </tr>
             ))}
           </tbody>
@@ -65,17 +65,17 @@ export default function TFNGRenderer({
               key={q.id}
               id={`q-${q.question_number}`}
               className={cn(
-                "flex flex-wrap items-baseline gap-x-2 gap-y-2 border-b border-gray-100 pb-4 last:border-0 last:pb-0",
-                flashQuestionNumber === q.question_number && "ielts-question-flash rounded-lg bg-blue-50/40",
+                "flex flex-wrap items-baseline gap-x-2 gap-y-2 border-b border-rule pb-4 last:border-0 last:pb-0",
+                flashQuestionNumber === q.question_number && "ielts-question-flash rounded-lg bg-mint-soft",
               )}
             >
-              <span className="flex-shrink-0 font-bold text-gray-900">
+              <span className="flex-shrink-0 font-semibold text-ink">
                 {q.question_number}.
               </span>
               <select
                 disabled={disabled}
                 {...register(regKey)}
-                className="flex-shrink-0 min-w-[140px] px-3 py-2 border-2 border-gray-300 rounded-lg bg-white font-semibold text-gray-800 focus:ring-2 focus:ring-primary focus:border-primary outline-none"
+                className="flex-shrink-0 min-w-[140px] px-3 py-2 border border-rule rounded-lg bg-white font-semibold text-ink focus:ring-1 focus:ring-mint focus:border-mint outline-none"
               >
                 <option value="">Select Option</option>
                 {optionLabels.map((opt) => (
@@ -84,7 +84,7 @@ export default function TFNGRenderer({
                   </option>
                 ))}
               </select>
-              <span className="text-gray-800 font-medium text-base leading-relaxed">
+              <span className="text-ink font-medium text-base leading-relaxed">
                 {q.question_text ?? ""}
               </span>
               <ReviewCheckbox

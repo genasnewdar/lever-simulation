@@ -46,14 +46,14 @@ export function LayoutCells({
                 flashQuestionNumber === q.question_number && "ielts-question-flash rounded p-0.5 -m-0.5",
               )}
             >
-              <span className="flex-shrink-0 w-6 h-6 flex items-center justify-center bg-blue-600 text-white rounded text-xs font-bold">
+              <span className="flex-shrink-0 w-6 h-6 flex items-center justify-center bg-ink text-paper rounded text-xs font-semibold">
                 {q.question_number}
               </span>
               <input
                 {...reg}
                 disabled={disabled}
                 placeholder="..."
-                className={inputClassName ?? "inline-block min-w-[80px] max-w-[180px] px-2 py-0.5 border-b-2 border-gray-400 bg-transparent focus:bg-blue-50 outline-none font-medium text-gray-900"}
+                className={inputClassName ?? "inline-block min-w-[80px] max-w-[180px] px-2 py-0.5 border-b border-rule bg-transparent focus:bg-paper-3 outline-none font-medium text-ink"}
               />
             </span>
           );
@@ -78,15 +78,15 @@ export function GroupHeader({
   return (
     <div className="space-y-2 mb-4">
       {title && (
-        <h3 className="text-xl font-bold text-[#2b5a9e]">{title}</h3>
+        <h3 className="text-xl font-semibold text-[#2b5a9e]">{title}</h3>
       )}
       {instructions && (
-        <p className="text-gray-800 text-base font-medium">{instructions}</p>
+        <p className="text-ink text-base font-medium">{instructions}</p>
       )}
       {wordLimitText && (
         <p className="text-base font-medium">
           Write{" "}
-          <span className="font-bold text-red-600 uppercase">
+          <span className="font-semibold text-mint-deep uppercase">
             {wordLimitText}
           </span>{" "}
           for each answer.
@@ -109,14 +109,14 @@ export function ReviewCheckbox({
   if (!toggleReview) return null;
   return (
     <label className="flex items-center gap-1.5 cursor-pointer">
-      <span className="text-[10px] font-bold text-gray-500 uppercase">
+      <span className="text-[10px] font-semibold text-muted uppercase">
         Review
       </span>
       <input
         type="checkbox"
         checked={reviewSet.has(questionNumber)}
         onChange={() => toggleReview(questionNumber)}
-        className="w-4 h-4 rounded border-gray-300 text-primary focus:ring-primary"
+        className="w-4 h-4 rounded border-rule text-ink focus:ring-mint"
       />
     </label>
   );

@@ -209,7 +209,7 @@ const AudioPlayer: React.FC<AudioPlayerProps> = ({
     return (
       <div
         className={cn(
-          "flex items-center gap-3 w-full bg-white border-b border-gray-200 px-4 py-2 shadow-sm",
+          "flex items-center gap-3 w-full bg-paper border-b border-rule px-4 py-2",
           !hasAudio && "opacity-80",
           className
         )}
@@ -218,20 +218,20 @@ const AudioPlayer: React.FC<AudioPlayerProps> = ({
         <div className="flex items-center gap-2">
           {isPlaying ? (
             <div className="flex items-center gap-1">
-              <span className="w-1 h-3 bg-teal-500 rounded-full animate-pulse" />
-              <span className="w-1 h-2 bg-teal-400 rounded-full animate-pulse [animation-delay:150ms]" />
-              <span className="w-1 h-4 bg-teal-500 rounded-full animate-pulse [animation-delay:300ms]" />
+              <span className="w-1 h-3 bg-mint rounded-full animate-pulse" />
+              <span className="w-1 h-2 bg-mint rounded-full animate-pulse [animation-delay:150ms]" />
+              <span className="w-1 h-4 bg-mint rounded-full animate-pulse [animation-delay:300ms]" />
             </div>
           ) : (
             <Volume2 className="w-4 h-4 text-gray-400" />
           )}
-          <span className="text-[10px] font-bold text-teal-600 uppercase tracking-wider">
+          <span className="text-[10px] font-semibold text-mint-deep uppercase tracking-wider">
             {isPlaying ? "Playing" : hasAudio ? "Ready" : "No audio"}
           </span>
         </div>
-        <div className="flex-1 relative h-1 bg-gray-200 rounded-full overflow-hidden">
+        <div className="flex-1 relative h-1 bg-paper-3 rounded-full overflow-hidden">
           <div
-            className="absolute inset-y-0 left-0 bg-teal-500 rounded-full transition-all duration-300"
+            className="absolute inset-y-0 left-0 bg-mint rounded-full transition-all duration-300"
             style={{ width: `${progress}%` }}
           />
         </div>
@@ -245,7 +245,7 @@ const AudioPlayer: React.FC<AudioPlayerProps> = ({
             value={volume}
             onChange={handleVolume}
             disabled={!hasAudio}
-            className="w-20 h-1.5 rounded-full appearance-none bg-gray-200 accent-teal-500 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+            className="w-20 h-1.5 rounded-full appearance-none bg-paper-3 accent-mint cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
           />
         </div>
       </div>
@@ -256,7 +256,7 @@ const AudioPlayer: React.FC<AudioPlayerProps> = ({
   return (
     <div
       className={cn(
-        "flex items-center gap-4 w-full bg-white border-b border-gray-200 px-4 py-3 shadow-sm",
+        "flex items-center gap-4 w-full bg-paper border-b border-rule px-4 py-3",
         !hasAudio && "opacity-80",
         className
       )}
@@ -266,7 +266,7 @@ const AudioPlayer: React.FC<AudioPlayerProps> = ({
         type="button"
         onClick={rewind}
         disabled={!hasAudio}
-        className="flex items-center justify-center w-9 h-9 rounded-full border-2 border-gray-200 text-gray-600 hover:border-teal-500 hover:text-teal-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+        className="flex items-center justify-center w-9 h-9 rounded-full border border-rule text-ink-soft hover:border-mint hover:text-mint-deep transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
         title={`Rewind ${stepSeconds}s`}
       >
         <RotateCcw className="w-4 h-4" />
@@ -275,7 +275,7 @@ const AudioPlayer: React.FC<AudioPlayerProps> = ({
         type="button"
         onClick={togglePlay}
         disabled={!hasAudio}
-        className="flex items-center justify-center w-12 h-12 rounded-full bg-teal-500 text-white hover:bg-teal-600 transition-colors shadow-md disabled:opacity-50 disabled:cursor-not-allowed"
+        className="flex items-center justify-center w-12 h-12 rounded-full bg-ink text-paper hover:bg-ink-soft transition-colors shadow-md disabled:opacity-50 disabled:cursor-not-allowed"
         title={isPlaying ? "Pause" : "Play"}
       >
         {isPlaying ? (
@@ -288,12 +288,12 @@ const AudioPlayer: React.FC<AudioPlayerProps> = ({
         type="button"
         onClick={forward}
         disabled={!hasAudio}
-        className="flex items-center justify-center w-9 h-9 rounded-full border-2 border-gray-200 text-gray-600 hover:border-teal-500 hover:text-teal-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+        className="flex items-center justify-center w-9 h-9 rounded-full border border-rule text-ink-soft hover:border-mint hover:text-mint-deep transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
         title={`Forward ${stepSeconds}s`}
       >
         <RotateCw className="w-4 h-4" />
       </button>
-      <span className="text-sm font-mono font-semibold text-gray-700 min-w-[48px]">
+      <span className="text-sm font-mono font-semibold text-ink-soft min-w-[48px]">
         {formatTime(currentTime)}
       </span>
       <div className="flex-1 flex items-center gap-2 min-w-0">
@@ -304,7 +304,7 @@ const AudioPlayer: React.FC<AudioPlayerProps> = ({
           value={currentTime}
           onChange={handleSeek}
           disabled={!hasAudio}
-          className="flex-1 h-2 rounded-full appearance-none bg-gray-200 accent-teal-500 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+          className="flex-1 h-2 rounded-full appearance-none bg-paper-3 accent-mint cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
         />
       </div>
       <div className="flex items-center gap-2">
@@ -317,14 +317,14 @@ const AudioPlayer: React.FC<AudioPlayerProps> = ({
           value={volume}
           onChange={handleVolume}
           disabled={!hasAudio}
-          className="w-20 h-1.5 rounded-full appearance-none bg-gray-200 accent-teal-500 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+          className="w-20 h-1.5 rounded-full appearance-none bg-paper-3 accent-mint cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
         />
       </div>
       <button
         type="button"
         onClick={cycleSpeed}
         disabled={!hasAudio}
-        className="px-3 py-1.5 rounded-md border border-gray-200 text-sm font-semibold text-gray-700 hover:border-teal-500 hover:text-teal-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+        className="px-3 py-1.5 rounded-md border border-rule text-sm font-semibold text-ink-soft hover:border-mint hover:text-mint-deep transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
         title="Playback speed"
       >
         {speedLabel}x

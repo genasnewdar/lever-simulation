@@ -1,6 +1,6 @@
 "use client";
 
-import React, { forwardRef, useMemo, useRef, useEffect, useImperativeHandle } from "react";
+import React, { forwardRef, useMemo, useRef, useEffect, useImperativeHandle, useCallback } from "react";
 import { cn } from "@/lib/utils";
 
 export type HighlightColor = "yellow" | "pink";
@@ -15,14 +15,14 @@ interface ReadingPassageProps {
   content: string;
   highlights: PassageHighlight[];
   className?: string;
+  /** Called when the user right-clicks on an existing highlight. Parent should remove it from storage. */
+  onRemoveHighlight?: (start: number, end: number) => void;
 }
 
-/** Check if content contains HTML tags */
 function isHtmlContent(text: string): boolean {
   return /<\/?[a-z][\s\S]*?>/i.test(text);
 }
 
-/** Apply a single highlight to a container by walking text nodes */
 function applyHighlightToDOM(container: HTMLElement, h: PassageHighlight) {
   const walker = document.createTreeWalker(container, NodeFilter.SHOW_TEXT);
   let charPos = 0;
@@ -48,34 +48,34 @@ function applyHighlightToDOM(container: HTMLElement, h: PassageHighlight) {
 
       const mark = document.createElement("mark");
       mark.setAttribute("data-hl", "1");
-      mark.className =
+      mark.setAttribute("data-hl-start", String(h.start));
+      mark.setAttribute("data-hl-end", String(h.end));
+      mark.title = "Right-click to remove highlight";
+      mark.style.backgroundColor =
         h.color === "yellow"
-          ? "bg-yellow-200 text-inherit rounded-sm px-0.5"
-          : "bg-pink-200 text-inherit rounded-sm px-0.5";
+          ? "color-mix(in oklch, #f5d665 45%, transparent)"
+          : "color-mix(in oklch, #f498c4 40%, transparent)";
+      mark.className = "cursor-context-menu";
+      mark.style.color = "inherit";
+      mark.style.padding = "0.05em 0.1em";
+      mark.style.borderRadius = "2px";
 
       range.surroundContents(mark);
     } catch {
       // surroundContents can fail for cross-element ranges
     }
 
-    // After wrapping, text nodes are split — re-walk for next highlight
     return;
   }
 }
 
-/**
- * Renders reading passage content with persisted highlights (yellow/pink).
- * Supports both plain text and HTML content.
- * Parent should store highlights in state keyed by passage id so they persist when switching tabs.
- */
 const ReadingPassage = forwardRef<HTMLDivElement, ReadingPassageProps>(
-  ({ content, highlights, className }, ref) => {
+  ({ content, highlights, className, onRemoveHighlight }, ref) => {
     const localRef = useRef<HTMLDivElement>(null);
     useImperativeHandle(ref, () => localRef.current!);
 
     const html = useMemo(() => isHtmlContent(content), [content]);
 
-    // For plain text content, use character-based highlight segments
     const segments: { start: number; end: number; color?: HighlightColor }[] =
       [];
     if (!html) {
@@ -95,58 +95,74 @@ const ReadingPassage = forwardRef<HTMLDivElement, ReadingPassageProps>(
       }
     }
 
-    // For HTML content: apply highlights via DOM manipulation after render
     useEffect(() => {
       const el = localRef.current;
       if (!html || !el || highlights.length === 0) return;
 
-      // Reset to original HTML first (remove old highlights)
       el.innerHTML = content;
 
-      // Apply each highlight from last to first so positions stay valid
       const sorted = [...highlights].sort((a, b) => b.start - a.start);
       for (const h of sorted) {
         applyHighlightToDOM(el, h);
       }
     }, [html, highlights, content]);
 
+    const handleContextMenu = useCallback(
+      (e: React.MouseEvent<HTMLDivElement>) => {
+        if (!onRemoveHighlight) return;
+        const target = (e.target as HTMLElement).closest<HTMLElement>(
+          "mark[data-hl='1']",
+        );
+        if (!target) return;
+        const start = Number(target.dataset.hlStart);
+        const end = Number(target.dataset.hlEnd);
+        if (Number.isNaN(start) || Number.isNaN(end)) return;
+        e.preventDefault();
+        onRemoveHighlight(start, end);
+      },
+      [onRemoveHighlight],
+    );
+
     const baseClass = cn(
-      "prose prose-xl prose-slate max-w-none text-textprimary leading-relaxed font-normal select-text",
-      html ? "[&>p]:mb-4 [&>p:last-child]:mb-0" : "whitespace-pre-wrap",
+      "passage-prose max-w-none select-text",
+      html ? "" : "whitespace-pre-wrap",
       className
     );
 
-    // HTML content: render with dangerouslySetInnerHTML
     if (html) {
       return (
         <div
           ref={localRef}
           className={baseClass}
+          onContextMenu={handleContextMenu}
           dangerouslySetInnerHTML={{ __html: content }}
         />
       );
     }
 
-    // Plain text content: render with highlight segments
     return (
-      <div ref={localRef} className={baseClass}>
+      <div ref={localRef} className={baseClass} onContextMenu={handleContextMenu}>
         {segments.map((seg, i) => {
           const text = content.slice(seg.start, seg.end);
-          if (seg.color === "yellow") {
+          if (seg.color === "yellow" || seg.color === "pink") {
+            const bg =
+              seg.color === "yellow"
+                ? "color-mix(in oklch, #f5d665 45%, transparent)"
+                : "color-mix(in oklch, #f498c4 40%, transparent)";
             return (
               <mark
                 key={i}
-                className="bg-yellow-200 text-inherit rounded-sm px-0.5"
-              >
-                {text}
-              </mark>
-            );
-          }
-          if (seg.color === "pink") {
-            return (
-              <mark
-                key={i}
-                className="bg-pink-200 text-inherit rounded-sm px-0.5"
+                data-hl="1"
+                data-hl-start={seg.start}
+                data-hl-end={seg.end}
+                title="Right-click to remove highlight"
+                className="cursor-context-menu"
+                style={{
+                  backgroundColor: bg,
+                  color: "inherit",
+                  padding: "0.05em 0.1em",
+                  borderRadius: "2px",
+                }}
               >
                 {text}
               </mark>

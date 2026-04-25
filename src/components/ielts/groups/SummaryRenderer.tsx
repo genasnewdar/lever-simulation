@@ -26,9 +26,9 @@ export default function SummaryRenderer({
           instructions={group.instructions}
           wordLimitText={group.word_limit_text}
         />
-        <div className="border border-gray-300 rounded-xl p-5 bg-white space-y-4">
+        <div className="border border-rule rounded-md p-5 bg-white space-y-4">
           {layout.paragraphs.map((para, i) => (
-            <p key={i} className="text-gray-800 text-base leading-relaxed">
+            <p key={i} className="text-ink text-base leading-relaxed">
               <LayoutCells
                 cells={para.content}
                 questions={group.questions}
@@ -41,7 +41,7 @@ export default function SummaryRenderer({
         <div className="flex flex-wrap gap-4 pt-1">
           {group.questions.map((q) => (
             <div key={q.id} className="flex items-center gap-1">
-              <span className="text-xs text-gray-600">Q{q.question_number}</span>
+              <span className="text-xs text-ink-soft">Q{q.question_number}</span>
               <ReviewCheckbox
                 questionNumber={q.question_number}
                 reviewSet={reviewSet}
@@ -65,20 +65,20 @@ export default function SummaryRenderer({
 
       {/* Word bank from options_pool if available */}
       {group.options_pool && group.options_pool.length > 0 && (
-        <div className="border-2 border-gray-300 rounded-xl bg-gray-50 p-4">
+        <div className="border border-rule rounded-md bg-paper-2 p-4">
           <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
             {group.options_pool.map((opt) => (
               <div key={opt.id} className="flex items-baseline gap-2 text-sm">
-                <span className="font-bold text-gray-900 min-w-[20px]">{opt.id}</span>
-                <span className="text-gray-700">{opt.text}</span>
+                <span className="font-semibold text-ink min-w-[20px]">{opt.id}</span>
+                <span className="text-ink-soft">{opt.text}</span>
               </div>
             ))}
           </div>
         </div>
       )}
 
-      <div className="border border-gray-300 rounded-xl p-5 bg-white">
-        <div className="text-gray-800 text-base leading-[2]">
+      <div className="border border-rule rounded-md p-5 bg-white">
+        <div className="text-ink text-base leading-[2]">
           {group.questions.map((q) => {
             const parts = (q.question_text ?? "").split("______");
             const regKey = `questions.${q.id}.answer`;
@@ -87,7 +87,7 @@ export default function SummaryRenderer({
                 key={q.id}
                 id={`q-${q.question_number}`}
                 className={cn(
-                  flashQuestionNumber === q.question_number && "ielts-question-flash rounded bg-blue-50/40 px-1",
+                  flashQuestionNumber === q.question_number && "ielts-question-flash rounded bg-mint-soft px-1",
                 )}
               >
                 {parts.map((part, idx) => (
@@ -95,14 +95,14 @@ export default function SummaryRenderer({
                     {part}
                     {idx < parts.length - 1 && (
                       <>
-                        <span className="font-bold text-blue-700 mx-0.5">
+                        <span className="font-semibold text-ink-soft mx-0.5">
                           {q.question_number}
                         </span>
                         {group.options_pool && group.options_pool.length > 0 ? (
                           <select
                             {...register(regKey)}
                             disabled={disabled}
-                            className="inline min-w-[80px] px-2 py-0.5 border-b-2 border-gray-400 bg-transparent font-semibold text-gray-800 outline-none focus:border-primary"
+                            className="inline min-w-[80px] px-2 py-0.5 border-b border-rule bg-transparent font-semibold text-ink outline-none focus:border-mint"
                           >
                             <option value="">—</option>
                             {group.options_pool.map((opt) => (
@@ -116,7 +116,7 @@ export default function SummaryRenderer({
                             {...register(regKey)}
                             disabled={disabled}
                             placeholder="..."
-                            className="inline-block min-w-[100px] max-w-[180px] mx-0.5 px-2 py-0.5 border-b-2 border-gray-500 bg-transparent focus:bg-blue-50 outline-none font-medium text-gray-900"
+                            className="inline-block min-w-[100px] max-w-[180px] mx-0.5 px-2 py-0.5 border-b border-rule bg-transparent focus:bg-paper-3 outline-none font-medium text-ink"
                           />
                         )}
                       </>
@@ -133,7 +133,7 @@ export default function SummaryRenderer({
       <div className="flex flex-wrap gap-4 pt-1">
         {group.questions.map((q) => (
           <div key={q.id} className="flex items-center gap-1">
-            <span className="text-xs text-gray-600">Q{q.question_number}</span>
+            <span className="text-xs text-ink-soft">Q{q.question_number}</span>
             <ReviewCheckbox
               questionNumber={q.question_number}
               reviewSet={reviewSet}

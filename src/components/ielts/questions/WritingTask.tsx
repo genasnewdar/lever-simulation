@@ -28,39 +28,40 @@ const WritingTask: React.FC<WritingTaskProps> = ({ question, disabled }) => {
   const isTask2 = type === "WRITING_TASK_2";
 
   return (
-    <div className="flex flex-col gap-8 p-10 border rounded-3xl bg-white shadow-2xl border-gray-100 max-w-5xl mx-auto">
-      <div className="flex items-center justify-between border-b border-gray-100 pb-8">
-        <div>
-          <h2 className="text-3xl font-black text-textprimary tracking-tight mb-2">
+    <div className="flex flex-col gap-10 p-10 max-w-5xl mx-auto">
+      <div className="flex items-baseline justify-between border-b border-rule pb-4">
+        <div className="space-y-1.5">
+          <p className="text-[11px] uppercase tracking-[0.18em] text-muted">
+            Academic Writing
+          </p>
+          <h2 className="font-serif text-[1.6rem] font-semibold text-ink tracking-[-0.02em]">
             {isTask2 ? "Writing Task 2" : "Writing Task 1"}
           </h2>
-          <p className="text-gray-400 font-bold uppercase text-xs tracking-[0.2em]">
-            Academic Writing Module
-          </p>
         </div>
-        <div className="flex flex-col items-end gap-2">
-          <div className="bg-blue-600 text-white px-6 py-2 rounded-full font-black text-sm shadow-xl shadow-blue-200">
-            {wordCount} Words
-          </div>
+        <div className="text-right space-y-0.5">
+          <p className="text-[12px] font-medium text-ink-soft tabular-nums">
+            {wordCount} words
+          </p>
           {validationRules?.maxWords && (
-            <span className="text-[10px] font-black text-gray-400">
-              Target: {validationRules.maxWords}+ words
-            </span>
+            <p className="text-[11px] text-muted">
+              Target {validationRules.maxWords}+
+            </p>
           )}
         </div>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 min-h-[500px]">
         {/* Left: Instruction & prompt */}
-        <div className="space-y-8 bg-gray-50/50 p-8 rounded-3xl border border-gray-100/50">
-          <div className="prose prose-slate prose-lg max-w-none">
-            <blockquote className="border-l-8 border-primary bg-white p-6 rounded-r-2xl shadow-sm text-textprimary font-medium leading-relaxed italic">
-              {content}
-            </blockquote>
+        <div className="space-y-8">
+          <div className="font-serif text-[1.0625rem] leading-[1.7] text-ink max-w-[64ch]">
+            <p className="text-[11px] uppercase tracking-[0.18em] text-muted not-italic mb-3 font-sans">
+              Prompt
+            </p>
+            {content}
           </div>
 
           {!isTask2 && imageUrl && (
-            <div className="relative aspect-square bg-white rounded-2xl border-2 border-gray-100 overflow-hidden group hover:border-blue-200 transition-colors cursor-zoom-in">
+            <div className="relative aspect-square bg-white rounded-lg border border-rule overflow-hidden group hover:border-ink-soft transition-colors cursor-zoom-in">
               <Image
                 src={imageUrl}
                 alt="Writing Task Graphic"
@@ -72,17 +73,17 @@ const WritingTask: React.FC<WritingTaskProps> = ({ question, disabled }) => {
           )}
 
           {isTask2 && (
-            <div className="p-6 bg-white rounded-2xl border-2 border-blue-50 space-y-4">
-              <h4 className="text-sm font-black text-blue-900 uppercase tracking-widest">
+            <div className="p-6 bg-white rounded-lg border border-rule space-y-4">
+              <h4 className="text-sm font-semibold text-ink uppercase tracking-widest">
                 Key Requirements
               </h4>
-              <ul className="space-y-3 text-sm font-medium text-gray-600">
+              <ul className="space-y-3 text-sm font-medium text-ink-soft">
                 <li className="flex items-center gap-3">
-                  <span className="w-1.5 h-1.5 bg-blue-500 rounded-full" />
+                  <span className="w-1.5 h-1.5 bg-mint-deep rounded-full" />
                   Give reasons for your answer
                 </li>
                 <li className="flex items-center gap-3">
-                  <span className="w-1.5 h-1.5 bg-blue-500 rounded-full" />
+                  <span className="w-1.5 h-1.5 bg-mint-deep rounded-full" />
                   Include relevant examples from your own knowledge
                 </li>
               </ul>
@@ -90,41 +91,26 @@ const WritingTask: React.FC<WritingTaskProps> = ({ question, disabled }) => {
           )}
         </div>
 
-        {/* Right: Editor */}
-        <div className="relative h-full flex flex-col">
-          <div className="flex-grow">
-            <textarea
-              {...register(id)}
-              disabled={disabled}
-              placeholder="Begin writing your response here..."
-              className={`w-full h-full min-h-[600px] p-8 border-2 rounded-3xl focus:ring-8 focus:ring-primary/20 focus:border-primary outline-none resize-none font-serif text-xl tracking-tight text-textprimary leading-relaxed transition-all ${
-                disabled
-                  ? "bg-gray-100 cursor-not-allowed border-transparent text-gray-400"
-                  : "bg-white border-bordercolor shadow-inner hover:border-primary"
-              }`}
-            />
-          </div>
-
-          <div className="mt-8 p-4 bg-gray-50 rounded-2xl flex items-center justify-between border border-gray-100">
-            <div className="flex gap-2">
-              <div className="w-8 h-8 rounded bg-white shadow-sm border border-gray-200 flex items-center justify-center font-bold text-gray-400 text-xs">
-                B
-              </div>
-              <div className="w-8 h-8 rounded bg-white shadow-sm border border-gray-200 flex items-center justify-center font-serif text-gray-400 italic">
-                I
-              </div>
-              <div className="w-8 h-8 rounded bg-white shadow-sm border border-gray-200 flex items-center justify-center text-gray-400">
-                🔗
-              </div>
-            </div>
-            <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">
-              Autosaved at{" "}
+        <div className="relative h-full flex flex-col gap-3">
+          <textarea
+            {...register(id)}
+            disabled={disabled}
+            placeholder="Begin writing here…"
+            className={`w-full flex-1 min-h-[560px] p-7 border rounded-md outline-none resize-none font-serif text-[1.0625rem] leading-[1.7] tracking-tight text-ink transition-all ${
+              disabled
+                ? "bg-paper-3 cursor-not-allowed border-rule text-muted"
+                : "bg-paper border-rule focus:border-mint focus:ring-1 focus:ring-mint/30 hover:border-ink-soft"
+            }`}
+          />
+          <p className="text-[11px] text-muted tracking-tight self-end">
+            Autosaved at{" "}
+            <span className="tabular-nums">
               {new Date().toLocaleTimeString([], {
                 hour: "2-digit",
                 minute: "2-digit",
               })}
-            </p>
-          </div>
+            </span>
+          </p>
         </div>
       </div>
     </div>

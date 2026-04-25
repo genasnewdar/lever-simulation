@@ -63,13 +63,13 @@ const QuestionMap: React.FC<QuestionMapProps> = ({
       : Math.max(0, derivedPartIndex);
 
   return (
-    <footer className="bg-gray-100 border-t border-bordercolor flex items-center justify-between fixed bottom-0 w-full z-50 select-none overflow-hidden h-[56px]">
-      <div className="flex-shrink-0 flex items-center px-4 border-r border-bordercolor h-full">
+    <footer className="bg-paper-2 border-t border-rule flex items-center justify-between fixed bottom-0 w-full z-50 select-none overflow-hidden h-[56px]">
+      <div className="flex-shrink-0 flex items-center px-4 border-r border-rule h-full">
         {activeTab !== "WRITING" ? (
           <button
             disabled={currentQuestionIndex === 0}
             onClick={() => onQuestionClick(currentQuestionIndex - 1)}
-            className="flex items-center px-4 py-1.5 text-sm font-bold text-gray-700 hover:bg-gray-200 rounded disabled:opacity-30 disabled:cursor-not-allowed group transition-colors"
+            className="flex items-center px-3 py-1.5 text-[13px] font-medium text-ink-soft hover:text-ink rounded-md disabled:opacity-30 disabled:cursor-not-allowed group transition-colors"
           >
             <ChevronLeft className="w-4 h-4 mr-1 group-hover:-translate-x-0.5 transition-transform" />
             Back
@@ -90,13 +90,13 @@ const QuestionMap: React.FC<QuestionMapProps> = ({
                   key={task}
                   onClick={() => onWritingTaskChange?.(task)}
                   className={cn(
-                    "px-6 py-2 rounded-xl text-sm font-bold transition-all border-2",
+                    "px-5 py-1.5 rounded-md text-[13px] font-medium tracking-tight transition-all border",
                     isActive
-                      ? "bg-primary text-white border-primary shadow-md"
-                      : "bg-white text-textprimary border-bordercolor hover:border-gray-400",
+                      ? "bg-ink text-paper border-ink"
+                      : "bg-paper text-ink-soft border-rule hover:border-ink-soft hover:text-ink",
                     !isActive &&
                       isAnswered &&
-                      "bg-emerald-50 border-emerald-400 text-emerald-700"
+                      "border-mint text-mint-deep"
                   )}
                 >
                   Task {task}
@@ -125,15 +125,15 @@ const QuestionMap: React.FC<QuestionMapProps> = ({
                     onQuestionClick(partStart - 1);
                   }}
                   className={cn(
-                    "px-4 py-2 rounded-xl text-xs font-bold transition-all border-2 flex items-center gap-2",
+                    "px-3.5 py-1.5 rounded-md text-[12px] font-medium transition-all border flex items-center gap-2 tracking-tight",
                     isActivePart
-                      ? "bg-primary text-white border-primary shadow-md"
-                      : "bg-white text-textprimary border-bordercolor hover:border-gray-400"
+                      ? "bg-ink text-paper border-ink"
+                      : "bg-paper text-ink-soft border-rule hover:border-ink-soft hover:text-ink"
                   )}
                   title={partTitle}
                 >
                   <span className="truncate max-w-[140px]">{partTitle}</span>
-                  <span className="opacity-90">
+                  <span className={cn("tabular-nums", isActivePart ? "text-paper/80" : "text-muted")}>
                     {answeredInPart}/{count}
                   </span>
                 </button>
@@ -143,12 +143,12 @@ const QuestionMap: React.FC<QuestionMapProps> = ({
         )}
       </div>
 
-      <div className="flex-shrink-0 flex items-center px-4 border-l border-bordercolor h-full">
+      <div className="flex-shrink-0 flex items-center px-4 border-l border-rule h-full">
         {activeTab !== "WRITING" ? (
           <button
             disabled={currentQuestionIndex === totalQuestions - 1}
             onClick={() => onQuestionClick(currentQuestionIndex + 1)}
-            className="flex items-center px-4 py-1.5 text-sm font-bold text-gray-700 hover:bg-gray-200 rounded disabled:opacity-30 disabled:cursor-not-allowed group transition-colors"
+            className="flex items-center px-3 py-1.5 text-[13px] font-medium text-ink-soft hover:text-ink rounded-md disabled:opacity-30 disabled:cursor-not-allowed group transition-colors"
           >
             Next
             <ChevronRight className="w-4 h-4 ml-1 group-hover:translate-x-0.5 transition-transform" />

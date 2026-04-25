@@ -27,11 +27,11 @@ export default function FormGroupRenderer({
           wordLimitText={group.word_limit_text}
         />
         {layout.title && (
-          <h4 className="text-base font-bold text-gray-900 border-b border-gray-300 pb-2">
+          <h4 className="text-base font-semibold text-ink border-b border-rule pb-2">
             {layout.title}
           </h4>
         )}
-        <div className="border border-black rounded-lg overflow-hidden">
+        <div className="border border-rule rounded-lg overflow-hidden">
           <table className="w-full border-collapse">
             <tbody>
               {layout.rows.map((row, rowIdx) => {
@@ -40,11 +40,11 @@ export default function FormGroupRenderer({
                   .map((c) => (c as { questionNumber: number }).questionNumber);
 
                 return (
-                  <tr key={rowIdx} className="border-b border-black last:border-b-0 hover:bg-gray-50/50">
-                    <td className="border-r border-black p-2 text-sm font-semibold text-gray-700 w-[160px] align-middle">
+                  <tr key={rowIdx} className="border-b border-rule last:border-b-0 hover:bg-paper-2">
+                    <td className="border-r border-rule p-2 text-sm font-semibold text-ink-soft w-[160px] align-middle">
                       {row.label}
                     </td>
-                    <td className="border-r border-black p-2 text-sm text-gray-800 align-middle">
+                    <td className="border-r border-rule p-2 text-sm text-ink align-middle">
                       <span className="flex flex-wrap items-center gap-1">
                         <LayoutCells
                           cells={row.content}
@@ -91,11 +91,11 @@ export default function FormGroupRenderer({
               key={q.id}
               id={`q-${q.question_number}`}
               className={cn(
-                "flex flex-wrap items-baseline gap-x-2 gap-y-2 border-b border-gray-200 pb-3",
-                flashQuestionNumber === q.question_number && "ielts-question-flash rounded-lg bg-blue-50/40",
+                "flex flex-wrap items-baseline gap-x-2 gap-y-2 border-b border-rule pb-3",
+                flashQuestionNumber === q.question_number && "ielts-question-flash rounded-lg bg-mint-soft",
               )}
             >
-              <span className="flex-shrink-0 w-8 h-8 flex items-center justify-center bg-blue-600 text-white rounded-lg text-sm font-black">
+              <span className="flex-shrink-0 w-8 h-8 flex items-center justify-center bg-ink text-paper rounded-lg text-sm font-semibold">
                 {q.question_number}
               </span>
               <span className="flex flex-wrap items-baseline gap-x-1 gap-y-1">
@@ -107,7 +107,7 @@ export default function FormGroupRenderer({
                         {...register(regKey)}
                         disabled={disabled}
                         placeholder="..."
-                        className="inline-block min-w-[100px] max-w-[220px] mx-0.5 px-2 py-0.5 border-b-2 border-gray-500 bg-transparent focus:bg-blue-50 outline-none font-medium text-gray-900"
+                        className="inline-block min-w-[100px] max-w-[220px] mx-0.5 px-2 py-0.5 border-b border-rule bg-transparent focus:bg-paper-3 outline-none font-medium text-ink"
                       />
                     )}
                   </React.Fragment>

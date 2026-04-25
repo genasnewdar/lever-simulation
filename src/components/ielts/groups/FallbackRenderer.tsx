@@ -44,18 +44,18 @@ export default function FallbackRenderer({
               key={q.id}
               id={`q-${q.question_number}`}
               className={cn(
-                "space-y-2 border-b border-gray-100 pb-4 last:border-0 last:pb-0",
-                flashQuestionNumber === q.question_number && "ielts-question-flash rounded-xl bg-blue-50/30 p-3 -mx-3",
+                "space-y-2 border-b border-rule pb-4 last:border-0 last:pb-0",
+                flashQuestionNumber === q.question_number && "ielts-question-flash rounded-md bg-mint-soft p-3 -mx-3",
               )}
             >
               <div className="flex flex-wrap items-baseline gap-x-2 gap-y-2">
-                <span className="flex-shrink-0 w-8 h-8 flex items-center justify-center bg-blue-600 text-white rounded-lg text-sm font-black">
+                <span className="flex-shrink-0 w-8 h-8 flex items-center justify-center bg-ink text-paper rounded-lg text-sm font-semibold">
                   {q.question_number}
                 </span>
 
                 {/* Text with blank */}
                 {hasBlank && !hasOptions && (
-                  <span className="flex flex-wrap items-baseline gap-x-1 gap-y-1 text-gray-800 font-medium">
+                  <span className="flex flex-wrap items-baseline gap-x-1 gap-y-1 text-ink font-medium">
                     {parts.map((part, idx) => (
                       <React.Fragment key={idx}>
                         {part}
@@ -64,7 +64,7 @@ export default function FallbackRenderer({
                             {...register(regKey)}
                             disabled={disabled}
                             placeholder="..."
-                            className="inline-block min-w-[100px] max-w-[220px] mx-0.5 px-2 py-0.5 border-b-2 border-gray-500 bg-transparent focus:bg-blue-50 outline-none font-medium text-gray-900"
+                            className="inline-block min-w-[100px] max-w-[220px] mx-0.5 px-2 py-0.5 border-b border-rule bg-transparent focus:bg-paper-3 outline-none font-medium text-ink"
                           />
                         )}
                       </React.Fragment>
@@ -74,7 +74,7 @@ export default function FallbackRenderer({
 
                 {/* Plain text question */}
                 {!hasBlank && (
-                  <span className="text-gray-800 font-medium leading-relaxed">
+                  <span className="text-ink font-medium leading-relaxed">
                     {q.question_text ?? ""}
                   </span>
                 )}
@@ -86,7 +86,7 @@ export default function FallbackRenderer({
                   <select
                     {...register(regKey)}
                     disabled={disabled}
-                    className="min-w-[140px] px-3 py-2 border-2 border-gray-300 rounded-lg bg-white font-semibold text-gray-800 focus:ring-2 focus:ring-primary outline-none"
+                    className="min-w-[140px] px-3 py-2 border border-rule rounded-lg bg-white font-semibold text-ink focus:ring-2 focus:ring-mint outline-none"
                   >
                     <option value="">Select</option>
                     {isTFNG && (
@@ -111,16 +111,16 @@ export default function FallbackRenderer({
               {hasOptions && (isRadio || isCheckbox) && (
                 <div className="ml-10 space-y-2">
                   {q.options.map((opt) => (
-                    <label key={opt.id} className="flex items-start gap-3 cursor-pointer hover:bg-gray-50 rounded-lg px-3 py-2 -mx-3">
+                    <label key={opt.id} className="flex items-start gap-3 cursor-pointer hover:bg-paper-2 rounded-lg px-3 py-2 -mx-3">
                       <input
                         type={isCheckbox ? "checkbox" : "radio"}
                         value={opt.label}
                         {...register(regKey)}
                         disabled={disabled}
-                        className="mt-0.5 w-4 h-4 border-gray-300 text-primary focus:ring-primary"
+                        className="mt-0.5 w-4 h-4 border-rule text-ink focus:ring-mint"
                       />
-                      <span className="text-base text-gray-800">
-                        <span className="font-bold">{opt.label}.</span> {opt.text}
+                      <span className="text-base text-ink">
+                        <span className="font-semibold">{opt.label}.</span> {opt.text}
                       </span>
                     </label>
                   ))}
@@ -134,7 +134,7 @@ export default function FallbackRenderer({
                     {...register(regKey)}
                     disabled={disabled}
                     placeholder="Your answer..."
-                    className="w-full max-w-[300px] px-3 py-2 border-2 border-gray-300 rounded-lg bg-white font-medium text-gray-900 focus:ring-2 focus:ring-primary outline-none"
+                    className="w-full max-w-[300px] px-3 py-2 border border-rule rounded-lg bg-white font-medium text-ink focus:ring-2 focus:ring-mint outline-none"
                   />
                 </div>
               )}
