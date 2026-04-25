@@ -1,27 +1,42 @@
 # lever-offline — Progress Tracker
 
-Last updated: 2026-04-25
+Last updated: 2026-04-25 (post user-flow redesign)
 **Production plan:** [/home/senge/proj/PRODUCTION_PLAN.md](../PRODUCTION_PLAN.md)
 
 ---
 
 ## Up Next
 
-### User-flow brainstorm (CRITICAL — informs everything below)
-- [ ] Map the full student journey end-to-end:
-  - **Pre-exam:** booking on lever-app → email with code → arrival at lever-offline
-  - **Entry:** landing → mock-exam code page → fullscreen + anti-cheat → take-test
-  - **In-exam:** Listening → Reading (with highlighting/clear) → Writing → completion
-  - **Post-exam:** completion screen → results polling → graded results page → feedback PDF
-  - **Edge cases:** browser crash mid-exam, disconnection, code re-entry on different device, session-gated waiting room, code already used, code cancelled
-- [ ] Decide: should there be an onboarding/instructions screen between code-entry and the actual exam? (currently jumps straight in)
-- [ ] Decide: post-exam — should we show "Шалгалт дууслаа" success state with ETA for results, or send straight to the polling results page?
-- [ ] Identify confusion/anxiety points in the current flow that the redesign should address with copy or motion cues
-- [ ] Output: a flow diagram + copy decisions before any further UI work
+### Backend follow-ups (unlock deferred spec items)
+- [ ] **Dynamic Listening timer (true).** Add `audio_duration_seconds` to listening test metadata in lever-edu (admin-settable on upload), compute section duration as `audio_duration + 5*60`. Frontend already displays whatever backend sends — see `SectionIntroCard`.
+- [ ] **Code already completed → results redirect.** Backend `verify-code` should return enough state for the mock-exam page to redirect to `/ielts/results/[id]` instead of erroring.
+- [ ] **Code cancelled / expired friendly error.** Backend should map status to a clear error code so frontend can show "Энэ код хүчингүй. Тусламж: ..." instead of generic message.
+- [ ] **Device take-over modal.** Wire the existing `POST /api/student/ielts/attempt/{id}/take-over` endpoint into a modal flow on `mock-exam` page when user enters code that's active elsewhere.
+
+### Real audio test clip
+- [ ] Replace placeholder `/audio/audio-check.mp3` path with a real 1–3s test tone bundled in `public/audio/`. `AudioCheckButton` handles missing file gracefully today, but real audio is needed before launch.
+
+### Dev DB baseline drift (lever-edu)
+- [ ] Resolve the shared dev DB at `34.133.7.23` having 14/20 migrations marked unapplied. The `add_attempt_device_token` migration was hand-rolled; once the baseline is fixed, `prisma migrate deploy` will apply it cleanly.
 
 ---
 
 ## Completed
+
+### User-flow redesign — spec + 6 plans + ship (2026-04-25)
+- [x] **Spec:** `docs/superpowers/specs/2026-04-25-user-flow-design.md` — full student journey end-to-end (pre-exam → entry → in-exam → post-exam) with 8 edge cases.
+- [x] **Plan #1 (lever-edu):** device-token take-over endpoint, print-codes endpoint, roster-updated SSE, `IeltsTestAttempt.current_device_token` field. 12 commits, 345 tests passing.
+- [x] **Plan #2 (admin-ui):** "Print Codes" button on session detail → printable popup with QR slips per booked student.
+- [x] **Plan #3 (lever-offline):** Waiting room v2 — status pill, audio check button, live roster (initials, fed by SSE), rules card, 3-2-1 countdown overlay.
+- [x] **Plan #4 (lever-offline):** SectionIntroCard overlay (3.5s) before each exam section showing name + duration + cue.
+- [x] **Plan #5 (lever-offline):** `/ielts/finished/[attemptId]` success beat between Writing-submit and the results page.
+- [x] **Plan #6 (lever-offline):** QR `?code=` query support on landing + mock-exam, OfflineBanner for network drops, CancelledModal driven by `session_cancelled` SSE.
+- [x] Design refresh + Auth0 removal (`@auth0/nextjs-auth0` dep dropped; lever-offline is now public/code-only).
+- [x] Cloud Run build fix — synced `package-lock.json` after package.json updates; committed Auth0 file deletions.
+
+---
+
+## Earlier completed
 
 ### Core Pages
 - [x] `/ielts` — Landing page with fullscreen prompt
