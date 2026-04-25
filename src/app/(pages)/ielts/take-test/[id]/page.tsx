@@ -20,6 +20,7 @@ import { api } from "@/lib";
 import { Loader2, CheckCircle2 } from "lucide-react";
 import { toast } from "react-toastify";
 import { useRouter } from "next/navigation";
+import { AnimatePresence, motion } from "framer-motion";
 import { useMockExamStore } from "@/lib/stores/mock-exam-store";
 import { useExamCodeStore } from "@/lib/stores/exam-code-store";
 import {
@@ -747,6 +748,33 @@ export default function IeltsTakeTestPage(props: PageProps) {
     [activePassage, examId, setHighlightsInStore],
   );
 
+  const handleRemoveHighlight = useCallback(
+    (start: number, end: number) => {
+      if (!activePassage || !examId) return;
+      setHighlightsByPassageId((prev) => {
+        const current = prev[activePassage.id] || [];
+        const nextList = current.filter(
+          (h) => !(h.start === start && h.end === end),
+        );
+        if (nextList.length === current.length) return prev;
+        const next = { ...prev, [activePassage.id]: nextList };
+        setHighlightsInStore(examId, activePassage.id, nextList);
+        return next;
+      });
+    },
+    [activePassage, examId, setHighlightsInStore],
+  );
+
+  const handleClearPassageHighlights = useCallback(() => {
+    if (!activePassage || !examId) return;
+    setHighlightsByPassageId((prev) => {
+      if (!prev[activePassage.id]?.length) return prev;
+      const next = { ...prev, [activePassage.id]: [] };
+      setHighlightsInStore(examId, activePassage.id, []);
+      return next;
+    });
+  }, [activePassage, examId, setHighlightsInStore]);
+
   // ── Helper: submit current answers ─────────────────────────────────────────
   const submitCurrentAnswers = useCallback(async () => {
     const formValues = methods.getValues() as Record<string, unknown>;
@@ -1008,7 +1036,7 @@ export default function IeltsTakeTestPage(props: PageProps) {
     return (
       <div className="h-screen flex items-center justify-center bg-background">
         <div className="max-w-md text-center space-y-6 p-6">
-          <h1 className="text-2xl font-bold text-red-600">Алдаа</h1>
+          <h1 className="text-2xl font-semibold text-mint-deep">Алдаа</h1>
           <p className="text-gray-600">{error || "Test not found"}</p>
           <p className="text-sm text-gray-500">
             Хэдхэн секундын дараа дахин оролдоно уу, эсвэл доорх товч дарна уу.
@@ -1026,7 +1054,7 @@ export default function IeltsTakeTestPage(props: PageProps) {
             </button>
             <button
               onClick={() => router.back()}
-              className="px-5 py-2.5 bg-gray-200 rounded-xl text-gray-800 font-semibold hover:bg-gray-300 transition-colors"
+              className="px-5 py-2.5 bg-paper-3 rounded-xl text-gray-800 font-semibold hover:bg-gray-300 transition-colors"
             >
               Буцах
             </button>
@@ -1040,15 +1068,15 @@ export default function IeltsTakeTestPage(props: PageProps) {
   if (isFinished) {
     return (
       <div className="h-screen flex items-center justify-center bg-gradient-to-br from-primary/5 via-white to-primary/10">
-        <div className="max-w-lg w-full bg-white rounded-3xl p-12 text-center space-y-8 shadow-2xl border border-gray-100">
+        <div className="max-w-lg w-full bg-white rounded-3xl p-12 text-center space-y-8 shadow-2xl border border-rule">
           <div className="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center mx-auto">
             <CheckCircle2 className="w-10 h-10 text-green-600" />
           </div>
           <div className="space-y-3">
-            <h1 className="text-3xl font-black text-gray-900 tracking-tight uppercase">
+            <h1 className="text-3xl font-semibold text-gray-900 tracking-tight uppercase">
               Шалгалт дууссан
             </h1>
-            <p className="text-gray-400 font-bold uppercase text-[10px] tracking-widest">
+            <p className="text-gray-400 font-semibold uppercase text-[10px] tracking-widest">
               {contentMeta?.test_title ?? ""}
             </p>
             <p className="text-gray-500 font-medium pt-4 border-t">
@@ -1067,7 +1095,7 @@ export default function IeltsTakeTestPage(props: PageProps) {
               // Don't clear exam code — results page needs it for API auth
               router.push(`/ielts/results/${params.id}`);
             }}
-            className="w-full py-4 bg-primary text-white rounded-2xl font-black text-lg hover:bg-primary/90 transition-all shadow-xl shadow-primary/20 active:scale-95"
+            className="w-full py-4 bg-primary text-white rounded-2xl font-semibold text-lg hover:bg-primary/90 transition-all shadow-xl shadow-primary/20 active:scale-95"
           >
             Үр дүн харах
           </button>
@@ -1083,7 +1111,7 @@ export default function IeltsTakeTestPage(props: PageProps) {
               clearExamCode();
               router.push("/ielts");
             }}
-            className="w-full py-3 bg-gray-100 text-gray-700 rounded-2xl font-bold text-base hover:bg-gray-200 transition-all"
+            className="w-full py-3 bg-paper-3 text-gray-700 rounded-2xl font-semibold text-base hover:bg-paper-3 transition-all"
           >
             Нүүр хуудас руу буцах
           </button>
@@ -1154,81 +1182,148 @@ export default function IeltsTakeTestPage(props: PageProps) {
         {/* Left Panel: Content (Reading/Writing) */}
         <div className="space-y-12">
           {activeTab === "READING" && activePassage && (
-            <div
-              key={activePassage.id}
-              className="space-y-12 animate-in fade-in slide-in-from-bottom-2 duration-300"
-            >
-              <div className="space-y-6">
-                <span className="text-xs font-black text-white bg-primary px-4 py-1.5 rounded-full uppercase tracking-widest">
-                  Passage {activePassage.passage_number}
-                </span>
-                <h2 className="text-5xl font-black text-gray-900 leading-[1.1] tracking-tighter">
-                  {activePassage.title}
-                </h2>
-              </div>
-              <ReadingPassage
-                ref={passageRef}
-                content={activePassage.content}
-                highlights={highlightsByPassageId[activePassage.id] || []}
-              />
-            </div>
+            <AnimatePresence mode="wait" initial={false}>
+              <motion.article
+                key={activePassage.id}
+                initial={{ opacity: 0, rotateX: -6, rotateY: 4, rotateZ: 1, scale: 0.99 }}
+                animate={{ opacity: 1, rotateX: 0, rotateY: 0, rotateZ: 0, scale: 1 }}
+                exit={{
+                  opacity: 0,
+                  rotateX: -18,
+                  rotateY: 18,
+                  rotateZ: -4,
+                  scale: 0.95,
+                  filter: "drop-shadow(-10px 10px 14px color-mix(in oklch, var(--ink) 18%, transparent))",
+                }}
+                transition={{ duration: 0.55, ease: [0.32, 0.04, 0.18, 1] }}
+                style={{
+                  transformOrigin: "100% 100%",
+                  transformStyle: "preserve-3d",
+                  backfaceVisibility: "hidden",
+                }}
+                className="relative space-y-10 pb-16"
+              >
+                {/* Section meta — small, calm, never shouts */}
+                <header className="space-y-5">
+                  <div className="flex items-baseline justify-between gap-6 border-b border-rule pb-3">
+                    <div className="flex items-baseline gap-4">
+                      <span className="font-serif text-[13px] font-medium tracking-tight text-mint-deep">
+                        Passage {activePassage.passage_number}
+                      </span>
+                      <span className="text-[12px] uppercase tracking-[0.18em] text-muted">
+                        Reading
+                      </span>
+                    </div>
+                    {(highlightsByPassageId[activePassage.id]?.length ?? 0) > 0 && (
+                      <button
+                        type="button"
+                        onClick={handleClearPassageHighlights}
+                        className="text-[12px] font-medium text-muted hover:text-ink-soft transition-colors"
+                        title="Remove all highlights on this passage. Right-click any highlight to remove just that one."
+                      >
+                        Clear highlights
+                      </button>
+                    )}
+                  </div>
+                  <h2 className="font-serif text-[2.6rem] font-semibold text-ink leading-[1.08] tracking-[-0.022em]">
+                    {activePassage.title}
+                  </h2>
+                </header>
+
+                <ReadingPassage
+                  ref={passageRef}
+                  content={activePassage.content}
+                  highlights={highlightsByPassageId[activePassage.id] || []}
+                  onRemoveHighlight={handleRemoveHighlight}
+                />
+
+                {/* Page-curl: the brand motif, deployed exactly once per passage */}
+                <span aria-hidden className="page-curl" />
+              </motion.article>
+            </AnimatePresence>
           )}
 
           {activeTab === "WRITING" && activeWritingPrompt && (
-            <div
-              key={activeWritingPrompt.id}
-              className="space-y-12 animate-in fade-in slide-in-from-left-2 duration-300"
-            >
-              <div className="space-y-6">
-                <span className="text-xs font-black text-white bg-primary px-4 py-1.5 rounded-full uppercase tracking-widest text-center">
-                  Writing Task {activeWritingPrompt.task_number}
-                </span>
-                <h2 className="text-4xl font-black text-gray-900 leading-[1.1] tracking-tighter">
-                  {activeWritingPrompt.title}
-                </h2>
-              </div>
-              <div className="text-lg font-medium text-gray-700 bg-white p-8 rounded-2xl border-2 border-dashed border-gray-200 shadow-inner leading-relaxed whitespace-pre-line">
-                {activeWritingPrompt.prompt}
-              </div>
-              {activeWritingPrompt.visual_content && (
-                <div className="bg-white p-4 rounded-2xl border border-gray-200 shadow-sm">
-                  <img
-                    src={activeWritingPrompt.visual_content}
-                    alt={`Visual content for ${activeWritingPrompt.title}`}
-                    className="w-full h-auto rounded-lg"
-                  />
+            <AnimatePresence mode="wait" initial={false}>
+              <motion.article
+                key={activeWritingPrompt.id}
+                initial={{ opacity: 0, rotateX: -6, rotateY: 4, rotateZ: 1, scale: 0.99 }}
+                animate={{ opacity: 1, rotateX: 0, rotateY: 0, rotateZ: 0, scale: 1 }}
+                exit={{
+                  opacity: 0,
+                  rotateX: -18,
+                  rotateY: 18,
+                  rotateZ: -4,
+                  scale: 0.95,
+                  filter: "drop-shadow(-10px 10px 14px color-mix(in oklch, var(--ink) 18%, transparent))",
+                }}
+                transition={{ duration: 0.5, ease: [0.32, 0.04, 0.18, 1] }}
+                style={{
+                  transformOrigin: "100% 100%",
+                  transformStyle: "preserve-3d",
+                  backfaceVisibility: "hidden",
+                }}
+                className="space-y-10 pb-16"
+              >
+                <header className="space-y-5">
+                  <div className="flex items-baseline gap-4 border-b border-rule pb-3">
+                    <span className="font-serif text-[13px] font-medium tracking-tight text-mint-deep">
+                      Task {activeWritingPrompt.task_number}
+                    </span>
+                    <span className="text-[12px] uppercase tracking-[0.18em] text-muted">
+                      Writing
+                    </span>
+                  </div>
+                  <h2 className="font-serif text-[2.4rem] font-semibold text-ink leading-[1.08] tracking-[-0.022em]">
+                    {activeWritingPrompt.title}
+                  </h2>
+                </header>
+
+                <div className="font-serif text-[1.0625rem] leading-[1.7] text-ink max-w-[64ch] whitespace-pre-line">
+                  {activeWritingPrompt.prompt}
                 </div>
-              )}
-              <div className="p-4 bg-blue-50 border-l-4 border-blue-400 rounded text-blue-700 font-bold uppercase text-xs tracking-widest">
-                Suggested Time: {activeWritingPrompt.suggested_time} Minutes
-              </div>
-            </div>
+
+                {activeWritingPrompt.visual_content && (
+                  <div className="bg-paper-2 p-4 rounded-md border border-rule">
+                    <img
+                      src={activeWritingPrompt.visual_content}
+                      alt={`Visual content for ${activeWritingPrompt.title}`}
+                      className="w-full h-auto rounded"
+                    />
+                  </div>
+                )}
+
+                <p className="text-[11px] uppercase tracking-[0.18em] text-mint-deep">
+                  Suggested · {activeWritingPrompt.suggested_time} min
+                </p>
+              </motion.article>
+            </AnimatePresence>
           )}
         </div>
 
         {/* Right Panel: Questions / Essay */}
         <div className="space-y-12 pb-24 h-full">
           {activeTab === "WRITING" ? (
-            <div className="flex flex-col h-full space-y-4">
-              <div className="flex items-center justify-between px-2">
-                <span className="text-xs font-black text-gray-400 uppercase tracking-widest">
-                  Your Essay
+            <div className="flex flex-col h-full gap-3">
+              <div className="flex items-baseline justify-between border-b border-rule pb-2">
+                <span className="text-[11px] uppercase tracking-[0.18em] text-muted">
+                  Your essay
                 </span>
-                <div className="bg-primary text-white px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest">
-                  Word Count:{" "}
+                <span className="text-[12px] font-medium text-ink-soft tabular-nums">
                   {getWordCount(
                     (() => {
                       const v = watchAll[`writing_task_${writingTask}`];
                       return typeof v === "string" ? v : "";
                     })(),
-                  )}
-                </div>
+                  )}{" "}
+                  words
+                </span>
               </div>
               <textarea
                 key={`writing_task_${writingTask}`}
                 {...methods.register(`writing_task_${writingTask}`)}
-                className="flex-1 w-full min-h-[400px] p-8 text-lg font-medium bg-foreground border-2 border-bordercolor rounded-2xl focus:border-primary focus:bg-white transition-all shadow-inner outline-none resize-none"
-                placeholder="Type your response here..."
+                className="flex-1 w-full min-h-[460px] p-7 font-serif text-[1.0625rem] leading-[1.7] tracking-tight text-ink bg-paper border border-rule rounded-md focus:border-mint focus:ring-1 focus:ring-mint/30 outline-none resize-none transition-all"
+                placeholder="Begin writing here…"
               />
             </div>
           ) : (
