@@ -11,6 +11,9 @@ import React, {
 import { useForm, FormProvider } from "react-hook-form";
 import CDIELTSLayout from "@/components/ielts/layout/CDIELTSLayout";
 import { SectionIntroCard } from "@/components/ielts/SectionIntroCard";
+import { CancelledModal } from "@/components/ielts/take-test/CancelledModal";
+import { OfflineBanner } from "@/components/ielts/take-test/OfflineBanner";
+import { subscribeToSessionCancelled } from "@/lib/sse/sessionEvents";
 import type { MapSection } from "@/components/ielts/layout/QuestionMap";
 import ReadingPassage from "@/components/ielts/ReadingPassage";
 import type { PassageHighlight } from "@/components/ielts/ReadingPassage";
@@ -80,7 +83,10 @@ export default function IeltsTakeTestPage(props: PageProps) {
   const params = use(props.params);
   const router = useRouter();
   const resetMockExamStore = useMockExamStore((s) => s.reset);
+  const sessionId = useMockExamStore((s) => s.sessionId);
   const clearExamCode = useExamCodeStore((s) => s.clear);
+  const examCode = useExamCodeStore((s) => s.examCode);
+  const [cancelledReason, setCancelledReason] = useState<string | null>(null);
 
   // ── Core state ──────────────────────────────────────────────────────────────
   const [contentMeta, setContentMeta] = useState<ContentResponseMeta | null>(null);
@@ -167,6 +173,14 @@ export default function IeltsTakeTestPage(props: PageProps) {
     if (examId) setCurrentExamId(examId);
     return () => setCurrentExamId(null);
   }, [examId, setCurrentExamId]);
+
+  // ── SSE: listen for session-cancelled ──────────────────────────────────────
+  useEffect(() => {
+    if (!sessionId || !examCode) return;
+    return subscribeToSessionCancelled(sessionId, examCode, (data) => {
+      setCancelledReason(data.reason ?? null);
+    });
+  }, [sessionId, examCode]);
 
   // ── 1) Fetch content directly using attempt_id — no my-sessions polling needed ─
   useEffect(() => {
@@ -1124,6 +1138,13 @@ export default function IeltsTakeTestPage(props: PageProps) {
   if (!sectionContent) return null;
   return (
     <>
+      <OfflineBanner />
+      {cancelledReason !== null && (
+        <CancelledModal
+          reason={cancelledReason}
+          onExit={() => router.push("/ielts")}
+        />
+      )}
       {pendingSectionIntro && (
         <SectionIntroCard
           section={pendingSectionIntro.section}
