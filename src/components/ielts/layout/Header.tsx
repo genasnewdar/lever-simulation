@@ -4,6 +4,7 @@ import React from "react";
 import Timer from "./Timer";
 import { ClipboardList } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { Logo } from "@/components/Logo";
 
 interface HeaderProps {
   userName: string;
@@ -24,26 +25,6 @@ const sections: Array<{
   { id: "WRITING", label: "Writing" },
 ];
 
-/** Tiny Lever-edu brand mark — wordmark with the mint page-curl. */
-const BrandMark: React.FC = () => (
-  <div
-    aria-label="Lever edu"
-    className="relative flex items-center justify-center h-8 w-[70px] rounded-md bg-ink text-paper font-serif font-semibold tracking-tight"
-    style={{ letterSpacing: "-0.035em" }}
-  >
-    <span className="text-[13px] leading-none translate-y-[-1px]">Lever</span>
-    <span
-      aria-hidden
-      className="absolute right-0 bottom-0 h-[10px] w-[10px]"
-      style={{
-        background:
-          "linear-gradient(135deg, transparent 50%, var(--mint) 50%)",
-        borderBottomRightRadius: "0.375rem",
-      }}
-    />
-  </div>
-);
-
 const Header: React.FC<HeaderProps> = ({
   userName,
   initialSeconds,
@@ -56,7 +37,7 @@ const Header: React.FC<HeaderProps> = ({
   return (
     <header className="h-[64px] bg-paper px-8 flex items-center justify-between fixed top-0 w-full z-50 border-b border-rule">
       <div className="flex items-center gap-6 min-w-[360px]">
-        <BrandMark />
+        <Logo size={36} />
         {!hideSectionTabs && (
           <nav className="flex items-center gap-1" aria-label="Exam sections">
             {sections.map((section) => {
