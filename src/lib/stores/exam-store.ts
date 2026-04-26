@@ -9,6 +9,10 @@ export interface StoredHighlight {
   start: number;
   end: number;
   color: "yellow" | "pink";
+  /** Optional sticky note attached to this highlight */
+  note?: string;
+  /** Stable id so notes can be edited/removed without ambiguity when ranges overlap */
+  id?: string;
 }
 
 interface ExamState {

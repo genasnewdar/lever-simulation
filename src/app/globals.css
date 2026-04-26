@@ -91,10 +91,10 @@
 .passage-prose {
   color: var(--ink);
   font-family: var(--font-serif), ui-serif, Georgia, serif;
-  font-size: 1.0625rem;
-  line-height: 1.72;
+  font-size: 1.1875rem;
+  line-height: 1.7;
   font-feature-settings: "ss01", "liga", "kern", "onum";
-  max-width: 68ch;
+  max-width: 72ch;
 }
 .passage-prose p + p { margin-top: 1em; }
 .passage-prose strong { color: var(--ink); font-weight: 600; }
@@ -114,6 +114,15 @@
   padding: 0.05em 0.1em;
   border-radius: 2px;
   background-clip: padding-box;
+}
+
+/* CSS Custom Highlight API decorations for the questions panel (no DOM mutation,
+   so highlights survive React re-renders triggered by form input changes). */
+::highlight(user-yellow) {
+  background-color: color-mix(in oklch, #f5d665 45%, transparent);
+}
+::highlight(user-pink) {
+  background-color: color-mix(in oklch, #f498c4 40%, transparent);
 }
 
 /* ── Page-curl decorative corner ──────────────────────────────────────── */

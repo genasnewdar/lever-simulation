@@ -17,8 +17,13 @@ import { subscribeToSessionCancelled } from "@/lib/sse/sessionEvents";
 import type { MapSection } from "@/components/ielts/layout/QuestionMap";
 import ReadingPassage from "@/components/ielts/ReadingPassage";
 import type { PassageHighlight } from "@/components/ielts/ReadingPassage";
+import type {
+  AddHighlightOptions,
+  HighlightContainer,
+  OpenNoteEditorPayload,
+} from "@/components/ielts/layout/CDIELTSLayout";
+import type { HighlightColor } from "@/components/ielts/tools/FloatingToolbar";
 import GroupDispatcher from "@/components/ielts/groups/GroupDispatcher";
-import { getSelectionCharacterOffsets } from "@/lib/utils";
 import { api } from "@/lib";
 import { Loader2, CheckCircle2 } from "lucide-react";
 import { toast } from "react-toastify";
@@ -116,6 +121,7 @@ export default function IeltsTakeTestPage(props: PageProps) {
   const [highlightsByPassageId, setHighlightsByPassageId] = useState<
     Record<string, PassageHighlight[]>
   >({});
+  const [noteEditor, setNoteEditor] = useState<OpenNoteEditorPayload | null>(null);
   const passageRef = useRef<HTMLDivElement>(null);
   const timeExpireCalledRef = useRef(false);
   const contentLoadFailCount = useRef(0);
@@ -326,11 +332,15 @@ export default function IeltsTakeTestPage(props: PageProps) {
   useEffect(() => {
     if (!sectionContent || !examId) return;
     if (typeof window === "undefined") return;
+    // Wait for the persisted Zustand store to hydrate before restoring — otherwise
+    // getHighlightsFromStore returns {} and we mark the exam "restored", leaving
+    // saved highlights orphaned for the rest of the session.
+    if (!hasHydrated) return;
     if (restoredForExamRef.current === examId) return;
     restoredForExamRef.current = examId;
 
     let stored = loadAllSectionsFromStorage(examId);
-    if (Object.keys(stored).length === 0 && hasHydrated) stored = getAnswersFromStore(examId);
+    if (Object.keys(stored).length === 0) stored = getAnswersFromStore(examId);
     const storedHighlights = getHighlightsFromStore(examId);
 
     requestAnimationFrame(() => {
@@ -744,22 +754,66 @@ export default function IeltsTakeTestPage(props: PageProps) {
     return () => clearTimeout(t);
   }, [flashQuestionNumber]);
 
-  const handleHighlightText = useCallback(
-    (range: Range, color: "yellow" | "pink") => {
-      const offsets = getSelectionCharacterOffsets(passageRef.current, range);
-      if (!offsets || !activePassage || !examId) return;
-      const [start, end] = offsets;
+  const containerKeyFor = useCallback(
+    (container: HighlightContainer): string | null => {
+      if (!activePassage) return null;
+      return container === "questions"
+        ? `q-${activePassage.id}`
+        : activePassage.id;
+    },
+    [activePassage],
+  );
+
+  const generateHighlightId = useCallback(() => {
+    if (typeof crypto !== "undefined" && "randomUUID" in crypto) {
+      return crypto.randomUUID();
+    }
+    return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
+  }, []);
+
+  const handleAddHighlight = useCallback(
+    (
+      start: number,
+      end: number,
+      color: HighlightColor,
+      options: AddHighlightOptions,
+    ) => {
+      if (!examId) return;
+      const key = containerKeyFor(options.container);
+      if (!key) return;
       setHighlightsByPassageId((prev) => {
-        const nextList = [
-          ...(prev[activePassage!.id] || []),
-          { start, end, color },
-        ];
-        const next = { ...prev, [activePassage!.id]: nextList };
-        setHighlightsInStore(examId, activePassage.id, nextList);
-        return next;
+        const current = prev[key] || [];
+        const newHighlight: PassageHighlight = {
+          id: generateHighlightId(),
+          start,
+          end,
+          color,
+          note: options.note,
+        };
+        const nextList = [...current, newHighlight];
+        setHighlightsInStore(examId, key, nextList);
+        return { ...prev, [key]: nextList };
       });
     },
-    [activePassage, examId, setHighlightsInStore],
+    [examId, containerKeyFor, generateHighlightId, setHighlightsInStore],
+  );
+
+  const handleUpdateNote = useCallback(
+    (highlightId: string, note: string, container: HighlightContainer) => {
+      if (!examId) return;
+      const key = containerKeyFor(container);
+      if (!key) return;
+      setHighlightsByPassageId((prev) => {
+        const current = prev[key] || [];
+        const idx = current.findIndex((h) => h.id === highlightId);
+        if (idx < 0) return prev;
+        const nextList = [...current];
+        nextList[idx] = { ...nextList[idx], note };
+        setHighlightsInStore(examId, key, nextList);
+        return { ...prev, [key]: nextList };
+      });
+    },
+    [examId, containerKeyFor, setHighlightsInStore],
   );
 
   const handleRemoveHighlight = useCallback(
@@ -782,12 +836,46 @@ export default function IeltsTakeTestPage(props: PageProps) {
   const handleClearPassageHighlights = useCallback(() => {
     if (!activePassage || !examId) return;
     setHighlightsByPassageId((prev) => {
-      if (!prev[activePassage.id]?.length) return prev;
-      const next = { ...prev, [activePassage.id]: [] };
-      setHighlightsInStore(examId, activePassage.id, []);
+      const passageKey = activePassage.id;
+      const questionsKey = `q-${activePassage.id}`;
+      const hasPassage = prev[passageKey]?.length;
+      const hasQuestions = prev[questionsKey]?.length;
+      if (!hasPassage && !hasQuestions) return prev;
+      const next = { ...prev };
+      if (hasPassage) {
+        next[passageKey] = [];
+        setHighlightsInStore(examId, passageKey, []);
+      }
+      if (hasQuestions) {
+        next[questionsKey] = [];
+        setHighlightsInStore(examId, questionsKey, []);
+      }
       return next;
     });
   }, [activePassage, examId, setHighlightsInStore]);
+
+  const handleOpenPassageNote = useCallback(
+    (highlight: PassageHighlight) => {
+      if (!highlight.id) return;
+      // Try to find the rendered <mark> for this highlight to anchor the editor.
+      let anchorRect: DOMRect | null = null;
+      if (typeof document !== "undefined" && passageRef.current) {
+        const sel = `mark[data-hl-id="${highlight.id}"]`;
+        const el = passageRef.current.querySelector<HTMLElement>(sel);
+        if (el) anchorRect = el.getBoundingClientRect();
+      }
+      setNoteEditor({
+        highlightId: highlight.id,
+        initialNote: highlight.note ?? "",
+        color: highlight.color,
+        container: "passage",
+        anchorRect,
+      });
+    },
+    [],
+  );
+
+  const handleCloseNoteEditor = useCallback(() => setNoteEditor(null), []);
 
   // ── Helper: submit current answers ─────────────────────────────────────────
   const submitCurrentAnswers = useCallback(async () => {
@@ -1181,8 +1269,17 @@ export default function IeltsTakeTestPage(props: PageProps) {
         isWritingTaskAnswered={isWritingTaskAnswered}
         sections={sections}
         onHighlightText={
-          activeTab === "READING" ? handleHighlightText : undefined
+          activeTab === "READING" ? handleAddHighlight : undefined
         }
+        onUpdateNote={activeTab === "READING" ? handleUpdateNote : undefined}
+        questionsHighlights={
+          activeTab === "READING" && activePassage
+            ? highlightsByPassageId[`q-${activePassage.id}`] ?? []
+            : []
+        }
+        questionsHighlightVersion={activePassage?.id}
+        noteEditor={noteEditor}
+        onCloseNoteEditor={handleCloseNoteEditor}
         audioUrl={
           activeTab === "LISTENING" && sectionContent.type === "listening"
             ? (sectionContent.audio_url ??
@@ -1256,6 +1353,7 @@ export default function IeltsTakeTestPage(props: PageProps) {
                   content={activePassage.content}
                   highlights={highlightsByPassageId[activePassage.id] || []}
                   onRemoveHighlight={handleRemoveHighlight}
+                  onOpenNote={handleOpenPassageNote}
                 />
 
                 {/* Page-curl: the brand motif, deployed exactly once per passage */}
@@ -1300,7 +1398,7 @@ export default function IeltsTakeTestPage(props: PageProps) {
                   </h2>
                 </header>
 
-                <div className="font-serif text-[1.0625rem] leading-[1.7] text-ink max-w-[64ch] whitespace-pre-line">
+                <div className="font-serif text-[1.1875rem] leading-[1.7] text-ink max-w-[68ch] whitespace-pre-line">
                   {activeWritingPrompt.prompt}
                 </div>
 
@@ -1343,7 +1441,7 @@ export default function IeltsTakeTestPage(props: PageProps) {
               <textarea
                 key={`writing_task_${writingTask}`}
                 {...methods.register(`writing_task_${writingTask}`)}
-                className="flex-1 w-full min-h-[460px] p-7 font-serif text-[1.0625rem] leading-[1.7] tracking-tight text-ink bg-paper border border-rule rounded-md focus:border-mint focus:ring-1 focus:ring-mint/30 outline-none resize-none transition-all"
+                className="flex-1 w-full min-h-[640px] p-8 font-serif text-[1.1875rem] leading-[1.75] tracking-tight text-ink bg-paper border border-rule rounded-md focus:border-mint focus:ring-1 focus:ring-mint/30 outline-none resize-none transition-all"
                 placeholder="Begin writing here…"
               />
             </div>

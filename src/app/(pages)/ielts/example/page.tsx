@@ -15,7 +15,6 @@ import ReadingPassage from "@/components/ielts/ReadingPassage";
 import type { PassageHighlight } from "@/components/ielts/ReadingPassage";
 import { MOCK_SIMULATION_DATA } from "./mock-data";
 import { mapBackendToQuestion } from "@/lib/ielts-mapper";
-import { getSelectionCharacterOffsets } from "@/lib/utils";
 import { cn } from "@/lib/utils";
 
 type PageProps = {
@@ -267,15 +266,18 @@ export default function IELTSReplicaPage(props: PageProps) {
   }, [flashQuestionNumber]);
 
   const handleHighlightText = useCallback(
-    (range: Range, color: "yellow" | "pink") => {
-      const offsets = getSelectionCharacterOffsets(passageRef.current, range);
-      if (!offsets || !activePassage) return;
-      const [start, end] = offsets;
+    (
+      start: number,
+      end: number,
+      color: "yellow" | "pink",
+      options: { container: "passage" | "questions"; note?: string },
+    ) => {
+      if (options.container !== "passage" || !activePassage) return;
       setHighlightsByPassageId((prev) => ({
         ...prev,
         [activePassage.id]: [
           ...(prev[activePassage.id] || []),
-          { start, end, color },
+          { start, end, color, note: options.note },
         ],
       }));
     },

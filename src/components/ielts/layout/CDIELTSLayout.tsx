@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useCallback, useEffect } from "react";
+import React, { useState, useCallback, useEffect, useMemo } from "react";
 import { Panel, Group, Separator } from "react-resizable-panels";
 import { AnimatePresence, motion, MotionConfig } from "framer-motion";
 import Header from "./Header";
@@ -8,7 +8,23 @@ import QuestionMap, { MapSection } from "./QuestionMap";
 import FloatingToolbar from "../tools/FloatingToolbar";
 import AudioPlayer from "../AudioPlayer";
 import type { HighlightColor } from "../tools/FloatingToolbar";
-import { cn } from "@/lib/utils";
+import { cn, getSelectionCharacterOffsets } from "@/lib/utils";
+import { useTextHighlights, type HighlightSpec } from "@/lib/hooks/useTextHighlights";
+
+export type HighlightContainer = "passage" | "questions";
+
+export interface AddHighlightOptions {
+  container: HighlightContainer;
+  note?: string;
+}
+
+export interface OpenNoteEditorPayload {
+  highlightId: string;
+  initialNote: string;
+  color: HighlightColor;
+  container: HighlightContainer;
+  anchorRect: DOMRect | null;
+}
 
 /**
  * Page-turn motion: pivot from the bottom-right corner so the outgoing page
@@ -61,8 +77,29 @@ interface CDIELTSLayoutProps {
   onWritingTaskChange?: (task: number) => void;
   isWritingTaskAnswered?: (task: number) => boolean;
   sections?: MapSection[];
-  /** Called when user applies a highlight (Yellow/Pink) on the reading passage. Parent should persist highlights. */
-  onHighlightText?: (range: Range, color: HighlightColor) => void;
+  /** Called when user applies a highlight (Yellow/Pink) on either the passage or questions panel. Parent should persist. */
+  onHighlightText?: (
+    charStart: number,
+    charEnd: number,
+    color: HighlightColor,
+    options: AddHighlightOptions,
+  ) => void;
+  /** Called when user updates the note text on an existing highlight. */
+  onUpdateNote?: (
+    highlightId: string,
+    note: string,
+    container: HighlightContainer,
+  ) => void;
+  /** Highlights to apply on the questions panel via the CSS Custom Highlight API. */
+  questionsHighlights?: HighlightSpec[];
+  /** Stable key (e.g. active passage id) used to invalidate the question highlight overlay when content changes. */
+  questionsHighlightVersion?: string | number;
+  /** Called when user double-clicks an existing highlight; lets parent surface a note editor. */
+  onRequestEditQuestionsNote?: (charStart: number, charEnd: number) => void;
+  /** When set, the floating toolbar opens in note-editing mode for this highlight. */
+  noteEditor?: OpenNoteEditorPayload | null;
+  /** Called when the note editor should be dismissed. */
+  onCloseNoteEditor?: () => void;
   /** For Listening: show persistent audio bar. Pass audio URL (e.g. from listening_test or section). */
   audioUrl?: string | null;
   /** For Listening: which part tab is selected (0–3). */
@@ -101,6 +138,11 @@ const CDIELTSLayout: React.FC<CDIELTSLayoutProps> = ({
   isWritingTaskAnswered,
   sections,
   onHighlightText,
+  onUpdateNote,
+  questionsHighlights,
+  questionsHighlightVersion,
+  noteEditor,
+  onCloseNoteEditor,
   audioUrl,
   activePartIndex,
   onPartChange,
@@ -119,42 +161,103 @@ const CDIELTSLayout: React.FC<CDIELTSLayoutProps> = ({
   const [selection, setSelection] = useState<Selection | null>(null);
   const savedRangeRef = React.useRef<Range | null>(null);
   const passageContainerRef = React.useRef<HTMLDivElement | null>(null);
+  const questionsContainerRef = React.useRef<HTMLDivElement | null>(null);
+  const [activeContainer, setActiveContainer] = useState<HighlightContainer | null>(null);
 
   const answeredSet = externalAnsweredQuestions || internalAnsweredQuestions;
   const reviewSet = externalReviewQuestions || internalReviewQuestions;
 
-  const handleSelection = useCallback(() => {
+  // Apply CSS Custom Highlight overlay to the questions panel (no DOM mutation,
+  // so highlights survive React re-renders triggered by typing answers).
+  const questionsSpecs = useMemo<HighlightSpec[]>(
+    () =>
+      (questionsHighlights ?? []).map((h) => ({
+        start: h.start,
+        end: h.end,
+        color: h.color,
+      })),
+    [questionsHighlights],
+  );
+  useTextHighlights(questionsContainerRef, questionsSpecs, {
+    yellowName: "user-yellow",
+    pinkName: "user-pink",
+    version: questionsHighlightVersion,
+  });
+
+  const captureSelection = useCallback(() => {
     const sel = window.getSelection();
-    if (sel && sel.rangeCount > 0 && sel.toString().length > 0) {
-      const range = sel.getRangeAt(0);
-      const container = passageContainerRef.current;
-      if (container && range.intersectsNode(container)) {
-        setSelection(sel);
-        savedRangeRef.current = range.cloneRange();
-      }
-    } else {
+    if (!sel || sel.rangeCount === 0 || sel.isCollapsed || sel.toString().length === 0) {
       setSelection(null);
       savedRangeRef.current = null;
+      setActiveContainer(null);
+      return;
+    }
+    const range = sel.getRangeAt(0);
+    const inPassage =
+      passageContainerRef.current && range.intersectsNode(passageContainerRef.current);
+    const inQuestions =
+      questionsContainerRef.current && range.intersectsNode(questionsContainerRef.current);
+    if (inPassage) {
+      savedRangeRef.current = range.cloneRange();
+      setSelection(sel);
+      setActiveContainer("passage");
+    } else if (inQuestions) {
+      savedRangeRef.current = range.cloneRange();
+      setSelection(sel);
+      setActiveContainer("questions");
     }
   }, []);
 
-  // Save selection on any change (so clicking toolbar button after selecting still has the range)
+  // Track selection changes anywhere on the page so clicking the toolbar
+  // doesn't clear the saved range before the action fires. When selection
+  // collapses (e.g. focus moves into the toolbar's note textarea, or user
+  // clicks empty space), we drop the FloatingToolbar's `selection` state so
+  // it can hide on its own — but we keep `savedRangeRef` and
+  // `activeContainer` so an in-progress note save still has a target range.
+  // The ref is cleared on commit/cancel by `clearSelection`.
   useEffect(() => {
     const onSelectionChange = () => {
       const sel = window.getSelection();
       if (!sel || sel.rangeCount === 0 || sel.isCollapsed) {
+        setSelection(null);
         return;
       }
       const range = sel.getRangeAt(0);
-      const container = passageContainerRef.current;
-      if (container && range.intersectsNode(container)) {
+      const inPassage =
+        passageContainerRef.current && range.intersectsNode(passageContainerRef.current);
+      const inQuestions =
+        questionsContainerRef.current && range.intersectsNode(questionsContainerRef.current);
+      if (inPassage) {
         savedRangeRef.current = range.cloneRange();
         setSelection(sel);
+        setActiveContainer("passage");
+      } else if (inQuestions) {
+        savedRangeRef.current = range.cloneRange();
+        setSelection(sel);
+        setActiveContainer("questions");
       }
     };
     document.addEventListener("selectionchange", onSelectionChange);
     return () => document.removeEventListener("selectionchange", onSelectionChange);
   }, []);
+
+  const clearSelection = useCallback(() => {
+    if (selection) selection.removeAllRanges();
+    setSelection(null);
+    savedRangeRef.current = null;
+    setActiveContainer(null);
+  }, [selection]);
+
+  const computeOffsetsForContainer = useCallback(
+    (container: HighlightContainer, range: Range): [number, number] | null => {
+      const el =
+        container === "questions"
+          ? questionsContainerRef.current
+          : passageContainerRef.current;
+      return getSelectionCharacterOffsets(el, range);
+    },
+    [],
+  );
 
   const handleHighlight = useCallback(
     (color: HighlightColor) => {
@@ -162,26 +265,47 @@ const CDIELTSLayout: React.FC<CDIELTSLayoutProps> = ({
         savedRangeRef.current ??
         (selection?.rangeCount ? selection.getRangeAt(0) : null);
       if (!range) return;
-      if (onHighlightText) {
-        onHighlightText(range, color);
-      } else {
-        const hex = color === "yellow" ? "#ffeb3b" : "#f48fb1";
-        document.execCommand("backColor", false, hex);
+      const container = activeContainer ?? "passage";
+      const offsets = computeOffsetsForContainer(container, range);
+      if (!offsets) {
+        clearSelection();
+        return;
       }
-      if (selection) selection.removeAllRanges();
-      setSelection(null);
-      savedRangeRef.current = null;
+      onHighlightText?.(offsets[0], offsets[1], color, { container });
+      clearSelection();
     },
-    [selection, onHighlightText]
+    [selection, onHighlightText, activeContainer, clearSelection, computeOffsetsForContainer],
   );
 
-  const handleNote = useCallback(() => {
-    if (!selection) return;
-    alert(
-      "Note feature simulated: Text focus for specific comments could be implemented here."
-    );
-    setSelection(null);
-  }, [selection]);
+  const handleSaveNote = useCallback(
+    (color: HighlightColor, note: string) => {
+      if (noteEditor) {
+        onUpdateNote?.(noteEditor.highlightId, note, noteEditor.container);
+        return;
+      }
+      const range =
+        savedRangeRef.current ??
+        (selection?.rangeCount ? selection.getRangeAt(0) : null);
+      if (!range) return;
+      const container = activeContainer ?? "passage";
+      const offsets = computeOffsetsForContainer(container, range);
+      if (!offsets) {
+        clearSelection();
+        return;
+      }
+      onHighlightText?.(offsets[0], offsets[1], color, { container, note });
+      clearSelection();
+    },
+    [
+      selection,
+      onHighlightText,
+      onUpdateNote,
+      activeContainer,
+      clearSelection,
+      noteEditor,
+      computeOffsetsForContainer,
+    ],
+  );
 
   const handleQuestionClick = (index: number) => {
     if (controlledCurrentIndex === undefined) setInternalIndex(index);
@@ -269,9 +393,9 @@ const CDIELTSLayout: React.FC<CDIELTSLayoutProps> = ({
               <div
                 ref={passageContainerRef}
                 className="h-full overflow-y-auto custom-scrollbar px-8 lg:px-16 py-10 lg:py-14 select-text bg-paper"
-                onMouseUp={handleSelection}
+                onMouseUp={captureSelection}
               >
-                <div className="max-w-[72ch] mx-auto">
+                <div className="max-w-[78ch] mx-auto">
                   <AnimatePresence mode="wait" initial={false}>
                     <motion.div
                       key={`L-${activeTab}`}
@@ -285,11 +409,6 @@ const CDIELTSLayout: React.FC<CDIELTSLayoutProps> = ({
                     </motion.div>
                   </AnimatePresence>
                 </div>
-                <FloatingToolbar
-                  selection={selection}
-                  onHighlight={handleHighlight}
-                  onNote={handleNote}
-                />
               </div>
             </Panel>
 
@@ -297,8 +416,17 @@ const CDIELTSLayout: React.FC<CDIELTSLayoutProps> = ({
 
             {/* Right Panel: Questions — stable; inner content page-turns */}
             <Panel defaultSize={50} minSize={20} className="h-full">
-              <div className="h-full overflow-y-auto custom-scrollbar px-8 lg:px-14 py-10 lg:py-14 bg-paper-2 right-panel-scroll">
-                <div className="max-w-[60ch] mx-auto">
+              <div
+                ref={questionsContainerRef}
+                onMouseUp={captureSelection}
+                className="h-full overflow-y-auto custom-scrollbar px-8 lg:px-14 py-10 lg:py-14 bg-paper-2 right-panel-scroll select-text"
+              >
+                <div
+                  className={cn(
+                    "mx-auto",
+                    activeTab === "WRITING" ? "max-w-none" : "max-w-[68ch]",
+                  )}
+                >
                   <AnimatePresence mode="wait" initial={false}>
                     <motion.div
                       key={`R-${activeTab}`}
@@ -317,7 +445,7 @@ const CDIELTSLayout: React.FC<CDIELTSLayoutProps> = ({
           </Group>
         ) : (
           <div className="h-full overflow-y-auto custom-scrollbar px-8 lg:px-14 py-10 lg:py-14 bg-paper-2 right-panel-scroll">
-            <div className="max-w-[60ch] mx-auto">
+            <div className="max-w-[68ch] mx-auto">
               <AnimatePresence mode="wait" initial={false}>
                 <motion.div
                   key={`S-${activeTab}`}
@@ -349,6 +477,21 @@ const CDIELTSLayout: React.FC<CDIELTSLayoutProps> = ({
         activePartIndex={activePartIndex}
         onPartChange={onPartChange}
       />
+
+      {onHighlightText && (
+        <FloatingToolbar
+          selection={selection}
+          onHighlight={handleHighlight}
+          onSaveNote={handleSaveNote}
+          noteEditor={
+            noteEditor
+              ? { initialNote: noteEditor.initialNote, color: noteEditor.color }
+              : null
+          }
+          anchorRect={noteEditor?.anchorRect ?? null}
+          onCloseNoteEditor={onCloseNoteEditor}
+        />
+      )}
 
       <style jsx global>{`
         *:focus { outline: none; }
