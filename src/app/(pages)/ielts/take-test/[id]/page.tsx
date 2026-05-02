@@ -129,7 +129,10 @@ export default function IeltsTakeTestPage(props: PageProps) {
   // ── Form ────────────────────────────────────────────────────────────────────
   const methods = useForm<Record<string, unknown>>({ defaultValues: {} });
   const watchAll = methods.watch();
-  const debouncedWatchAll = useDebounce(watchAll, 1500);
+  // Tighter debounce so at most a few hundred ms of typing can be in flight.
+  // Combined with the visibilitychange + beforeunload flush below, this makes
+  // it very hard to lose answers even when the section ends abruptly.
+  const debouncedWatchAll = useDebounce(watchAll, 500);
   const prevSubmittedRef = useRef<string>("");
 
   const sectionStorageKey = `ielts-current-section-${params.id}`;
@@ -1061,6 +1064,10 @@ export default function IeltsTakeTestPage(props: PageProps) {
 
     const handleVisibilityChange = () => {
       if (document.hidden) {
+        // Flush any pending answers immediately when the tab is backgrounded —
+        // protects against losing the last keystrokes if the user switches
+        // tabs, locks the screen, or the section is finished externally.
+        submitCurrentAnswers().catch(() => {});
         toast.warning("Анхааруулга: Шалгалтын үеэр таб солих хориотой!", {
           position: "top-center",
           autoClose: 10000,
@@ -1069,9 +1076,19 @@ export default function IeltsTakeTestPage(props: PageProps) {
     };
 
     const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+      // Best-effort flush before navigation. Axios may not finish, but the
+      // browser still tries; combined with the periodic safety net below,
+      // typed content is very unlikely to be lost.
+      submitCurrentAnswers().catch(() => {});
       e.preventDefault();
       e.returnValue = "";
     };
+
+    // Periodic safety net: flush every 10s regardless of typing, so even
+    // dropped debounce ticks don't leave a long gap of unsaved content.
+    const periodicFlush = setInterval(() => {
+      submitCurrentAnswers().catch(() => {});
+    }, 10_000);
 
     document.addEventListener("fullscreenchange", handleFullscreenChange);
     document.addEventListener("visibilitychange", handleVisibilityChange);
@@ -1081,8 +1098,9 @@ export default function IeltsTakeTestPage(props: PageProps) {
       document.removeEventListener("fullscreenchange", handleFullscreenChange);
       document.removeEventListener("visibilitychange", handleVisibilityChange);
       window.removeEventListener("beforeunload", handleBeforeUnload);
+      clearInterval(periodicFlush);
     };
-  }, [isStarted, isFinished]);
+  }, [isStarted, isFinished, submitCurrentAnswers]);
 
   // ── Reset timeExpireCalledRef when activeTab changes ────────────────────────
   useEffect(() => {
@@ -1440,7 +1458,13 @@ export default function IeltsTakeTestPage(props: PageProps) {
               </div>
               <textarea
                 key={`writing_task_${writingTask}`}
-                {...methods.register(`writing_task_${writingTask}`)}
+                {...methods.register(`writing_task_${writingTask}`, {
+                  // Flush on blur so clicking outside the textarea immediately
+                  // posts the latest content (no debounce wait).
+                  onBlur: () => {
+                    submitCurrentAnswers().catch(() => {});
+                  },
+                })}
                 className="flex-1 w-full min-h-[640px] p-8 font-serif text-[1.1875rem] leading-[1.75] tracking-tight text-ink bg-paper border border-rule rounded-md focus:border-mint focus:ring-1 focus:ring-mint/30 outline-none resize-none transition-all"
                 placeholder="Begin writing here…"
               />
