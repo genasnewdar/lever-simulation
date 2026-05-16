@@ -1053,8 +1053,37 @@ export default function IeltsTakeTestPage(props: PageProps) {
   useEffect(() => {
     if (!isStarted || isFinished) return;
 
+    const reportProctorEvent = (eventType: string, message?: string) => {
+      if (!examCode || !params.id) return;
+      // Fire-and-forget — admin sees this on their next 3s poll. We use
+      // sendBeacon when available so it survives if the tab is being closed.
+      const body = JSON.stringify({
+        code: examCode,
+        attempt_id: String(params.id),
+        event_type: eventType,
+        message,
+      });
+      const url = "/api/ielts/proctor-event";
+      try {
+        if (navigator.sendBeacon) {
+          const blob = new Blob([body], { type: "application/json" });
+          navigator.sendBeacon(url, blob);
+          return;
+        }
+      } catch {
+        /* fall through to fetch */
+      }
+      fetch(url, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body,
+        keepalive: true,
+      }).catch(() => {});
+    };
+
     const handleFullscreenChange = () => {
       if (!document.fullscreenElement) {
+        reportProctorEvent("FULLSCREEN_EXIT");
         toast.warning(
           "Анхааруулга: Бүтэн дэлгэцээс гарах нь шалгалтын дүрэм зөрчилд тооцогдоно!",
           { position: "top-center", autoClose: 5000 },
@@ -1064,6 +1093,7 @@ export default function IeltsTakeTestPage(props: PageProps) {
 
     const handleVisibilityChange = () => {
       if (document.hidden) {
+        reportProctorEvent("TAB_SWITCH");
         // Flush any pending answers immediately when the tab is backgrounded —
         // protects against losing the last keystrokes if the user switches
         // tabs, locks the screen, or the section is finished externally.
@@ -1100,7 +1130,7 @@ export default function IeltsTakeTestPage(props: PageProps) {
       window.removeEventListener("beforeunload", handleBeforeUnload);
       clearInterval(periodicFlush);
     };
-  }, [isStarted, isFinished, submitCurrentAnswers]);
+  }, [isStarted, isFinished, submitCurrentAnswers, examCode, params.id]);
 
   // ── Reset timeExpireCalledRef when activeTab changes ────────────────────────
   useEffect(() => {
