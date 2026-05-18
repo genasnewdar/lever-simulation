@@ -91,6 +91,8 @@ export default function IeltsTakeTestPage(props: PageProps) {
   const sessionId = useMockExamStore((s) => s.sessionId);
   const clearExamCode = useExamCodeStore((s) => s.clear);
   const examCode = useExamCodeStore((s) => s.examCode);
+  const deviceToken = useExamCodeStore((s) => s.deviceToken);
+  const setDeviceToken = useExamCodeStore((s) => s.setDeviceToken);
   const [cancelledReason, setCancelledReason] = useState<string | null>(null);
 
   // ── Core state ──────────────────────────────────────────────────────────────
@@ -190,6 +192,29 @@ export default function IeltsTakeTestPage(props: PageProps) {
       setCancelledReason(data.reason ?? null);
     });
   }, [sessionId, examCode]);
+
+  // ── Claim a device token for this attempt ─────────────────────────────────
+  // Submit/batch endpoints require X-Device-Token; without it every save
+  // returns 400 MISSING_X_DEVICE_TOKEN and answers are silently dropped.
+  useEffect(() => {
+    if (!params.id || !examCode || deviceToken) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const resp = await api.post(
+          `/api/student/ielts/attempt/${params.id}/take-over`,
+          {},
+        );
+        const token: string | undefined = resp.data?.device_token;
+        if (!cancelled && token) setDeviceToken(token);
+      } catch (err) {
+        debugLog("device-token claim failed", { error: String(err) });
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [params.id, examCode, deviceToken, setDeviceToken]);
 
   // ── 1) Fetch content directly using attempt_id — no my-sessions polling needed ─
   useEffect(() => {
@@ -911,7 +936,15 @@ export default function IeltsTakeTestPage(props: PageProps) {
         responses.push({ attempt_id: attemptId, question_id: qId, text_answer: String(answer) });
       });
       if (responses.length > 0) {
-        await api.post(endpoint, { attempt_id: attemptId, responses }).catch(() => {});
+        await api
+          .post(endpoint, { attempt_id: attemptId, responses })
+          .catch((err) => {
+            debugLog("batch-submit failed", {
+              endpoint,
+              count: responses.length,
+              error: String(err),
+            });
+          });
       }
     }
   }, [activeTab, sectionContent, allQuestions, methods, params.id]);

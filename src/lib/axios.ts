@@ -18,8 +18,12 @@ api.interceptors.request.use((config) => {
   try {
     const parsed = JSON.parse(stored);
     const examCode = parsed?.state?.examCode;
-    if (examCode && config.headers) {
-      config.headers["X-Exam-Code"] = examCode;
+    const deviceToken = parsed?.state?.deviceToken;
+    if (config.headers) {
+      if (examCode) config.headers["X-Exam-Code"] = examCode;
+      // Attach the device token on every request — only attempt-scoped
+      // endpoints look at it, and harmless on the rest.
+      if (deviceToken) config.headers["X-Device-Token"] = deviceToken;
     }
   } catch {
     // Ignore parse errors
