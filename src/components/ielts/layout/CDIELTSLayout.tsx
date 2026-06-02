@@ -118,6 +118,8 @@ interface CDIELTSLayoutProps {
   reviewAnswers?: Record<number, string>;
   /** When set, listening audio position is persisted under this key (for resume-on-refresh). */
   audioStorageKey?: string | null;
+  /** For Listening: fired once when the audio finishes playing to its end. */
+  onAudioEnded?: () => void;
 }
 
 const CDIELTSLayout: React.FC<CDIELTSLayoutProps> = ({
@@ -152,6 +154,7 @@ const CDIELTSLayout: React.FC<CDIELTSLayoutProps> = ({
   examMode = false,
   reviewAnswers = {},
   audioStorageKey = null,
+  onAudioEnded,
 }) => {
   const [internalIndex, setInternalIndex] = useState(0);
   const currentQuestionIndex =
@@ -250,11 +253,19 @@ const CDIELTSLayout: React.FC<CDIELTSLayoutProps> = ({
 
   const computeOffsetsForContainer = useCallback(
     (container: HighlightContainer, range: Range): [number, number] | null => {
-      const el =
-        container === "questions"
-          ? questionsContainerRef.current
-          : passageContainerRef.current;
-      return getSelectionCharacterOffsets(el, range);
+      if (container === "questions") {
+        return getSelectionCharacterOffsets(questionsContainerRef.current, range);
+      }
+      // Passage highlights are applied against the ReadingPassage body text
+      // (`.passage-prose`), so offsets MUST be measured from that element — not
+      // the whole scroll panel, which also holds the "Passage N" header, title
+      // and "Clear highlights" button. Measuring from the panel shifts every
+      // offset by the header length, so highlights land in the wrong place
+      // (or fail to render). The questions panel has no such wrapper text.
+      const passageEl =
+        passageContainerRef.current?.querySelector<HTMLElement>(".passage-prose") ??
+        passageContainerRef.current;
+      return getSelectionCharacterOffsets(passageEl, range);
     },
     [],
   );
@@ -372,7 +383,7 @@ const CDIELTSLayout: React.FC<CDIELTSLayoutProps> = ({
 
       {activeTab === "LISTENING" && (
         <div className="flex-shrink-0 border-b border-rule">
-          <AudioPlayer audioUrl={audioUrl ?? null} className="mt-[64px]" examMode={examMode} storageKey={audioStorageKey} />
+          <AudioPlayer audioUrl={audioUrl ?? null} className="mt-[64px]" examMode={examMode} storageKey={audioStorageKey} onEnded={onAudioEnded} />
         </div>
       )}
 

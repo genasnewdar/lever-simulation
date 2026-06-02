@@ -11,6 +11,7 @@ import React, {
 import { useForm, FormProvider } from "react-hook-form";
 import CDIELTSLayout from "@/components/ielts/layout/CDIELTSLayout";
 import { SectionIntroCard } from "@/components/ielts/SectionIntroCard";
+import { BreakOverlay } from "@/components/ielts/BreakOverlay";
 import { CancelledModal } from "@/components/ielts/take-test/CancelledModal";
 import { OfflineBanner } from "@/components/ielts/take-test/OfflineBanner";
 import { subscribeToSessionCancelled } from "@/lib/sse/sessionEvents";
@@ -48,6 +49,12 @@ import type {
   ContentResponse,
 } from "@/types/ielts-simulation";
 import { normalizeContentResponse } from "@/lib/ielts-test-normalizer";
+
+// When the Listening audio finishes, the candidate gets exactly this long to
+// review/check answers before the section auto-submits and moves on.
+const LISTENING_REVIEW_SECONDS = 120;
+// Fixed break between skills (Listening→Reading, Reading→Writing). Adjust here.
+const SECTION_BREAK_SECONDS = 120;
 
 const DEBUG =
   process.env.NODE_ENV === "development" ||
@@ -109,6 +116,9 @@ export default function IeltsTakeTestPage(props: PageProps) {
     section: SectionId;
     duration: number;
   } | null>(null);
+  // Fixed break shown between skills (Listening→Reading, Reading→Writing). While
+  // true, the next section has not loaded yet, so no section timer is running.
+  const [onBreak, setOnBreak] = useState(false);
 
   // ── Exam UI state ───────────────────────────────────────────────────────────
   const [currentQIndex, setCurrentQIndex] = useState(0);
@@ -127,6 +137,13 @@ export default function IeltsTakeTestPage(props: PageProps) {
   const passageRef = useRef<HTMLDivElement>(null);
   const timeExpireCalledRef = useRef(false);
   const contentLoadFailCount = useRef(0);
+  // Set once the Listening audio finishes: the candidate then gets a fixed
+  // review window (see LISTENING_REVIEW_SECONDS) and the backend timer sync must
+  // not bump the clock back up during that window.
+  const listeningReviewActiveRef = useRef(false);
+  // Keeps the periodic backend sync from auto-advancing sections while the
+  // between-section break overlay is showing.
+  const onBreakRef = useRef(false);
 
   // ── Form ────────────────────────────────────────────────────────────────────
   const methods = useForm<Record<string, unknown>>({ defaultValues: {} });
@@ -309,12 +326,20 @@ export default function IeltsTakeTestPage(props: PageProps) {
 
   // ── 2) Periodic timer sync (every 30s) to keep timer accurate ─
   useEffect(() => {
-    if (!isStarted || isFinished || !params.id) return;
+    // Pause sync entirely during the between-section break: the next section
+    // hasn't loaded, and we don't want the backend to auto-advance past it.
+    if (!isStarted || isFinished || !params.id || onBreak) return;
     const interval = setInterval(async () => {
       try {
         const overview = await fetchSectionContent(params.id);
         if (overview.current_section === "completed") {
           setIsFinished(true);
+          return;
+        }
+        // During the post-audio Listening review window the local 2-minute
+        // clock governs — ignore both backend timer values and any backend
+        // section advance so the review isn't cut short.
+        if (activeTab === "LISTENING" && listeningReviewActiveRef.current) {
           return;
         }
         // Only sync timer if still on same section
@@ -339,7 +364,7 @@ export default function IeltsTakeTestPage(props: PageProps) {
       } catch { /* ignore sync failures */ }
     }, 30000);
     return () => clearInterval(interval);
-  }, [isStarted, isFinished, params.id, activeTab]);
+  }, [isStarted, isFinished, params.id, activeTab, onBreak]);
 
   // ── Persist current section + question index ─
   useEffect(() => {
@@ -905,6 +930,19 @@ export default function IeltsTakeTestPage(props: PageProps) {
 
   const handleCloseNoteEditor = useCallback(() => setNoteEditor(null), []);
 
+  // ── Listening: clamp the clock to a short review window when audio ends ─────
+  // Real IELTS gives time to transfer/check answers after the recording ends.
+  // Here we give a fixed LISTENING_REVIEW_SECONDS, then the section auto-submits
+  // via the normal timer-expiry path. The ref tells the backend sync (below) not
+  // to push the clock back up during this window.
+  const handleAudioEnded = useCallback(() => {
+    if (activeTab !== "LISTENING") return;
+    if (listeningReviewActiveRef.current) return;
+    listeningReviewActiveRef.current = true;
+    setSectionTimerSeconds(LISTENING_REVIEW_SECONDS);
+    toast.info("Сонсголын бичлэг дууслаа. Хариултаа шалгах 2 минут.");
+  }, [activeTab]);
+
   // ── Helper: submit current answers ─────────────────────────────────────────
   const submitCurrentAnswers = useCallback(async () => {
     const formValues = methods.getValues() as Record<string, unknown>;
@@ -1165,9 +1203,10 @@ export default function IeltsTakeTestPage(props: PageProps) {
     };
   }, [isStarted, isFinished, submitCurrentAnswers, examCode, params.id]);
 
-  // ── Reset timeExpireCalledRef when activeTab changes ────────────────────────
+  // ── Reset per-section flags when activeTab changes ──────────────────────────
   useEffect(() => {
     timeExpireCalledRef.current = false;
+    listeningReviewActiveRef.current = false;
   }, [activeTab]);
 
   // ── Section timer expiry ───────────────────────────────────────────────────
@@ -1196,10 +1235,14 @@ export default function IeltsTakeTestPage(props: PageProps) {
       toast.success("Шалгалт дууслаа!");
       setIsFinished(true);
     } else {
-      toast.info(`${label} дууслаа. Дараагийн хэсэг рүү шилжиж байна.`);
-      await transitionToNextSection();
+      // Hold on a fixed break before loading the next section. The next
+      // section (and its timer) only starts once the break ends, so the
+      // candidate doesn't lose any of their next section's time.
+      toast.info(`${label} дууслаа. Завсарлага.`);
+      onBreakRef.current = true;
+      setOnBreak(true);
     }
-  }, [activeTab, submitCurrentAnswers, transitionToNextSection, params.id]);
+  }, [activeTab, submitCurrentAnswers, params.id]);
 
 
   // ── Render: Loading ─────────────────────────────────────────────────────────
@@ -1314,7 +1357,17 @@ export default function IeltsTakeTestPage(props: PageProps) {
           onExit={() => router.push("/ielts")}
         />
       )}
-      {pendingSectionIntro && (
+      {onBreak && (
+        <BreakOverlay
+          seconds={SECTION_BREAK_SECONDS}
+          onDone={() => {
+            onBreakRef.current = false;
+            setOnBreak(false);
+            transitionToNextSection();
+          }}
+        />
+      )}
+      {!onBreak && pendingSectionIntro && (
         <SectionIntroCard
           section={pendingSectionIntro.section}
           durationSeconds={pendingSectionIntro.duration}
@@ -1369,6 +1422,7 @@ export default function IeltsTakeTestPage(props: PageProps) {
             : null
         }
         audioStorageKey={examId ? `ielts-audio:${examId}` : null}
+        onAudioEnded={handleAudioEnded}
         activePartIndex={activePartIndex}
         currentQuestionIndex={currentQIndex}
         onPartChange={(partIndex) => {
@@ -1528,6 +1582,18 @@ export default function IeltsTakeTestPage(props: PageProps) {
                     submitCurrentAnswers().catch(() => {});
                   },
                 })}
+                // Exam integrity: the candidate must write unaided. Disable all
+                // browser writing assistance — spellcheck squiggles, autocorrect,
+                // autocapitalize, autocomplete — and block the right-click menu
+                // (which exposes spellcheck suggestions, synonyms, and translate).
+                spellCheck={false}
+                autoCorrect="off"
+                autoCapitalize="off"
+                autoComplete="off"
+                data-gramm="false"
+                data-gramm_editor="false"
+                data-enable-grammarly="false"
+                onContextMenu={(e) => e.preventDefault()}
                 className="flex-1 w-full min-h-[640px] p-8 font-serif text-[1.1875rem] leading-[1.75] tracking-tight text-ink bg-paper border border-rule rounded-md focus:border-mint focus:ring-1 focus:ring-mint/30 outline-none resize-none transition-all"
                 placeholder="Begin writing here…"
               />

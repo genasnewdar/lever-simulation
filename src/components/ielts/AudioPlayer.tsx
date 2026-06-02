@@ -13,6 +13,8 @@ interface AudioPlayerProps {
   examMode?: boolean;
   /** When set, the playback position is persisted to localStorage under this key so refreshes resume mid-audio. */
   storageKey?: string | null;
+  /** Fired once when the audio finishes playing to its end. */
+  onEnded?: () => void;
 }
 
 const formatTime = (seconds: number) => {
@@ -29,6 +31,7 @@ const AudioPlayer: React.FC<AudioPlayerProps> = ({
   stepSeconds = 5,
   examMode = false,
   storageKey = null,
+  onEnded,
 }) => {
   const audioRef = useRef<HTMLAudioElement>(null);
   const [isPlaying, setIsPlaying] = useState(false);
@@ -72,16 +75,19 @@ const AudioPlayer: React.FC<AudioPlayerProps> = ({
     const el = audioRef.current;
     if (!el) return;
     const onLoadedMetadata = () => setDuration(el.duration);
-    const onEnded = () => setIsPlaying(false);
+    const handleEnded = () => {
+      setIsPlaying(false);
+      onEnded?.();
+    };
     el.addEventListener("timeupdate", updateTime);
     el.addEventListener("loadedmetadata", onLoadedMetadata);
-    el.addEventListener("ended", onEnded);
+    el.addEventListener("ended", handleEnded);
     return () => {
       el.removeEventListener("timeupdate", updateTime);
       el.removeEventListener("loadedmetadata", onLoadedMetadata);
-      el.removeEventListener("ended", onEnded);
+      el.removeEventListener("ended", handleEnded);
     };
-  }, [updateTime]);
+  }, [updateTime, onEnded]);
 
   useEffect(() => {
     if (!audioUrl) return;
