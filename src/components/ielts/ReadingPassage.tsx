@@ -126,6 +126,26 @@ const ReadingPassage = forwardRef<HTMLDivElement, ReadingPassageProps>(
       }
     }
 
+    // Value-stable key for the highlight set. The `highlights` prop is a fresh
+    // array on most parent renders (`... || []`), so depending on it directly
+    // re-runs the effect ~2x/s — and resetting innerHTML mid-drag WIPES the
+    // user's text selection before they can click the toolbar (and would wipe
+    // rendered marks too). Keying on a string that only changes when the set
+    // actually changes keeps innerHTML — and the live selection — stable.
+    const highlightsKey = useMemo(
+      () =>
+        JSON.stringify(
+          highlights.map((h) => [h.start, h.end, h.color, h.note ?? ""]),
+        ),
+      [highlights],
+    );
+
+    // For HTML content this effect is the SOLE owner of the node's innerHTML.
+    // We deliberately do NOT use `dangerouslySetInnerHTML` in the JSX: React
+    // re-commits that on every parent re-render, wiping the imperatively
+    // injected <mark> elements. Owning innerHTML here (an empty-children JSX
+    // node React won't touch) keeps marks stable; the value-stable dep keeps it
+    // from re-running — and clobbering the selection — on unrelated renders.
     useEffect(() => {
       const el = localRef.current;
       if (!html || !el) return;
@@ -137,7 +157,9 @@ const ReadingPassage = forwardRef<HTMLDivElement, ReadingPassageProps>(
       for (const h of sorted) {
         applyHighlightToDOM(el, h);
       }
-    }, [html, highlights, content]);
+      // highlights is intentionally omitted — highlightsKey is its value-stable proxy.
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [html, content, highlightsKey]);
 
     const findHighlight = useCallback(
       (target: HTMLElement): PassageHighlight | null => {
@@ -194,13 +216,15 @@ const ReadingPassage = forwardRef<HTMLDivElement, ReadingPassageProps>(
     );
 
     if (html) {
+      // No dangerouslySetInnerHTML — the effect above owns innerHTML so React
+      // never re-commits (and wipes) the injected highlight marks. The empty
+      // node is populated on mount and whenever content/highlights change.
       return (
         <div
           ref={localRef}
           className={baseClass}
           onContextMenu={handleContextMenu}
           onClick={handleClick}
-          dangerouslySetInnerHTML={{ __html: content }}
         />
       );
     }
