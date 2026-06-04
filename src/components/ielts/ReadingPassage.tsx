@@ -29,6 +29,87 @@ function isHtmlContent(text: string): boolean {
   return /<\/?[a-z][\s\S]*?>/i.test(text);
 }
 
+type Segment =
+  | { kind: "text"; start: number; end: number }
+  | { kind: "mark"; start: number; end: number; color: HighlightColor; note?: string; id?: string };
+
+const SegmentRenderer = React.memo<{
+  seg: Segment;
+  text: string;
+}>(({ seg, text }) => {
+  if (seg.kind === "mark") {
+    const bg =
+      seg.color === "yellow"
+        ? "color-mix(in oklch, #f5d665 45%, transparent)"
+        : "color-mix(in oklch, #f498c4 40%, transparent)";
+    const titleText = seg.note
+      ? `Note: ${seg.note}\n(Right-click to remove)`
+      : "Right-click to remove highlight";
+    return (
+      <React.Fragment>
+        <mark
+          data-hl="1"
+          data-hl-start={seg.start}
+          data-hl-end={seg.end}
+          data-hl-id={seg.id}
+          title={titleText}
+          className="cursor-context-menu"
+          style={{
+            backgroundColor: bg,
+            color: "inherit",
+            padding: "0.05em 0.1em",
+            borderRadius: "2px",
+          }}
+        >
+          {text}
+        </mark>
+        {seg.note && (
+          <span
+            data-note-pin="1"
+            data-hl-start={seg.start}
+            data-hl-end={seg.end}
+            data-hl-id={seg.id}
+            title={seg.note}
+            style={{
+              display: "inline-block",
+              marginLeft: 2,
+              fontSize: "0.75em",
+              color: "var(--mint-deep)",
+              cursor: "pointer",
+              userSelect: "none",
+              verticalAlign: "super",
+            }}
+          >
+            ✎
+          </span>
+        )}
+      </React.Fragment>
+    );
+  }
+  return <span>{text}</span>;
+}, (prevProps, nextProps) => {
+  // Deep compare seg object
+  const seg1 = prevProps.seg;
+  const seg2 = nextProps.seg;
+  
+  if (seg1.kind !== seg2.kind) return false;
+  if (prevProps.text !== nextProps.text) return false;
+  
+  if (seg1.kind === "mark" && seg2.kind === "mark") {
+    return (
+      seg1.start === seg2.start &&
+      seg1.end === seg2.end &&
+      seg1.color === seg2.color &&
+      seg1.note === seg2.note &&
+      seg1.id === seg2.id
+    );
+  }
+  
+  return seg1.start === seg2.start && seg1.end === seg2.end;
+});
+
+SegmentRenderer.displayName = "SegmentRenderer";
+
 function applyHighlightToDOM(container: HTMLElement, h: PassageHighlight) {
   const walker = document.createTreeWalker(container, NodeFilter.SHOW_TEXT);
   let charPos = 0;
@@ -91,7 +172,7 @@ function applyHighlightToDOM(container: HTMLElement, h: PassageHighlight) {
   }
 }
 
-const ReadingPassage = forwardRef<HTMLDivElement, ReadingPassageProps>(
+const ReadingPassage = React.memo(forwardRef<HTMLDivElement, ReadingPassageProps>(
   ({ content, highlights, className, onRemoveHighlight, onOpenNote }, ref) => {
     const localRef = useRef<HTMLDivElement>(null);
     useImperativeHandle(ref, () => localRef.current!);
@@ -101,30 +182,34 @@ const ReadingPassage = forwardRef<HTMLDivElement, ReadingPassageProps>(
     type Segment =
       | { kind: "text"; start: number; end: number }
       | { kind: "mark"; start: number; end: number; color: HighlightColor; note?: string; id?: string };
-    const segments: Segment[] = [];
-    if (!html) {
-      const sorted = [...highlights].sort((a, b) => a.start - b.start);
-      let pos = 0;
-      for (const h of sorted) {
-        if (h.start > pos) {
-          segments.push({ kind: "text", start: pos, end: h.start });
+    
+    const segments = useMemo(() => {
+      const result: Segment[] = [];
+      if (!html) {
+        const sorted = [...highlights].sort((a, b) => a.start - b.start);
+        let pos = 0;
+        for (const h of sorted) {
+          if (h.start > pos) {
+            result.push({ kind: "text", start: pos, end: h.start });
+          }
+          if (h.end > h.start) {
+            result.push({
+              kind: "mark",
+              start: h.start,
+              end: h.end,
+              color: h.color,
+              note: h.note,
+              id: h.id,
+            });
+          }
+          pos = Math.max(pos, h.end);
         }
-        if (h.end > h.start) {
-          segments.push({
-            kind: "mark",
-            start: h.start,
-            end: h.end,
-            color: h.color,
-            note: h.note,
-            id: h.id,
-          });
+        if (pos < content.length) {
+          result.push({ kind: "text", start: pos, end: content.length });
         }
-        pos = Math.max(pos, h.end);
       }
-      if (pos < content.length) {
-        segments.push({ kind: "text", start: pos, end: content.length });
-      }
-    }
+      return result;
+    }, [content, highlights, html])
 
     useEffect(() => {
       const el = localRef.current;
@@ -172,7 +257,6 @@ const ReadingPassage = forwardRef<HTMLDivElement, ReadingPassageProps>(
     const handleClick = useCallback(
       (e: React.MouseEvent<HTMLDivElement>) => {
         if (!onOpenNote) return;
-        // Don't fire when the user is mid-selection — wait for a deliberate click on the highlight.
         const sel = window.getSelection();
         if (sel && !sel.isCollapsed) return;
         const target = (e.target as HTMLElement).closest<HTMLElement>(
@@ -204,7 +288,6 @@ const ReadingPassage = forwardRef<HTMLDivElement, ReadingPassageProps>(
         />
       );
     }
-
     return (
       <div
         ref={localRef}
@@ -212,63 +295,34 @@ const ReadingPassage = forwardRef<HTMLDivElement, ReadingPassageProps>(
         onContextMenu={handleContextMenu}
         onClick={handleClick}
       >
-        {segments.map((seg, i) => {
+        {segments.map((seg) => {
           const text = content.slice(seg.start, seg.end);
-          if (seg.kind === "mark") {
-            const bg =
-              seg.color === "yellow"
-                ? "color-mix(in oklch, #f5d665 45%, transparent)"
-                : "color-mix(in oklch, #f498c4 40%, transparent)";
-            const titleText = seg.note
-              ? `Note: ${seg.note}\n(Right-click to remove)`
-              : "Right-click to remove highlight";
-            return (
-              <React.Fragment key={i}>
-                <mark
-                  data-hl="1"
-                  data-hl-start={seg.start}
-                  data-hl-end={seg.end}
-                  data-hl-id={seg.id}
-                  title={titleText}
-                  className="cursor-context-menu"
-                  style={{
-                    backgroundColor: bg,
-                    color: "inherit",
-                    padding: "0.05em 0.1em",
-                    borderRadius: "2px",
-                  }}
-                >
-                  {text}
-                </mark>
-                {seg.note && (
-                  <span
-                    data-note-pin="1"
-                    data-hl-start={seg.start}
-                    data-hl-end={seg.end}
-                    data-hl-id={seg.id}
-                    title={seg.note}
-                    style={{
-                      display: "inline-block",
-                      marginLeft: 2,
-                      fontSize: "0.75em",
-                      color: "var(--mint-deep)",
-                      cursor: "pointer",
-                      userSelect: "none",
-                      verticalAlign: "super",
-                    }}
-                  >
-                    ✎
-                  </span>
-                )}
-              </React.Fragment>
-            );
-          }
-          return <span key={i}>{text}</span>;
+          return <SegmentRenderer key={`${seg.start}-${seg.end}`} seg={seg} text={text} />;
         })}
       </div>
     );
   }
-);
+), (prevProps, nextProps) => {
+  if (prevProps.content !== nextProps.content) return false;
+  if (prevProps.className !== nextProps.className) return false;
+
+  if (prevProps.highlights.length !== nextProps.highlights.length) return false;
+  for (let i = 0; i < prevProps.highlights.length; i++) {
+    const p = prevProps.highlights[i];
+    const n = nextProps.highlights[i];
+    if (
+      p.start !== n.start ||
+      p.end !== n.end ||
+      p.color !== n.color ||
+      p.note !== n.note ||
+      p.id !== n.id
+    ) {
+      return false;
+    }
+  }
+
+  return true;
+});
 
 ReadingPassage.displayName = "ReadingPassage";
 

@@ -9,7 +9,10 @@ import React, {
 } from "react";
 import { useForm, FormProvider } from "react-hook-form";
 import QuestionFactory from "@/components/ielts/QuestionFactory";
-import CDIELTSLayout from "@/components/ielts/layout/CDIELTSLayout";
+import CDIELTSLayout, {
+  type OpenNoteEditorPayload,
+  type HighlightContainer,
+} from "@/components/ielts/layout/CDIELTSLayout";
 import type { MapSection } from "@/components/ielts/layout/QuestionMap";
 import ReadingPassage from "@/components/ielts/ReadingPassage";
 import type { PassageHighlight } from "@/components/ielts/ReadingPassage";
@@ -21,6 +24,59 @@ type PageProps = {
   params?: Promise<Record<string, string | string[]>>;
   searchParams?: Promise<Record<string, string | string[] | undefined>>;
 };
+
+const PassageArticle = React.memo(function PassageArticle({
+  passage,
+  highlights,
+  passageRef,
+}: {
+  passage: any;
+  highlights: PassageHighlight[];
+  passageRef: React.RefObject<HTMLDivElement>;
+}) {
+  return (
+    <article
+      key={passage.id}
+      className="relative space-y-10 pb-16 animate-in fade-in duration-300"
+    >
+      <header className="space-y-5">
+        <div className="flex items-baseline gap-4 border-b border-rule pb-3">
+          <span className="font-serif text-[13px] font-medium tracking-tight text-mint-deep">
+            Passage {passage.passage_number}
+          </span>
+          <span className="text-[12px] uppercase tracking-[0.18em] text-muted">
+            Reading
+          </span>
+        </div>
+        <h2 className="font-serif text-[2.6rem] font-semibold text-ink leading-[1.08] tracking-[-0.022em]">
+          {passage.title}
+        </h2>
+      </header>
+      <ReadingPassage
+        ref={passageRef}
+        content={passage.content}
+        highlights={highlights}
+      />
+      <span aria-hidden className="page-curl" />
+    </article>
+  );
+}, (prevProps, nextProps) => {
+  // Only rerender if passage.id, content, or actual highlights changed
+  if (prevProps.passage.id !== nextProps.passage.id) return false;
+  if (prevProps.passage.content !== nextProps.passage.content) return false;
+  
+  // Deep compare highlights
+  if (prevProps.highlights.length !== nextProps.highlights.length) return false;
+  for (let i = 0; i < prevProps.highlights.length; i++) {
+    const p = prevProps.highlights[i];
+    const n = nextProps.highlights[i];
+    if (p.start !== n.start || p.end !== n.end || p.color !== n.color || p.note !== n.note || p.id !== n.id) {
+      return false;
+    }
+  }
+  
+  return true;
+});
 
 // eslint-disable-next-line @typescript-eslint/no-unused-vars -- Next.js page props; params/searchParams available when needed
 export default function IELTSReplicaPage(props: PageProps) {
@@ -38,6 +94,7 @@ export default function IELTSReplicaPage(props: PageProps) {
   const [highlightsByPassageId, setHighlightsByPassageId] = useState<
     Record<string, PassageHighlight[]>
   >({});
+  const [noteEditor, setNoteEditor] = useState<OpenNoteEditorPayload | null>(null);
   const passageRef = useRef<HTMLDivElement>(null);
 
   const methods = useForm<Record<string, unknown>>({
@@ -265,6 +322,13 @@ export default function IELTSReplicaPage(props: PageProps) {
     return () => clearTimeout(t);
   }, [flashQuestionNumber]);
 
+  const generateHighlightId = useCallback(() => {
+    if (typeof crypto !== "undefined" && "randomUUID" in crypto) {
+      return crypto.randomUUID();
+    }
+    return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
+  }, []);
+
   const handleHighlightText = useCallback(
     (
       start: number,
@@ -277,12 +341,54 @@ export default function IELTSReplicaPage(props: PageProps) {
         ...prev,
         [activePassage.id]: [
           ...(prev[activePassage.id] || []),
-          { start, end, color, note: options.note },
+          {
+            id: generateHighlightId(),
+            start,
+            end,
+            color,
+            note: options.note,
+          },
         ],
       }));
     },
+    [activePassage, generateHighlightId]
+  );
+
+  const handleOpenPassageNote = useCallback(
+    (highlight: PassageHighlight) => {
+      if (!highlight.id || !passageRef.current) return;
+      let anchorRect: DOMRect | null = null;
+      const el = passageRef.current.querySelector<HTMLElement>(
+        `mark[data-hl-id="${highlight.id}"]`
+      );
+      if (el) anchorRect = el.getBoundingClientRect();
+      setNoteEditor({
+        highlightId: highlight.id,
+        initialNote: highlight.note ?? "",
+        color: highlight.color,
+        container: "passage",
+        anchorRect,
+      });
+    },
+    []
+  );
+
+  const handleUpdateNote = useCallback(
+    (highlightId: string, note: string, container: HighlightContainer) => {
+      if (container !== "passage" || !activePassage) return;
+      setHighlightsByPassageId((prev) => {
+        const current = prev[activePassage.id] || [];
+        const idx = current.findIndex((h) => h.id === highlightId);
+        if (idx < 0) return prev;
+        const nextList = [...current];
+        nextList[idx] = { ...nextList[idx], note };
+        return { ...prev, [activePassage.id]: nextList };
+      });
+    },
     [activePassage]
   );
+
+  const handleCloseNoteEditor = useCallback(() => setNoteEditor(null), []);
 
   const startTest = () => {
     document.documentElement
@@ -312,6 +418,15 @@ export default function IELTSReplicaPage(props: PageProps) {
     isListeningTabbed,
     listeningPartIndex,
   ]);
+
+  const stableEmptyHighlights = useMemo<PassageHighlight[]>(() => [], []);
+  const currentPassageHighlights = useMemo(
+    () =>
+      activePassage
+        ? highlightsByPassageId[activePassage.id] ?? stableEmptyHighlights
+        : stableEmptyHighlights,
+    [activePassage, highlightsByPassageId, stableEmptyHighlights]
+  );
 
   const instructions =
     activeTab === "READING"
@@ -387,6 +502,9 @@ export default function IELTSReplicaPage(props: PageProps) {
         onHighlightText={
           activeTab === "READING" ? handleHighlightText : undefined
         }
+        onUpdateNote={activeTab === "READING" ? handleUpdateNote : undefined}
+        noteEditor={noteEditor}
+        onCloseNoteEditor={handleCloseNoteEditor}
         audioUrl={
           activeTab === "LISTENING"
             ? data.listening_test?.audio_url ??
@@ -435,7 +553,8 @@ export default function IELTSReplicaPage(props: PageProps) {
               <ReadingPassage
                 ref={passageRef}
                 content={activePassage.content}
-                highlights={highlightsByPassageId[activePassage.id] || []}
+                highlights={currentPassageHighlights}
+                onOpenNote={handleOpenPassageNote}
               />
               <span aria-hidden className="page-curl" />
             </article>

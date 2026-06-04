@@ -494,11 +494,7 @@ const CDIELTSLayout: React.FC<CDIELTSLayoutProps> = ({
           selection={selection}
           onHighlight={handleHighlight}
           onSaveNote={handleSaveNote}
-          noteEditor={
-            noteEditor
-              ? { initialNote: noteEditor.initialNote, color: noteEditor.color }
-              : null
-          }
+          noteEditor={noteEditor}
           anchorRect={noteEditor?.anchorRect ?? null}
           onCloseNoteEditor={onCloseNoteEditor}
         />

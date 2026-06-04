@@ -10,7 +10,7 @@ interface ToolbarProps {
   onSaveNote: (color: HighlightColor, note: string) => void;
   selection: Selection | null;
   /** When provided, the toolbar opens in note-editing mode for this initial value. */
-  noteEditor?: { initialNote: string; color: HighlightColor } | null;
+  noteEditor?: { initialNote: string; color: HighlightColor; anchorRect?: DOMRect | null } | null;
   onCloseNoteEditor?: () => void;
   anchorRect?: DOMRect | null;
 }
@@ -32,16 +32,32 @@ const FloatingToolbar: React.FC<ToolbarProps> = ({
   const [noteText, setNoteText] = useState("");
   const [noteColor, setNoteColor] = useState<HighlightColor>("yellow");
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const prevEditorRef = useRef<{ initialNote: string; color: HighlightColor } | null>(null);
 
   // Note-editor mode: open from existing highlight (no live selection needed).
   useEffect(() => {
-    if (noteEditor) {
+    if (!noteEditor) {
+      prevEditorRef.current = null;
+      return;
+    }
+
+    const shouldReset =
+      !prevEditorRef.current ||
+      prevEditorRef.current.initialNote !== noteEditor.initialNote ||
+      prevEditorRef.current.color !== noteEditor.color;
+
+    if (shouldReset) {
       setMode("note");
       setNoteText(noteEditor.initialNote ?? "");
       setNoteColor(noteEditor.color);
       setShow(true);
       requestAnimationFrame(() => textareaRef.current?.focus());
     }
+
+    prevEditorRef.current = {
+      initialNote: noteEditor.initialNote,
+      color: noteEditor.color,
+    };
   }, [noteEditor]);
 
   // Position from current selection OR explicit anchor rect. Once the user
