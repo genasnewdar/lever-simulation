@@ -1671,7 +1671,7 @@ export default function IeltsTakeTestPage(props: PageProps) {
                     key={group.id ?? idx}
                     group={group}
                     reviewSet={reviewSet}
-                    toggleReview={undefined}
+                    toggleReview={toggleReview}
                     flashQuestionNumber={flashQuestionNumber}
                     disabled={isFinished}
                   />
