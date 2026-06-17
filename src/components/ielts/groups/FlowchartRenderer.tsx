@@ -93,6 +93,9 @@ export default function FlowchartRenderer({
                       type="text"
                       disabled={disabled}
                       {...register(regKey)}
+                      autoComplete="off"
+                      spellCheck={false}
+                      onContextMenu={(e) => e.preventDefault()}
                       className="inline-block min-w-[100px] max-w-[180px] border-b border-rule bg-transparent px-1 py-0.5 font-medium text-ink outline-none focus:border-mint focus:bg-mint-soft/40"
                     />
                     <span>{parts.slice(1).join("______")}</span>

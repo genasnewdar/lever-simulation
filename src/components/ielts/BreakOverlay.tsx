@@ -49,7 +49,7 @@ export function BreakOverlay({ seconds, onDone }: Props) {
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-white/95 backdrop-blur-sm"
+      className="fixed inset-0 z-[200] flex items-center justify-center bg-white/95 backdrop-blur-sm"
       role="dialog"
       aria-label="Break between sections"
     >
@@ -66,13 +66,6 @@ export function BreakOverlay({ seconds, onDone }: Props) {
         <div className="max-w-xs text-center text-sm text-zinc-600">
           Дараагийн хэсэг автоматаар эхэлнэ. Бэлэн бол доорх товчийг дарж үргэлжлүүлж болно.
         </div>
-        <button
-          type="button"
-          onClick={finish}
-          className="mt-2 rounded-lg border border-zinc-300 px-5 py-2 text-sm text-zinc-700 transition-colors hover:bg-zinc-50"
-        >
-          Үргэлжлүүлэх →
-        </button>
       </div>
     </div>
   );

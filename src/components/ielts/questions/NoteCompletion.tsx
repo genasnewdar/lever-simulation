@@ -61,6 +61,9 @@ const NoteCompletion: React.FC<NoteCompletionProps> = ({ question, disabled, onT
                             <input
                                 {...register(`gap_${num}`)}
                                 disabled={disabled}
+                                autoComplete="off"
+                                spellCheck={false}
+                                onContextMenu={(e) => e.preventDefault()}
                                 className={`border-b-2 border-rule/10 focus:border-ink outline-none px-4 py-1 w-36 font-semibold text-ink-soft bg-white rounded-t-lg transition-all ${
                                     disabled ? 'bg-paper-3 cursor-not-allowed opacity-70 border-b-transparent' : 'hover:bg-mint-soft'
                                 }`}

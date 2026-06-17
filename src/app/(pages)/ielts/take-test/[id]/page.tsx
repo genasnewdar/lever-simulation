@@ -119,6 +119,11 @@ export default function IeltsTakeTestPage(props: PageProps) {
   // Fixed break shown between skills (Listening→Reading, Reading→Writing). While
   // true, the next section has not loaded yet, so no section timer is running.
   const [onBreak, setOnBreak] = useState(false);
+  // True when take-over claim fails after all retries — shows persistent banner.
+  const [tokenClaimFailed, setTokenClaimFailed] = useState(false);
+  // True when consecutive batch-submits fail — warns student answers may not be saving.
+  const [saveFailing, setSaveFailing] = useState(false);
+  const saveFailCountRef = useRef(0);
 
   // ── Exam UI state ───────────────────────────────────────────────────────────
   const [currentQIndex, setCurrentQIndex] = useState(0);
@@ -144,6 +149,9 @@ export default function IeltsTakeTestPage(props: PageProps) {
   // Keeps the periodic backend sync from auto-advancing sections while the
   // between-section break overlay is showing.
   const onBreakRef = useRef(false);
+  // Wall-clock time when the break started — used to compensate the next
+  // section's timer, since the backend counts down during the break too.
+  const breakStartMsRef = useRef<number | null>(null);
 
   // ── Form ────────────────────────────────────────────────────────────────────
   const methods = useForm<Record<string, unknown>>({ defaultValues: {} });
@@ -210,26 +218,53 @@ export default function IeltsTakeTestPage(props: PageProps) {
     });
   }, [sessionId, examCode]);
 
-  // ── Claim a device token for this attempt ─────────────────────────────────
+  // ── Claim a device token for this attempt (with retry) ───────────────────
   // Submit/batch endpoints require X-Device-Token; without it every save
   // returns 400 MISSING_X_DEVICE_TOKEN and answers are silently dropped.
+  // Retry up to 5 times with backoff so a transient network hiccup (or the
+  // student switching computers mid-exam) doesn't silently drop all answers.
   useEffect(() => {
     if (!params.id || !examCode || deviceToken) return;
     let cancelled = false;
-    (async () => {
+    let attempt = 0;
+    const timers: ReturnType<typeof setTimeout>[] = [];
+
+    const claim = async () => {
+      attempt++;
       try {
         const resp = await api.post(
           `/api/student/ielts/attempt/${params.id}/take-over`,
           {},
         );
         const token: string | undefined = resp.data?.device_token;
-        if (!cancelled && token) setDeviceToken(token);
+        if (cancelled) return;
+        if (token) {
+          setDeviceToken(token);
+          setTokenClaimFailed(false);
+        } else {
+          scheduleRetry();
+        }
       } catch (err) {
-        debugLog("device-token claim failed", { error: String(err) });
+        debugLog("device-token claim failed", { error: String(err), attempt });
+        if (!cancelled) scheduleRetry();
       }
-    })();
+    };
+
+    const scheduleRetry = () => {
+      if (attempt >= 5) {
+        if (!cancelled) setTokenClaimFailed(true);
+        return;
+      }
+      // 2s, 4s, 6s, 8s backoff
+      const delay = Math.min(2000 * attempt, 8000);
+      timers.push(setTimeout(claim, delay));
+    };
+
+    claim();
+
     return () => {
       cancelled = true;
+      timers.forEach(clearTimeout);
     };
   }, [params.id, examCode, deviceToken, setDeviceToken]);
 
@@ -1005,12 +1040,21 @@ export default function IeltsTakeTestPage(props: PageProps) {
       const section = overview.current_section;
       const response = await fetchSectionContent(params.id, section);
 
+      // Compensate for backend counting down during the frontend break.
+      // The backend starts the next section timer when finish-section is called,
+      // so we add back however many seconds the break actually lasted.
+      const breakElapsed = breakStartMsRef.current != null
+        ? Math.round((Date.now() - breakStartMsRef.current) / 1000)
+        : 0;
+      breakStartMsRef.current = null;
+      const compensatedTimer = response.section_time_remaining_seconds + breakElapsed;
+
       setContentMeta(response);
       setSectionContent(response.content ?? null);
-      setSectionTimerSeconds(response.section_time_remaining_seconds);
+      setSectionTimerSeconds(compensatedTimer);
       setPendingSectionIntro({
         section: section as SectionId,
-        duration: response.section_time_remaining_seconds,
+        duration: compensatedTimer,
       });
       setActiveTab(section.toUpperCase() as "LISTENING" | "READING" | "WRITING");
       setCurrentQIndex(0);
@@ -1095,8 +1139,12 @@ export default function IeltsTakeTestPage(props: PageProps) {
             });
           }
         }
+        saveFailCountRef.current = 0;
+        setSaveFailing(false);
       } catch (e) {
         console.error("Auto-submit failed:", e);
+        saveFailCountRef.current += 1;
+        if (saveFailCountRef.current >= 2) setSaveFailing(true);
       }
     };
 
@@ -1239,6 +1287,7 @@ export default function IeltsTakeTestPage(props: PageProps) {
       // section (and its timer) only starts once the break ends, so the
       // candidate doesn't lose any of their next section's time.
       toast.info(`${label} дууслаа. Завсарлага.`);
+      breakStartMsRef.current = Date.now();
       onBreakRef.current = true;
       setOnBreak(true);
     }
@@ -1351,6 +1400,21 @@ export default function IeltsTakeTestPage(props: PageProps) {
   return (
     <>
       <OfflineBanner />
+      {(tokenClaimFailed || saveFailing) && (
+        <div className="fixed top-0 inset-x-0 z-[9999] flex items-center justify-center gap-3 bg-red-600 text-white px-4 py-2.5 text-sm font-semibold shadow-lg">
+          <span className="animate-pulse">⚠</span>
+          {tokenClaimFailed
+            ? "АНХААР: Шалгалтын сесс холбогдсонгүй — хариулт хадгалагдахгүй байна! Хуудсыг дахин ачаална уу."
+            : "АНХААР: Хариулт хадгалагдахгүй байна! Интернэт холболт шалгана уу."}
+          <button
+            type="button"
+            onClick={() => window.location.reload()}
+            className="ml-4 underline underline-offset-2 hover:no-underline"
+          >
+            Дахин ачаалах
+          </button>
+        </div>
+      )}
       {cancelledReason !== null && (
         <CancelledModal
           reason={cancelledReason}

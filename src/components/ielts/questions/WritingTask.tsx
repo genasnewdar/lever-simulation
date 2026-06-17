@@ -96,6 +96,14 @@ const WritingTask: React.FC<WritingTaskProps> = ({ question, disabled }) => {
             {...register(id)}
             disabled={disabled}
             placeholder="Begin writing here…"
+            autoComplete="off"
+            spellCheck={false}
+            autoCorrect="off"
+            autoCapitalize="off"
+            data-gramm="false"
+            data-gramm_editor="false"
+            data-enable-grammarly="false"
+            onContextMenu={(e) => e.preventDefault()}
             className={`w-full flex-1 min-h-[560px] p-7 border rounded-md outline-none resize-none font-serif text-[1.0625rem] leading-[1.7] tracking-tight text-ink transition-all ${
               disabled
                 ? "bg-paper-3 cursor-not-allowed border-rule text-muted"

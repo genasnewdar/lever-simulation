@@ -66,6 +66,9 @@ const TableCompletion: React.FC<TableCompletionProps> = ({ question, disabled, o
                 {...register(registrationKey)}
                 disabled={disabled}
                 placeholder="..."
+                autoComplete="off"
+                spellCheck={false}
+                onContextMenu={(e) => e.preventDefault()}
                 className="inline-block min-w-[120px] max-w-[200px] h-10 px-4 bg-foreground border-b border-rule focus:border-mint focus:bg-paper outline-none transition-all placeholder:text-textsecondary text-primary font-semibold text-center rounded-t-lg"
               />
             )}

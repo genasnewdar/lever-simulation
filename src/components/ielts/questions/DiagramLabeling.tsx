@@ -90,6 +90,9 @@ const DiagramLabeling: React.FC<DiagramLabelingProps> = ({
                   {...register(`gap_${num}`)}
                   disabled={disabled}
                   placeholder={`Enter label ${num}`}
+                  autoComplete="off"
+                  spellCheck={false}
+                  onContextMenu={(e) => e.preventDefault()}
                   className={`flex-grow p-4 border-2 border-transparent rounded-md focus:ring-4 focus:ring-blue-500/10 focus:border-ink outline-none transition-all font-semibold text-ink-soft ${
                     disabled
                       ? "bg-paper-3 cursor-not-allowed border-transparent"

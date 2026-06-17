@@ -715,7 +715,7 @@ function AnswerReviewSection({
                   </div>
                 ) : (
                   rows.map((r) => (
-                    <ReviewRow key={r.question_number} item={r} />
+                    <ReviewRow key={r.question_number} item={r} isReading={groupByPassage} />
                   ))
                 )}
               </div>
@@ -727,7 +727,7 @@ function AnswerReviewSection({
   );
 }
 
-function ReviewRow({ item }: { item: ReviewResponse }) {
+function ReviewRow({ item, isReading = false }: { item: ReviewResponse; isReading?: boolean }) {
   const studentDisplay = formatAnswerDisplay(item.student_answer, item.options);
   const correctDisplay = formatAnswerDisplay(item.correct_answer, item.options);
 
@@ -785,6 +785,28 @@ function ReviewRow({ item }: { item: ReviewResponse }) {
             </dd>
           </div>
         </dl>
+
+        {/* Reading passage highlight — incorrect answers only */}
+        {isReading && !item.is_correct && (
+          <div className="flex items-start gap-2 pt-2 border-t border-amber-200/60">
+            <span className="shrink-0 mt-0.5 text-[10px] font-semibold text-amber-700 uppercase tracking-widest">
+              Passage
+            </span>
+            <div className="flex flex-wrap gap-1.5">
+              {/* Student's wrong answer — red strikethrough marker */}
+              {item.student_answer && (
+                <span className="inline-flex items-center gap-1 bg-red-100 text-red-800 px-2 py-0.5 rounded text-sm font-medium">
+                  <X className="w-3 h-3 shrink-0" />
+                  <s className="opacity-70">{studentDisplay}</s>
+                </span>
+              )}
+              {/* Correct answer — yellow passage highlight */}
+              <mark className="bg-yellow-200 text-yellow-900 px-2 py-0.5 rounded text-sm font-semibold not-italic leading-relaxed">
+                {correctDisplay}
+              </mark>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

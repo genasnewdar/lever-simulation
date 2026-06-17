@@ -41,20 +41,33 @@ const AudioPlayer: React.FC<AudioPlayerProps> = ({
   const [playbackRate, setPlaybackRate] = useState(1);
   const [speedLabel, setSpeedLabel] = useState("1");
 
+  // Use storageKey alone (not including audioUrl) — signed URLs rotate on each page load,
+  // so including the URL in the key would make the saved position unrecoverable after refresh.
+  const persistKey = storageKey ?? null;
+
+  // Whether audio reached its natural end — suppresses auto-resume logic.
+  const isEndedRef = useRef(false);
+  // Mirrors isPlaying state in a ref so event handlers always see the current value.
+  const isPlayingRef = useRef(false);
+
+  const setPlaying = useCallback((v: boolean) => {
+    isPlayingRef.current = v;
+    setIsPlaying(v);
+  }, []);
+
   const updateTime = useCallback(() => {
     const el = audioRef.current;
     if (el) setCurrentTime(el.currentTime);
   }, []);
 
-  // Persist playback position so a refresh mid-audio resumes where it left off.
-  const persistKey = storageKey && audioUrl ? `${storageKey}:${audioUrl}` : null;
+  // ── Persist position every 2s and on page unload ──────────────────────────
   useEffect(() => {
     if (!persistKey) return;
     const el = audioRef.current;
     if (!el) return;
     const save = () => {
       try {
-        if (el.currentTime > 0) {
+        if (el.currentTime > 0 && !isEndedRef.current) {
           localStorage.setItem(persistKey, String(el.currentTime));
         }
       } catch {
@@ -62,21 +75,25 @@ const AudioPlayer: React.FC<AudioPlayerProps> = ({
       }
     };
     const interval = window.setInterval(save, 2000);
-    el.addEventListener("pause", save);
     window.addEventListener("beforeunload", save);
     return () => {
       window.clearInterval(interval);
-      el.removeEventListener("pause", save);
       window.removeEventListener("beforeunload", save);
     };
   }, [persistKey]);
 
+  // ── Core audio event listeners ────────────────────────────────────────────
   useEffect(() => {
     const el = audioRef.current;
     if (!el) return;
     const onLoadedMetadata = () => setDuration(el.duration);
     const handleEnded = () => {
-      setIsPlaying(false);
+      isEndedRef.current = true;
+      setPlaying(false);
+      // Clear saved position so the next student starts from the beginning.
+      if (persistKey) {
+        try { localStorage.removeItem(persistKey); } catch { /* ignore */ }
+      }
       onEnded?.();
     };
     el.addEventListener("timeupdate", updateTime);
@@ -87,16 +104,77 @@ const AudioPlayer: React.FC<AudioPlayerProps> = ({
       el.removeEventListener("loadedmetadata", onLoadedMetadata);
       el.removeEventListener("ended", handleEnded);
     };
-  }, [updateTime, onEnded]);
+  }, [updateTime, onEnded, persistKey, setPlaying]);
 
+  // ── Exam mode: auto-resume on unexpected pause (device kill / interruption) ──
+  useEffect(() => {
+    if (!examMode) return;
+    const el = audioRef.current;
+    if (!el) return;
+
+    let resumeTimer: ReturnType<typeof setTimeout> | null = null;
+
+    const handleUnexpectedPause = () => {
+      // Only auto-resume if audio was actually playing when the pause hit.
+      if (isEndedRef.current || !isPlayingRef.current) return;
+      if (resumeTimer) clearTimeout(resumeTimer);
+      resumeTimer = setTimeout(() => {
+        if (el.paused && !isEndedRef.current) {
+          el.play().catch(() => {});
+        }
+      }, 300);
+    };
+
+    // Stalled = browser can't get audio data. Reload from current position and resume.
+    const handleStalled = () => {
+      if (isEndedRef.current) return;
+      const pos = el.currentTime;
+      el.addEventListener(
+        "canplay",
+        () => {
+          el.currentTime = pos;
+          el.play().then(() => setPlaying(true)).catch(() => {});
+        },
+        { once: true },
+      );
+      el.load();
+    };
+
+    el.addEventListener("pause", handleUnexpectedPause);
+    el.addEventListener("stalled", handleStalled);
+    return () => {
+      if (resumeTimer) clearTimeout(resumeTimer);
+      el.removeEventListener("pause", handleUnexpectedPause);
+      el.removeEventListener("stalled", handleStalled);
+    };
+  }, [examMode, setPlaying]);
+
+  // ── Exam mode: resume when tab becomes visible again ─────────────────────
+  useEffect(() => {
+    if (!examMode) return;
+    const handleVisibility = () => {
+      if (document.visibilityState === "visible") {
+        const el = audioRef.current;
+        if (el && el.paused && !isEndedRef.current) {
+          el.play().then(() => setPlaying(true)).catch(() => {});
+        }
+      }
+    };
+    document.addEventListener("visibilitychange", handleVisibility);
+    return () => document.removeEventListener("visibilitychange", handleVisibility);
+  }, [examMode, setPlaying]);
+
+  // ── Load audio, restore position, then auto-play in exam mode ─────────────
   useEffect(() => {
     if (!audioUrl) return;
     const el = audioRef.current;
     if (!el) return;
+
+    isEndedRef.current = false;
     el.src = audioUrl;
     setDuration(0);
 
-    // Restore persisted playback position (if any) once metadata is available.
+    // Read saved position before async metadata loads.
     let saved = 0;
     if (persistKey) {
       try {
@@ -108,47 +186,31 @@ const AudioPlayer: React.FC<AudioPlayerProps> = ({
     }
     setCurrentTime(saved);
 
-    if (saved > 0) {
-      const seek = () => {
-        if (el.duration && saved < el.duration - 1) {
-          el.currentTime = saved;
-        }
-      };
-      if (el.readyState >= 1) {
-        seek();
-      } else {
-        el.addEventListener("loadedmetadata", seek, { once: true });
+    const seekAndPlay = () => {
+      if (saved > 0 && el.duration && saved < el.duration - 1) {
+        el.currentTime = saved;
       }
-    }
-  }, [audioUrl, persistKey]);
-
-  // Auto-play in exam mode when audio is loaded
-  useEffect(() => {
-    if (!examMode || !audioUrl) return;
-    const el = audioRef.current;
-    if (!el) return;
-
-    const tryAutoPlay = () => {
-      el.play().then(() => {
-        setIsPlaying(true);
-      }).catch(() => {
-        // Browser blocked autoplay — retry on first user interaction
-        const resume = () => {
-          el.play().then(() => setIsPlaying(true)).catch(() => {});
-          document.removeEventListener("click", resume);
-          document.removeEventListener("keydown", resume);
-        };
-        document.addEventListener("click", resume, { once: true });
-        document.addEventListener("keydown", resume, { once: true });
-      });
+      if (!examMode) return;
+      el.play()
+        .then(() => setPlaying(true))
+        .catch(() => {
+          // Browser blocked autoplay — retry on first user interaction.
+          const resume = () => {
+            el.play().then(() => setPlaying(true)).catch(() => {});
+            document.removeEventListener("click", resume);
+            document.removeEventListener("keydown", resume);
+          };
+          document.addEventListener("click", resume, { once: true });
+          document.addEventListener("keydown", resume, { once: true });
+        });
     };
 
-    if (el.readyState >= 2) {
-      tryAutoPlay();
+    if (el.readyState >= 1) {
+      seekAndPlay();
     } else {
-      el.addEventListener("canplay", tryAutoPlay, { once: true });
+      el.addEventListener("loadedmetadata", seekAndPlay, { once: true });
     }
-  }, [examMode, audioUrl]);
+  }, [audioUrl, persistKey, examMode, setPlaying]);
 
   useEffect(() => {
     const el = audioRef.current;
@@ -161,10 +223,10 @@ const AudioPlayer: React.FC<AudioPlayerProps> = ({
     if (!el) return;
     if (el.paused) {
       el.play().catch(() => {});
-      setIsPlaying(true);
+      setPlaying(true);
     } else {
       el.pause();
-      setIsPlaying(false);
+      setPlaying(false);
     }
   };
 

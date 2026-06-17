@@ -43,6 +43,9 @@ const ShortAnswer: React.FC<ShortAnswerProps> = ({ question, disabled, onToggleR
             {...register(`questions.${id}.answer`)}
             disabled={disabled}
             placeholder="Write your answer..."
+            autoComplete="off"
+            spellCheck={false}
+            onContextMenu={(e) => e.preventDefault()}
             className={`w-full max-w-lg p-4 border border-rule rounded-md focus:ring-4 focus:ring-blue-500/10 focus:border-ink outline-none transition-all font-semibold text-ink-soft text-lg ${
                 disabled ? 'bg-paper-3 cursor-not-allowed text-muted border-rule' : 'bg-paper-2 hover:border-ink-soft'
             }`}

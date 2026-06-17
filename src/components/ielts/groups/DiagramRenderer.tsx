@@ -95,6 +95,9 @@ export default function DiagramRenderer({
                   {...register(regKey)}
                   disabled={disabled}
                   placeholder="..."
+                  autoComplete="off"
+                  spellCheck={false}
+                  onContextMenu={(e) => e.preventDefault()}
                   className="min-w-[100px] max-w-[180px] px-2 py-1 border-b border-rule bg-transparent focus:bg-paper-3 outline-none font-medium text-ink"
                 />
               )}

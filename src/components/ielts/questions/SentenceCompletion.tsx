@@ -295,6 +295,9 @@ const SentenceCompletion: React.FC<SentenceCompletionProps> = ({
               <input
                 {...register(`gap_${qNum}`)}
                 disabled={disabled}
+                autoComplete="off"
+                spellCheck={false}
+                onContextMenu={(e) => e.preventDefault()}
                 className={`w-full border-b border-rule focus:bg-paper-3 outline-none px-1 py-0 font-medium text-ink ${
                   isReviewMode
                     ? isCorrect

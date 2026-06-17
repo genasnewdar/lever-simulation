@@ -162,6 +162,26 @@ const CDIELTSLayout: React.FC<CDIELTSLayoutProps> = ({
   const [internalAnsweredQuestions] = useState<Set<number>>(new Set());
   const [internalReviewQuestions] = useState<Set<number>>(new Set());
   const [selection, setSelection] = useState<Selection | null>(null);
+
+  // Reading passage font preference — persisted so it survives section changes.
+  type FontSize = "sm" | "md" | "lg";
+  const [readingFontSize, setReadingFontSize] = useState<FontSize>(() => {
+    try { return (localStorage.getItem("reading-font-size") as FontSize) || "md"; } catch { return "md"; }
+  });
+  const [readingFontBold, setReadingFontBold] = useState<boolean>(() => {
+    try { return localStorage.getItem("reading-font-bold") === "1"; } catch { return false; }
+  });
+  const setFontSize = (v: FontSize) => {
+    setReadingFontSize(v);
+    try { localStorage.setItem("reading-font-size", v); } catch { /* ignore */ }
+  };
+  const toggleBold = () => {
+    setReadingFontBold((prev) => {
+      try { localStorage.setItem("reading-font-bold", prev ? "0" : "1"); } catch { /* ignore */ }
+      return !prev;
+    });
+  };
+  const FONT_SIZE_PX: Record<FontSize, string> = { sm: "14px", md: "16px", lg: "18px" };
   const savedRangeRef = React.useRef<Range | null>(null);
   const passageContainerRef = React.useRef<HTMLDivElement | null>(null);
   const questionsContainerRef = React.useRef<HTMLDivElement | null>(null);
@@ -399,12 +419,53 @@ const CDIELTSLayout: React.FC<CDIELTSLayoutProps> = ({
             <Panel
               defaultSize={50}
               minSize={20}
-              className="h-full border-r border-rule"
+              className="h-full border-r border-rule flex flex-col"
             >
+              {/* Font size/weight toolbar — only shown on Reading */}
+              {activeTab === "READING" && (
+                <div className="flex-shrink-0 flex items-center gap-1.5 px-4 py-1.5 bg-paper border-b border-rule/60">
+                  <span className="text-[10px] font-semibold text-muted uppercase tracking-widest mr-1">Үсэг</span>
+                  {(["sm", "md", "lg"] as const).map((size) => (
+                    <button
+                      key={size}
+                      type="button"
+                      onClick={() => setFontSize(size)}
+                      className={cn(
+                        "w-7 h-7 rounded flex items-center justify-center font-semibold transition-colors",
+                        readingFontSize === size
+                          ? "bg-ink text-paper"
+                          : "text-ink-soft hover:bg-paper-3",
+                        size === "sm" ? "text-xs" : size === "md" ? "text-sm" : "text-base",
+                      )}
+                      title={size === "sm" ? "Жижиг" : size === "md" ? "Дунд" : "Том"}
+                    >
+                      {size === "sm" ? "S" : size === "md" ? "M" : "L"}
+                    </button>
+                  ))}
+                  <div className="w-px h-4 bg-rule mx-1" />
+                  <button
+                    type="button"
+                    onClick={toggleBold}
+                    className={cn(
+                      "w-7 h-7 rounded flex items-center justify-center text-sm font-bold transition-colors",
+                      readingFontBold
+                        ? "bg-ink text-paper"
+                        : "text-ink-soft hover:bg-paper-3",
+                    )}
+                    title="Тод үсэг"
+                  >
+                    B
+                  </button>
+                </div>
+              )}
               <div
                 ref={passageContainerRef}
-                className="h-full overflow-y-auto custom-scrollbar px-8 lg:px-16 py-10 lg:py-14 select-text bg-paper"
+                className="flex-1 overflow-y-auto custom-scrollbar px-8 lg:px-16 py-10 lg:py-14 select-text bg-paper"
                 onMouseUp={captureSelection}
+                style={{
+                  fontSize: activeTab === "READING" ? FONT_SIZE_PX[readingFontSize] : undefined,
+                  fontWeight: activeTab === "READING" && readingFontBold ? 600 : undefined,
+                }}
               >
                 <div className="max-w-[78ch] mx-auto">
                   <AnimatePresence mode="wait" initial={false}>

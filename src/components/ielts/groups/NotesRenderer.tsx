@@ -96,6 +96,9 @@ export default function NotesRenderer({
                           {...register(regKey)}
                           disabled={disabled}
                           placeholder="..."
+                          autoComplete="off"
+                          spellCheck={false}
+                          onContextMenu={(e) => e.preventDefault()}
                           className="inline-block min-w-[100px] max-w-[180px] mx-0.5 px-2 py-0.5 border-b border-rule bg-transparent focus:bg-paper-3 outline-none font-medium text-ink"
                         />
                       </>
