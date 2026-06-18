@@ -1,21 +1,28 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { cn } from "@/lib/utils";
 
 interface TimerProps {
   initialSeconds: number;
   onTimeExpire?: () => void;
+  /** When provided, the timer displays this value and skips its own setInterval.
+   *  Used during Listening so the countdown stays in sync with audio playback. */
+  controlledSeconds?: number;
 }
 
-const Timer: React.FC<TimerProps> = ({ initialSeconds, onTimeExpire }) => {
+const Timer: React.FC<TimerProps> = ({ initialSeconds, onTimeExpire, controlledSeconds }) => {
   const [seconds, setSeconds] = useState(initialSeconds);
+  const expiredRef = useRef(false);
 
   useEffect(() => {
     setSeconds(initialSeconds);
+    expiredRef.current = false;
   }, [initialSeconds]);
 
+  // Uncontrolled mode: wall-clock setInterval countdown.
   useEffect(() => {
+    if (controlledSeconds !== undefined) return;
     if (seconds <= 0) return;
     const interval = setInterval(() => {
       setSeconds((prev) => {
@@ -27,14 +34,27 @@ const Timer: React.FC<TimerProps> = ({ initialSeconds, onTimeExpire }) => {
       });
     }, 1000);
     return () => clearInterval(interval);
-  }, [seconds, onTimeExpire]);
+  }, [seconds, onTimeExpire, controlledSeconds]);
 
-  const hours = Math.floor(seconds / 3600);
-  const minutes = Math.floor((seconds % 3600) / 60);
-  const secs = seconds % 60;
+  // Controlled mode: fire onTimeExpire once when audio-driven time hits 0.
+  useEffect(() => {
+    if (controlledSeconds === undefined || controlledSeconds > 0) return;
+    if (expiredRef.current) return;
+    expiredRef.current = true;
+    onTimeExpire?.();
+  }, [controlledSeconds, onTimeExpire]);
+
+  const display =
+    controlledSeconds !== undefined
+      ? Math.max(0, Math.round(controlledSeconds))
+      : seconds;
+
+  const hours = Math.floor(display / 3600);
+  const minutes = Math.floor((display % 3600) / 60);
+  const secs = display % 60;
   const pad = (v: number) => v.toString().padStart(2, "0");
 
-  const isLowTime = seconds <= 600; // ≤ 10 min
+  const isLowTime = display <= 600;
 
   return (
     <div

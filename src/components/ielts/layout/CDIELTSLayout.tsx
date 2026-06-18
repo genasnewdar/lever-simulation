@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useCallback, useEffect, useMemo } from "react";
+import React, { useState, useCallback, useEffect, useMemo, useRef } from "react";
 import { Panel, Group, Separator } from "react-resizable-panels";
 import { AnimatePresence, motion, MotionConfig } from "framer-motion";
 import Header from "./Header";
@@ -157,6 +157,45 @@ const CDIELTSLayout: React.FC<CDIELTSLayoutProps> = ({
   onAudioEnded,
 }) => {
   const [internalIndex, setInternalIndex] = useState(0);
+
+  // ── Listening timer: count down in sync with audio playback ─────────────────
+  const [listeningTimerSecs, setListeningTimerSecs] = useState(initialSeconds);
+  const [audioActive, setAudioActive] = useState(true);
+  const prevAudioTimeRef = useRef<number | null>(null);
+
+  // Sync when initialSeconds changes (section start or 30s backend correction).
+  useEffect(() => {
+    setListeningTimerSecs(initialSeconds);
+    prevAudioTimeRef.current = null;
+  }, [initialSeconds]);
+
+  // Reset when a new audio track is loaded.
+  useEffect(() => {
+    setAudioActive(true);
+    prevAudioTimeRef.current = null;
+  }, [audioUrl]);
+
+  const handleAudioTimeUpdate = useCallback((t: number) => {
+    const prev = prevAudioTimeRef.current;
+    prevAudioTimeRef.current = t;
+    if (prev === null) return;
+    const delta = t - prev;
+    // Ignore negative deltas (seek backwards) and large jumps (seek forwards).
+    if (delta <= 0 || delta > 5) return;
+    setListeningTimerSecs((s) => Math.max(0, s - delta));
+  }, []);
+
+  const handleAudioEndedWrapped = useCallback(() => {
+    prevAudioTimeRef.current = null;
+    setAudioActive(false);
+    onAudioEnded?.();
+  }, [onAudioEnded]);
+
+  // Pass controlledSeconds only while audio is actively playing in exam mode.
+  const listeningControlled =
+    examMode && activeTab === "LISTENING" && audioActive
+      ? listeningTimerSecs
+      : undefined;
   const currentQuestionIndex =
     controlledCurrentIndex !== undefined ? controlledCurrentIndex : internalIndex;
   const [internalAnsweredQuestions] = useState<Set<number>>(new Set());
@@ -168,20 +207,15 @@ const CDIELTSLayout: React.FC<CDIELTSLayoutProps> = ({
   const [readingFontSize, setReadingFontSize] = useState<FontSize>(() => {
     try { return (localStorage.getItem("reading-font-size") as FontSize) || "md"; } catch { return "md"; }
   });
-  const [readingFontBold, setReadingFontBold] = useState<boolean>(() => {
-    try { return localStorage.getItem("reading-font-bold") === "1"; } catch { return false; }
-  });
   const setFontSize = (v: FontSize) => {
     setReadingFontSize(v);
     try { localStorage.setItem("reading-font-size", v); } catch { /* ignore */ }
   };
-  const toggleBold = () => {
-    setReadingFontBold((prev) => {
-      try { localStorage.setItem("reading-font-bold", prev ? "0" : "1"); } catch { /* ignore */ }
-      return !prev;
-    });
+  const FONT_PRESET: Record<FontSize, { fontSize: string; fontWeight: number; maxWidth: string }> = {
+    sm: { fontSize: "14px", fontWeight: 400, maxWidth: "64ch" },
+    md: { fontSize: "16px", fontWeight: 400, maxWidth: "76ch" },
+    lg: { fontSize: "18px", fontWeight: 500, maxWidth: "88ch" },
   };
-  const FONT_SIZE_PX: Record<FontSize, string> = { sm: "14px", md: "16px", lg: "18px" };
   const savedRangeRef = React.useRef<Range | null>(null);
   const passageContainerRef = React.useRef<HTMLDivElement | null>(null);
   const questionsContainerRef = React.useRef<HTMLDivElement | null>(null);
@@ -399,11 +433,12 @@ const CDIELTSLayout: React.FC<CDIELTSLayoutProps> = ({
         onTabChange={onTabChange}
         onTimeExpire={onTimeExpire}
         hideSectionTabs={hideSectionTabs}
+        controlledSeconds={listeningControlled}
       />
 
       {activeTab === "LISTENING" && (
         <div className="flex-shrink-0 border-b border-rule">
-          <AudioPlayer audioUrl={audioUrl ?? null} className="mt-[64px]" examMode={examMode} storageKey={audioStorageKey} onEnded={onAudioEnded} />
+          <AudioPlayer audioUrl={audioUrl ?? null} className="mt-[64px]" examMode={examMode} storageKey={audioStorageKey} onEnded={handleAudioEndedWrapped} onTimeUpdate={handleAudioTimeUpdate} />
         </div>
       )}
 
@@ -421,7 +456,7 @@ const CDIELTSLayout: React.FC<CDIELTSLayoutProps> = ({
               minSize={20}
               className="h-full border-r border-rule flex flex-col"
             >
-              {/* Font size/weight toolbar — only shown on Reading */}
+              {/* Font size/weight/width toolbar — only shown on Reading */}
               {activeTab === "READING" && (
                 <div className="flex-shrink-0 flex items-center gap-1.5 px-4 py-1.5 bg-paper border-b border-rule/60">
                   <span className="text-[10px] font-semibold text-muted uppercase tracking-widest mr-1">Үсэг</span>
@@ -442,32 +477,25 @@ const CDIELTSLayout: React.FC<CDIELTSLayoutProps> = ({
                       {size === "sm" ? "S" : size === "md" ? "M" : "L"}
                     </button>
                   ))}
-                  <div className="w-px h-4 bg-rule mx-1" />
-                  <button
-                    type="button"
-                    onClick={toggleBold}
-                    className={cn(
-                      "w-7 h-7 rounded flex items-center justify-center text-sm font-bold transition-colors",
-                      readingFontBold
-                        ? "bg-ink text-paper"
-                        : "text-ink-soft hover:bg-paper-3",
-                    )}
-                    title="Тод үсэг"
-                  >
-                    B
-                  </button>
                 </div>
               )}
               <div
                 ref={passageContainerRef}
                 className="flex-1 overflow-y-auto custom-scrollbar px-8 lg:px-16 py-10 lg:py-14 select-text bg-paper"
                 onMouseUp={captureSelection}
-                style={{
-                  fontSize: activeTab === "READING" ? FONT_SIZE_PX[readingFontSize] : undefined,
-                  fontWeight: activeTab === "READING" && readingFontBold ? 600 : undefined,
-                }}
+                style={
+                  activeTab === "READING"
+                    ? {
+                        fontSize: FONT_PRESET[readingFontSize].fontSize,
+                        fontWeight: FONT_PRESET[readingFontSize].fontWeight,
+                      }
+                    : undefined
+                }
               >
-                <div className="max-w-[78ch] mx-auto">
+                <div
+                  className="mx-auto"
+                  style={{ maxWidth: activeTab === "READING" ? FONT_PRESET[readingFontSize].maxWidth : "78ch" }}
+                >
                   <AnimatePresence mode="wait" initial={false}>
                     <motion.div
                       key={`L-${activeTab}`}

@@ -103,8 +103,12 @@ export default function IeltsTakeTestPage(props: PageProps) {
   const [cancelledReason, setCancelledReason] = useState<string | null>(null);
 
   // ── Core state ──────────────────────────────────────────────────────────────
-  const [contentMeta, setContentMeta] = useState<ContentResponseMeta | null>(null);
-  const [sectionContent, setSectionContent] = useState<SectionContent | null>(null);
+  const [contentMeta, setContentMeta] = useState<ContentResponseMeta | null>(
+    null,
+  );
+  const [sectionContent, setSectionContent] = useState<SectionContent | null>(
+    null,
+  );
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isStarted, setIsStarted] = useState(false);
@@ -138,7 +142,9 @@ export default function IeltsTakeTestPage(props: PageProps) {
   const [highlightsByPassageId, setHighlightsByPassageId] = useState<
     Record<string, PassageHighlight[]>
   >({});
-  const [noteEditor, setNoteEditor] = useState<OpenNoteEditorPayload | null>(null);
+  const [noteEditor, setNoteEditor] = useState<OpenNoteEditorPayload | null>(
+    null,
+  );
   const passageRef = useRef<HTMLDivElement>(null);
   const timeExpireCalledRef = useRef(false);
   const contentLoadFailCount = useRef(0);
@@ -279,9 +285,10 @@ export default function IeltsTakeTestPage(props: PageProps) {
         // Try fetching with section=listening first (OFFLINE always starts with listening).
         // If the student is on a different section (refresh mid-exam), the backend
         // returns current_section in the response so we can re-fetch the right one.
-        const savedSection = typeof window !== "undefined"
-          ? sessionStorage.getItem(sectionStorageKey)?.toLowerCase()
-          : null;
+        const savedSection =
+          typeof window !== "undefined"
+            ? sessionStorage.getItem(sectionStorageKey)?.toLowerCase()
+            : null;
         const guessSection = savedSection || "listening";
 
         let response = await fetchSectionContent(params.id, guessSection);
@@ -298,12 +305,18 @@ export default function IeltsTakeTestPage(props: PageProps) {
         // If our guess was wrong (backend says we should be on a different section),
         // fetch the correct section
         if (response.current_section !== guessSection || !response.content) {
-          response = await fetchSectionContent(params.id, response.current_section);
+          response = await fetchSectionContent(
+            params.id,
+            response.current_section,
+          );
           if (cancelled) return;
         }
 
         const section = response.current_section;
-        const tab = section.toUpperCase() as "LISTENING" | "READING" | "WRITING";
+        const tab = section.toUpperCase() as
+          | "LISTENING"
+          | "READING"
+          | "WRITING";
 
         setContentMeta(response);
         setSectionContent(response.content ?? null);
@@ -332,9 +345,12 @@ export default function IeltsTakeTestPage(props: PageProps) {
         contentLoadFailCount.current += 1;
 
         // If exam not started yet or attempt not found, keep polling
-        const status = (err as { response?: { status?: number } })?.response?.status;
+        const status = (err as { response?: { status?: number } })?.response
+          ?.status;
         if (status === 400 || status === 404) {
-          debugLog("Exam not ready yet, polling...", { failCount: contentLoadFailCount.current });
+          debugLog("Exam not ready yet, polling...", {
+            failCount: contentLoadFailCount.current,
+          });
           // After many failures, redirect
           if (contentLoadFailCount.current >= 60) {
             router.push("/ielts/mock-exam");
@@ -344,7 +360,9 @@ export default function IeltsTakeTestPage(props: PageProps) {
 
         // Actual error
         console.error("Failed to fetch content:", err);
-        setError("Failed to load exam data. Please try again or contact support.");
+        setError(
+          "Failed to load exam data. Please try again or contact support.",
+        );
         setIsLoading(false);
       }
     };
@@ -392,11 +410,15 @@ export default function IeltsTakeTestPage(props: PageProps) {
             section: section as SectionId,
             duration: response.section_time_remaining_seconds,
           });
-          setActiveTab(section.toUpperCase() as "LISTENING" | "READING" | "WRITING");
+          setActiveTab(
+            section.toUpperCase() as "LISTENING" | "READING" | "WRITING",
+          );
           setCurrentQIndex(0);
           timeExpireCalledRef.current = false;
         }
-      } catch { /* ignore sync failures */ }
+      } catch {
+        /* ignore sync failures */
+      }
     }, 30000);
     return () => clearInterval(interval);
   }, [isStarted, isFinished, params.id, activeTab, onBreak]);
@@ -406,7 +428,14 @@ export default function IeltsTakeTestPage(props: PageProps) {
     if (!params.id || typeof window === "undefined" || !isStarted) return;
     sessionStorage.setItem(sectionStorageKey, activeTab);
     sessionStorage.setItem(currentQIndexStorageKey, String(currentQIndex));
-  }, [activeTab, currentQIndex, params.id, sectionStorageKey, currentQIndexStorageKey, isStarted]);
+  }, [
+    activeTab,
+    currentQIndex,
+    params.id,
+    sectionStorageKey,
+    currentQIndexStorageKey,
+    isStarted,
+  ]);
 
   // ── Restore answers from localStorage ─
   const [answersRestored, setAnswersRestored] = useState(false);
@@ -432,44 +461,51 @@ export default function IeltsTakeTestPage(props: PageProps) {
     const storedHighlights = getHighlightsFromStore(examId);
 
     requestAnimationFrame(() => {
-      if (Object.keys(stored).length > 0) {
-        const formValues = answersToFormValues(stored);
-        methods.reset(formValues);
-        Object.entries(stored).forEach(([key, value]) => {
-          methods.setValue(key, value, { shouldDirty: false });
-        });
-      }
-
-      // Also restore from server-side saved answers
+      // Collect server-side saved answers as baseline (lower priority).
+      const serverAnswers: Record<string, string> = {};
       if (sectionContent.type === "listening") {
         for (const sec of sectionContent.sections) {
           for (const q of sec.questions) {
-            const sa = q.saved_answer;
-            if (sa?.text_answer && !stored[`questions.${q.id}.answer`]) {
-              methods.setValue(`questions.${q.id}.answer` as string & keyof Record<string, unknown>, sa.text_answer, { shouldDirty: false });
-            }
+            const v = q.saved_answer?.text_answer ?? q.saved_answer?.answer;
+            if (v) serverAnswers[`questions.${q.id}.answer`] = v;
           }
         }
       } else if (sectionContent.type === "reading") {
         for (const p of sectionContent.passages) {
           for (const q of p.questions) {
-            const sa = q.saved_answer;
-            if (sa?.text_answer && !stored[`questions.${q.id}.answer`]) {
-              methods.setValue(`questions.${q.id}.answer` as string & keyof Record<string, unknown>, sa.text_answer, { shouldDirty: false });
-            }
+            const v = q.saved_answer?.text_answer ?? q.saved_answer?.answer;
+            if (v) serverAnswers[`questions.${q.id}.answer`] = v;
           }
         }
       } else if (sectionContent.type === "writing") {
         for (const task of sectionContent.tasks) {
-          const key = `writing_task_${task.task_number}`;
-          if (task.saved_answer?.content && !stored[key]) {
-            methods.setValue(key, task.saved_answer.content, { shouldDirty: false });
+          if (task.saved_answer?.content) {
+            serverAnswers[`writing_task_${task.task_number}`] = task.saved_answer.content;
           }
         }
       }
 
+      // localStorage/Zustand wins over server (it's more recent).
+      const merged: Record<string, string> = { ...serverAnswers, ...stored };
+
+      if (Object.keys(merged).length > 0) {
+        // reset sets default values for inputs not yet mounted (future passage navigations).
+        const formValues = answersToFormValues(merged);
+        methods.reset(formValues);
+        // setValue updates already-mounted inputs (select, radio, text).
+        Object.entries(merged).forEach(([key, value]) => {
+          methods.setValue(
+            key as string & keyof Record<string, unknown>,
+            value,
+            { shouldDirty: false },
+          );
+        });
+      }
+
       if (Object.keys(storedHighlights).length > 0) {
-        setHighlightsByPassageId(storedHighlights as Record<string, PassageHighlight[]>);
+        setHighlightsByPassageId(
+          storedHighlights as Record<string, PassageHighlight[]>,
+        );
       }
       if (typeof window !== "undefined") {
         const saved = localStorage.getItem(writingTaskStorageKey);
@@ -479,7 +515,14 @@ export default function IeltsTakeTestPage(props: PageProps) {
       setAnswersRestored(true);
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [sectionContent, examId, hasHydrated, getAnswersFromStore, getHighlightsFromStore, writingTaskStorageKey]);
+  }, [
+    sectionContent,
+    examId,
+    hasHydrated,
+    getAnswersFromStore,
+    getHighlightsFromStore,
+    writingTaskStorageKey,
+  ]);
 
   // ── Save answers to localStorage on change ─
   useEffect(() => {
@@ -498,7 +541,15 @@ export default function IeltsTakeTestPage(props: PageProps) {
         saveSectionToStorage(examId, sectionKey, answers);
       }
     });
-  }, [watchAll, examId, answersRestored, sectionContent, sectionMappers, setCurrentExamId, setAnswersInStore]);
+  }, [
+    watchAll,
+    examId,
+    answersRestored,
+    sectionContent,
+    sectionMappers,
+    setCurrentExamId,
+    setAnswersInStore,
+  ]);
 
   // ── Derived data ────────────────────────────────────────────────────────────
   const allQuestions = useMemo((): BackendQuestion[] => {
@@ -631,7 +682,12 @@ export default function IeltsTakeTestPage(props: PageProps) {
       (p) => currentQIndex + 1 >= p.start && currentQIndex + 1 <= p.end,
     );
     return idx >= 0 ? idx : 0;
-  }, [isListeningTabbed, listeningSections, listeningQuestionCount, currentQIndex]);
+  }, [
+    isListeningTabbed,
+    listeningSections,
+    listeningQuestionCount,
+    currentQIndex,
+  ]);
 
   const readingPartIndex = useMemo(() => {
     if (!isReadingTabbed || sections.length === 0) return 0;
@@ -654,20 +710,22 @@ export default function IeltsTakeTestPage(props: PageProps) {
       const sec = sectionContent.sections[listeningPartIndex];
       if (sec?.question_groups?.length) return sec.question_groups;
       if (sec?.questions?.length) {
-        return [{
-          id: `synth-${sec.id}`,
-          layout_type: "NONE",
-          title: null,
-          instructions: sec.instructions || null,
-          word_limit: null,
-          word_limit_text: null,
-          number_allowed: true,
-          layout_data: null,
-          image_url: null,
-          image_alt_text: null,
-          options_pool: null,
-          questions: sec.questions,
-        }];
+        return [
+          {
+            id: `synth-${sec.id}`,
+            layout_type: "NONE",
+            title: null,
+            instructions: sec.instructions || null,
+            word_limit: null,
+            word_limit_text: null,
+            number_allowed: true,
+            layout_data: null,
+            image_url: null,
+            image_alt_text: null,
+            options_pool: null,
+            questions: sec.questions,
+          },
+        ];
       }
       return [];
     }
@@ -675,20 +733,22 @@ export default function IeltsTakeTestPage(props: PageProps) {
       const passage = sectionContent.passages[readingPartIndex];
       if (passage?.question_groups?.length) return passage.question_groups;
       if (passage?.questions?.length) {
-        return [{
-          id: `synth-${passage.id}`,
-          layout_type: "NONE",
-          title: null,
-          instructions: null,
-          word_limit: null,
-          word_limit_text: null,
-          number_allowed: true,
-          layout_data: null,
-          image_url: null,
-          image_alt_text: null,
-          options_pool: null,
-          questions: passage.questions,
-        }];
+        return [
+          {
+            id: `synth-${passage.id}`,
+            layout_type: "NONE",
+            title: null,
+            instructions: null,
+            word_limit: null,
+            word_limit_text: null,
+            number_allowed: true,
+            layout_data: null,
+            image_url: null,
+            image_alt_text: null,
+            options_pool: null,
+            questions: passage.questions,
+          },
+        ];
       }
       return [];
     }
@@ -696,7 +756,11 @@ export default function IeltsTakeTestPage(props: PageProps) {
   }, [activeTab, sectionContent, listeningPartIndex, readingPartIndex]);
 
   const activePassage = useMemo(() => {
-    if (activeTab === "READING" && sectionContent?.type === "reading" && sectionContent.passages.length) {
+    if (
+      activeTab === "READING" &&
+      sectionContent?.type === "reading" &&
+      sectionContent.passages.length
+    ) {
       const passages = sectionContent.passages;
       const idx =
         isReadingTabbed && sections.length
@@ -708,7 +772,14 @@ export default function IeltsTakeTestPage(props: PageProps) {
       return passages[partIdx] ?? passages[0];
     }
     return null;
-  }, [activeTab, currentQIndex, sectionContent, isReadingTabbed, sections.length, readingPartIndex]);
+  }, [
+    activeTab,
+    currentQIndex,
+    sectionContent,
+    isReadingTabbed,
+    sections.length,
+    readingPartIndex,
+  ]);
 
   const answeredSet = useMemo(() => {
     const answered = new Set<number>();
@@ -767,7 +838,9 @@ export default function IeltsTakeTestPage(props: PageProps) {
           const obj = qObj as Record<string, unknown>;
           const answer = obj?.answer;
           if (answer === undefined || answer === null) return;
-          const str = Array.isArray(answer) ? answer.join(", ") : String(answer);
+          const str = Array.isArray(answer)
+            ? answer.join(", ")
+            : String(answer);
           if (str.trim() === "") return;
           const q = allQuestions.find((item) => item.id === id);
           if (q) map[q.question_number] = str;
@@ -779,7 +852,12 @@ export default function IeltsTakeTestPage(props: PageProps) {
       if (key === "questions" || key.startsWith("writing_task")) return;
       const value = watchAll[key];
       if (value === undefined || value === null) return;
-      const str = typeof value === "string" ? value : Array.isArray(value) ? value.join(", ") : String(value);
+      const str =
+        typeof value === "string"
+          ? value
+          : Array.isArray(value)
+            ? value.join(", ")
+            : String(value);
       if (str.trim() === "") return;
       if (key.startsWith("gap_")) {
         const rest = key.replace("gap_", "");
@@ -942,26 +1020,23 @@ export default function IeltsTakeTestPage(props: PageProps) {
     });
   }, [activePassage, examId, setHighlightsInStore]);
 
-  const handleOpenPassageNote = useCallback(
-    (highlight: PassageHighlight) => {
-      if (!highlight.id) return;
-      // Try to find the rendered <mark> for this highlight to anchor the editor.
-      let anchorRect: DOMRect | null = null;
-      if (typeof document !== "undefined" && passageRef.current) {
-        const sel = `mark[data-hl-id="${highlight.id}"]`;
-        const el = passageRef.current.querySelector<HTMLElement>(sel);
-        if (el) anchorRect = el.getBoundingClientRect();
-      }
-      setNoteEditor({
-        highlightId: highlight.id,
-        initialNote: highlight.note ?? "",
-        color: highlight.color,
-        container: "passage",
-        anchorRect,
-      });
-    },
-    [],
-  );
+  const handleOpenPassageNote = useCallback((highlight: PassageHighlight) => {
+    if (!highlight.id) return;
+    // Try to find the rendered <mark> for this highlight to anchor the editor.
+    let anchorRect: DOMRect | null = null;
+    if (typeof document !== "undefined" && passageRef.current) {
+      const sel = `mark[data-hl-id="${highlight.id}"]`;
+      const el = passageRef.current.querySelector<HTMLElement>(sel);
+      if (el) anchorRect = el.getBoundingClientRect();
+    }
+    setNoteEditor({
+      highlightId: highlight.id,
+      initialNote: highlight.note ?? "",
+      color: highlight.color,
+      container: "passage",
+      anchorRect,
+    });
+  }, []);
 
   const handleCloseNoteEditor = useCallback(() => setNoteEditor(null), []);
 
@@ -989,24 +1064,39 @@ export default function IeltsTakeTestPage(props: PageProps) {
         const content = formValues[key];
         if (typeof content === "string" && content.trim().length > 0) {
           const wordCount = content.trim().split(/\s+/).filter(Boolean).length;
-          await api.post("/api/student/ielts/test/writing/submit", {
-            attempt_id: attemptId, task_id: task.id, content, word_count: wordCount,
-          }).catch(() => {});
+          await api
+            .post("/api/student/ielts/test/writing/submit", {
+              attempt_id: attemptId,
+              task_id: task.id,
+              content,
+              word_count: wordCount,
+            })
+            .catch(() => {});
         }
       }
     } else {
-      const endpoint = activeTab === "LISTENING"
-        ? "/api/student/ielts/test/listening/batch"
-        : "/api/student/ielts/test/reading/batch";
-      const questionsObj = (formValues.questions ?? {}) as Record<string, Record<string, unknown>>;
+      const endpoint =
+        activeTab === "LISTENING"
+          ? "/api/student/ielts/test/listening/batch"
+          : "/api/student/ielts/test/reading/batch";
+      const questionsObj = (formValues.questions ?? {}) as Record<
+        string,
+        Record<string, unknown>
+      >;
       const sectionQIds = new Set(allQuestions.map((q) => q.id));
       const responses: Array<Record<string, unknown>> = [];
       Object.entries(questionsObj).forEach(([qId, val]) => {
         if (!sectionQIds.has(qId)) return;
-        const answer = typeof val === "object" && val !== null
-          ? (val as Record<string, unknown>).answer : val;
+        const answer =
+          typeof val === "object" && val !== null
+            ? (val as Record<string, unknown>).answer
+            : val;
         if (answer === undefined || answer === null || answer === "") return;
-        responses.push({ attempt_id: attemptId, question_id: qId, text_answer: String(answer) });
+        responses.push({
+          attempt_id: attemptId,
+          question_id: qId,
+          text_answer: String(answer),
+        });
       });
       if (responses.length > 0) {
         await api
@@ -1043,11 +1133,13 @@ export default function IeltsTakeTestPage(props: PageProps) {
       // Compensate for backend counting down during the frontend break.
       // The backend starts the next section timer when finish-section is called,
       // so we add back however many seconds the break actually lasted.
-      const breakElapsed = breakStartMsRef.current != null
-        ? Math.round((Date.now() - breakStartMsRef.current) / 1000)
-        : 0;
+      const breakElapsed =
+        breakStartMsRef.current != null
+          ? Math.round((Date.now() - breakStartMsRef.current) / 1000)
+          : 0;
       breakStartMsRef.current = null;
-      const compensatedTimer = response.section_time_remaining_seconds + breakElapsed;
+      const compensatedTimer =
+        response.section_time_remaining_seconds + breakElapsed;
 
       setContentMeta(response);
       setSectionContent(response.content ?? null);
@@ -1056,7 +1148,9 @@ export default function IeltsTakeTestPage(props: PageProps) {
         section: section as SectionId,
         duration: compensatedTimer,
       });
-      setActiveTab(section.toUpperCase() as "LISTENING" | "READING" | "WRITING");
+      setActiveTab(
+        section.toUpperCase() as "LISTENING" | "READING" | "WRITING",
+      );
       setCurrentQIndex(0);
       timeExpireCalledRef.current = false;
 
@@ -1098,8 +1192,14 @@ export default function IeltsTakeTestPage(props: PageProps) {
             const key = `writing_task_${task.task_number}`;
             const content = formValues[key];
             if (typeof content === "string" && content.trim().length > 0) {
-              const wordCount = content.trim().split(/\s+/).filter(Boolean).length;
-              debugLog("writing-submit", { task_id: task.id, word_count: wordCount });
+              const wordCount = content
+                .trim()
+                .split(/\s+/)
+                .filter(Boolean).length;
+              debugLog("writing-submit", {
+                task_id: task.id,
+                word_count: wordCount,
+              });
               await api.post("/api/student/ielts/test/writing/submit", {
                 attempt_id: attemptId,
                 task_id: task.id,
@@ -1109,21 +1209,28 @@ export default function IeltsTakeTestPage(props: PageProps) {
             }
           }
         } else {
-          const endpoint = activeTab === "LISTENING"
-            ? "/api/student/ielts/test/listening/batch"
-            : "/api/student/ielts/test/reading/batch";
+          const endpoint =
+            activeTab === "LISTENING"
+              ? "/api/student/ielts/test/listening/batch"
+              : "/api/student/ielts/test/reading/batch";
 
-          const questionsObj = (formValues.questions ?? {}) as Record<string, Record<string, unknown>>;
+          const questionsObj = (formValues.questions ?? {}) as Record<
+            string,
+            Record<string, unknown>
+          >;
           const sectionQuestionIds = new Set(allQuestions.map((q) => q.id));
           const responses: Array<Record<string, unknown>> = [];
 
           Object.entries(questionsObj).forEach(([qId, val]) => {
             if (!sectionQuestionIds.has(qId)) return;
-            const answer = typeof val === "object" && val !== null
-              ? (val as Record<string, unknown>).answer
-              : val;
-            if (answer === undefined || answer === null || answer === "") return;
-            const textAnswer = typeof answer === "string" ? answer : String(answer);
+            const answer =
+              typeof val === "object" && val !== null
+                ? (val as Record<string, unknown>).answer
+                : val;
+            if (answer === undefined || answer === null || answer === "")
+              return;
+            const textAnswer =
+              typeof answer === "string" ? answer : String(answer);
             responses.push({
               attempt_id: attemptId,
               question_id: qId,
@@ -1132,7 +1239,10 @@ export default function IeltsTakeTestPage(props: PageProps) {
           });
 
           if (responses.length > 0) {
-            debugLog("batch-submit", { section: activeTab, count: responses.length });
+            debugLog("batch-submit", {
+              section: activeTab,
+              count: responses.length,
+            });
             await api.post(endpoint, {
               attempt_id: attemptId,
               responses,
@@ -1263,12 +1373,18 @@ export default function IeltsTakeTestPage(props: PageProps) {
     timeExpireCalledRef.current = true;
 
     const sectionName =
-      activeTab === "LISTENING" ? "listening" : activeTab === "READING" ? "reading" : "writing";
+      activeTab === "LISTENING"
+        ? "listening"
+        : activeTab === "READING"
+          ? "reading"
+          : "writing";
 
     // Submit current answers before section ends
     try {
       await submitCurrentAnswers();
-    } catch { /* best-effort */ }
+    } catch {
+      /* best-effort */
+    }
 
     // Notify backend
     fetch("/api/ielts/finish-section", {
@@ -1278,7 +1394,11 @@ export default function IeltsTakeTestPage(props: PageProps) {
     }).catch(() => {});
 
     const label =
-      activeTab === "LISTENING" ? "Listening" : activeTab === "READING" ? "Reading" : "Writing";
+      activeTab === "LISTENING"
+        ? "Listening"
+        : activeTab === "READING"
+          ? "Reading"
+          : "Writing";
     if (activeTab === "WRITING") {
       toast.success("Шалгалт дууслаа!");
       setIsFinished(true);
@@ -1292,7 +1412,6 @@ export default function IeltsTakeTestPage(props: PageProps) {
       setOnBreak(true);
     }
   }, [activeTab, submitCurrentAnswers, params.id]);
-
 
   // ── Render: Loading ─────────────────────────────────────────────────────────
   if (isLoading) {
@@ -1323,14 +1442,12 @@ export default function IeltsTakeTestPage(props: PageProps) {
                 setIsLoading(true);
                 setRetryKey((k) => k + 1);
               }}
-              className="px-5 py-2.5 bg-primary text-white rounded-xl font-semibold hover:bg-primary/90 transition-colors"
-            >
+              className="px-5 py-2.5 bg-primary text-white rounded-xl font-semibold hover:bg-primary/90 transition-colors">
               Дахин оролдох
             </button>
             <button
               onClick={() => router.back()}
-              className="px-5 py-2.5 bg-paper-3 rounded-xl text-gray-800 font-semibold hover:bg-gray-300 transition-colors"
-            >
+              className="px-5 py-2.5 bg-paper-3 rounded-xl text-gray-800 font-semibold hover:bg-gray-300 transition-colors">
               Буцах
             </button>
           </div>
@@ -1370,8 +1487,7 @@ export default function IeltsTakeTestPage(props: PageProps) {
               // Don't clear exam code — results page needs it for API auth
               router.push(`/ielts/finished/${params.id}`);
             }}
-            className="w-full py-4 bg-primary text-white rounded-2xl font-semibold text-lg hover:bg-primary/90 transition-all shadow-xl shadow-primary/20 active:scale-95"
-          >
+            className="w-full py-4 bg-primary text-white rounded-2xl font-semibold text-lg hover:bg-primary/90 transition-all shadow-xl shadow-primary/20 active:scale-95">
             Үр дүн харах
           </button>
           <button
@@ -1386,8 +1502,7 @@ export default function IeltsTakeTestPage(props: PageProps) {
               clearExamCode();
               router.push("/ielts");
             }}
-            className="w-full py-3 bg-paper-3 text-gray-700 rounded-2xl font-semibold text-base hover:bg-paper-3 transition-all"
-          >
+            className="w-full py-3 bg-paper-3 text-gray-700 rounded-2xl font-semibold text-base hover:bg-paper-3 transition-all">
             Нүүр хуудас руу буцах
           </button>
         </div>
@@ -1409,8 +1524,7 @@ export default function IeltsTakeTestPage(props: PageProps) {
           <button
             type="button"
             onClick={() => window.location.reload()}
-            className="ml-4 underline underline-offset-2 hover:no-underline"
-          >
+            className="ml-4 underline underline-offset-2 hover:no-underline">
             Дахин ачаалах
           </button>
         </div>
@@ -1440,247 +1554,283 @@ export default function IeltsTakeTestPage(props: PageProps) {
       )}
       <FormProvider {...methods}>
         <CDIELTSLayout
-        title={contentMeta?.test_title ?? ""}
-        totalQuestions={totalQuestions}
-        userName="IELTS Candidate"
-        initialSeconds={timerInitialSeconds}
-        onTimeExpire={handleTimeExpire}
-        onQuestionClick={handleQuestionClick}
-        answeredQuestions={answeredSet}
-        reviewQuestions={reviewSet}
-        activeTab={activeTab}
-        onTabChange={(tab) => setActiveTab(tab)}
-        hideSectionTabs
-        examMode
-        layoutMode={layoutMode}
-        writingTask={writingTask}
-        onWritingTaskChange={(task) => {
-          setWritingTask(task);
-          if (examId && typeof window !== "undefined") {
-            try {
-              localStorage.setItem(writingTaskStorageKey, String(task));
-            } catch {
-              // ignore
+          title={contentMeta?.test_title ?? ""}
+          totalQuestions={totalQuestions}
+          userName="IELTS Candidate"
+          initialSeconds={timerInitialSeconds}
+          onTimeExpire={handleTimeExpire}
+          onQuestionClick={handleQuestionClick}
+          answeredQuestions={answeredSet}
+          reviewQuestions={reviewSet}
+          activeTab={activeTab}
+          onTabChange={(tab) => setActiveTab(tab)}
+          hideSectionTabs
+          examMode
+          layoutMode={layoutMode}
+          writingTask={writingTask}
+          onWritingTaskChange={(task) => {
+            setWritingTask(task);
+            if (examId && typeof window !== "undefined") {
+              try {
+                localStorage.setItem(writingTaskStorageKey, String(task));
+              } catch {
+                // ignore
+              }
             }
+          }}
+          isWritingTaskAnswered={isWritingTaskAnswered}
+          sections={sections}
+          onHighlightText={
+            activeTab === "READING" ? handleAddHighlight : undefined
           }
-        }}
-        isWritingTaskAnswered={isWritingTaskAnswered}
-        sections={sections}
-        onHighlightText={
-          activeTab === "READING" ? handleAddHighlight : undefined
-        }
-        onUpdateNote={activeTab === "READING" ? handleUpdateNote : undefined}
-        questionsHighlights={
-          activeTab === "READING" && activePassage
-            ? highlightsByPassageId[`q-${activePassage.id}`] ?? []
-            : []
-        }
-        questionsHighlightVersion={activePassage?.id}
-        noteEditor={noteEditor}
-        onCloseNoteEditor={handleCloseNoteEditor}
-        audioUrl={
-          activeTab === "LISTENING" && sectionContent.type === "listening"
-            ? (sectionContent.audio_url ??
-              sectionContent.sections?.[0]?.audio_url ??
-              null)
-            : null
-        }
-        audioStorageKey={examId ? `ielts-audio:${examId}` : null}
-        onAudioEnded={handleAudioEnded}
-        activePartIndex={activePartIndex}
-        currentQuestionIndex={currentQIndex}
-        onPartChange={(partIndex) => {
-          if (sections[partIndex]) {
-            setCurrentQIndex(sections[partIndex].start - 1);
+          onUpdateNote={activeTab === "READING" ? handleUpdateNote : undefined}
+          questionsHighlights={
+            activeTab === "READING" && activePassage
+              ? (highlightsByPassageId[`q-${activePassage.id}`] ?? [])
+              : []
           }
-        }}
-        reviewAnswers={reviewAnswers}
-      >
-        {/* Left Panel: Content (Reading/Writing) */}
-        <div className="space-y-12">
-          {activeTab === "READING" && activePassage && (
-            <AnimatePresence mode="wait" initial={false}>
-              <motion.article
-                key={activePassage.id}
-                initial={{ opacity: 0, rotateX: -6, rotateY: 4, rotateZ: 1, scale: 0.99 }}
-                animate={{ opacity: 1, rotateX: 0, rotateY: 0, rotateZ: 0, scale: 1 }}
-                exit={{
-                  opacity: 0,
-                  rotateX: -18,
-                  rotateY: 18,
-                  rotateZ: -4,
-                  scale: 0.95,
-                  filter: "drop-shadow(-10px 10px 14px color-mix(in oklch, var(--ink) 18%, transparent))",
-                }}
-                transition={{ duration: 0.55, ease: [0.32, 0.04, 0.18, 1] }}
-                style={{
-                  transformOrigin: "100% 100%",
-                  transformStyle: "preserve-3d",
-                  backfaceVisibility: "hidden",
-                }}
-                className="relative space-y-10 pb-16"
-              >
-                {/* Section meta — small, calm, never shouts */}
-                <header className="space-y-5">
-                  <div className="flex items-baseline justify-between gap-6 border-b border-rule pb-3">
-                    <div className="flex items-baseline gap-4">
+          questionsHighlightVersion={activePassage?.id}
+          noteEditor={noteEditor}
+          onCloseNoteEditor={handleCloseNoteEditor}
+          audioUrl={
+            activeTab === "LISTENING" && sectionContent.type === "listening"
+              ? sectionContent.audio_url
+              : null
+          }
+          audioStorageKey={examId ? `ielts-audio:${examId}` : null}
+          onAudioEnded={handleAudioEnded}
+          activePartIndex={activePartIndex}
+          currentQuestionIndex={currentQIndex}
+          onPartChange={(partIndex) => {
+            if (sections[partIndex]) {
+              setCurrentQIndex(sections[partIndex].start - 1);
+            }
+          }}
+          reviewAnswers={reviewAnswers}>
+          {/* Left Panel: Content (Reading/Writing) */}
+          <div className="space-y-12">
+            {activeTab === "READING" && activePassage && (
+              <AnimatePresence mode="wait" initial={false}>
+                <motion.article
+                  key={activePassage.id}
+                  initial={{
+                    opacity: 0,
+                    rotateX: -6,
+                    rotateY: 4,
+                    rotateZ: 1,
+                    scale: 0.99,
+                  }}
+                  animate={{
+                    opacity: 1,
+                    rotateX: 0,
+                    rotateY: 0,
+                    rotateZ: 0,
+                    scale: 1,
+                  }}
+                  exit={{
+                    opacity: 0,
+                    rotateX: -18,
+                    rotateY: 18,
+                    rotateZ: -4,
+                    scale: 0.95,
+                    filter:
+                      "drop-shadow(-10px 10px 14px color-mix(in oklch, var(--ink) 18%, transparent))",
+                  }}
+                  transition={{ duration: 0.55, ease: [0.32, 0.04, 0.18, 1] }}
+                  style={{
+                    transformOrigin: "100% 100%",
+                    transformStyle: "preserve-3d",
+                    backfaceVisibility: "hidden",
+                  }}
+                  className="relative space-y-10 pb-16">
+                  {/* Section meta — small, calm, never shouts */}
+                  <header className="space-y-5">
+                    <div className="flex items-baseline justify-between gap-6 border-b border-rule pb-3">
+                      <div className="flex items-baseline gap-4">
+                        <span className="font-serif text-[13px] font-medium tracking-tight text-mint-deep">
+                          Passage {activePassage.passage_number}
+                        </span>
+                        <span className="text-[12px] uppercase tracking-[0.18em] text-muted">
+                          Reading
+                        </span>
+                      </div>
+                      {(highlightsByPassageId[activePassage.id]?.length ?? 0) >
+                        0 && (
+                        <button
+                          type="button"
+                          onClick={handleClearPassageHighlights}
+                          className="text-[12px] font-medium text-muted hover:text-ink-soft transition-colors"
+                          title="Remove all highlights on this passage. Right-click any highlight to remove just that one.">
+                          Clear highlights
+                        </button>
+                      )}
+                    </div>
+                    <h2 className="font-serif text-[2.6rem] font-semibold text-ink leading-[1.08] tracking-[-0.022em]">
+                      {activePassage.title}
+                    </h2>
+                  </header>
+
+                  <ReadingPassage
+                    ref={passageRef}
+                    content={activePassage.content}
+                    highlights={highlightsByPassageId[activePassage.id] || []}
+                    onRemoveHighlight={handleRemoveHighlight}
+                    onOpenNote={handleOpenPassageNote}
+                  />
+
+                  {/* Page-curl: the brand motif, deployed exactly once per passage */}
+                  <span aria-hidden className="page-curl" />
+                </motion.article>
+              </AnimatePresence>
+            )}
+
+            {activeTab === "WRITING" && activeWritingPrompt && (
+              <AnimatePresence mode="wait" initial={false}>
+                <motion.article
+                  key={activeWritingPrompt.id}
+                  initial={{
+                    opacity: 0,
+                    rotateX: -6,
+                    rotateY: 4,
+                    rotateZ: 1,
+                    scale: 0.99,
+                  }}
+                  animate={{
+                    opacity: 1,
+                    rotateX: 0,
+                    rotateY: 0,
+                    rotateZ: 0,
+                    scale: 1,
+                  }}
+                  exit={{
+                    opacity: 0,
+                    rotateX: -18,
+                    rotateY: 18,
+                    rotateZ: -4,
+                    scale: 0.95,
+                    filter:
+                      "drop-shadow(-10px 10px 14px color-mix(in oklch, var(--ink) 18%, transparent))",
+                  }}
+                  transition={{ duration: 0.5, ease: [0.32, 0.04, 0.18, 1] }}
+                  style={{
+                    transformOrigin: "100% 100%",
+                    transformStyle: "preserve-3d",
+                    backfaceVisibility: "hidden",
+                  }}
+                  className="space-y-10 pb-16">
+                  <header className="space-y-5">
+                    <div className="flex items-baseline gap-4 border-b border-rule pb-3">
                       <span className="font-serif text-[13px] font-medium tracking-tight text-mint-deep">
-                        Passage {activePassage.passage_number}
+                        Task {activeWritingPrompt.task_number}
                       </span>
                       <span className="text-[12px] uppercase tracking-[0.18em] text-muted">
-                        Reading
+                        Writing
                       </span>
                     </div>
-                    {(highlightsByPassageId[activePassage.id]?.length ?? 0) > 0 && (
-                      <button
-                        type="button"
-                        onClick={handleClearPassageHighlights}
-                        className="text-[12px] font-medium text-muted hover:text-ink-soft transition-colors"
-                        title="Remove all highlights on this passage. Right-click any highlight to remove just that one."
-                      >
-                        Clear highlights
-                      </button>
-                    )}
+                    <h2 className="font-serif text-[2.4rem] font-semibold text-ink leading-[1.08] tracking-[-0.022em]">
+                      {activeWritingPrompt.title}
+                    </h2>
+                  </header>
+
+                  <div className="font-serif text-[1.1875rem] leading-[1.7] text-ink max-w-[68ch] whitespace-pre-line">
+                    {activeWritingPrompt.prompt}
                   </div>
-                  <h2 className="font-serif text-[2.6rem] font-semibold text-ink leading-[1.08] tracking-[-0.022em]">
-                    {activePassage.title}
-                  </h2>
-                </header>
 
-                <ReadingPassage
-                  ref={passageRef}
-                  content={activePassage.content}
-                  highlights={highlightsByPassageId[activePassage.id] || []}
-                  onRemoveHighlight={handleRemoveHighlight}
-                  onOpenNote={handleOpenPassageNote}
-                />
+                  {activeWritingPrompt.visual_content && (
+                    <div className="bg-paper-2 p-4 rounded-md border border-rule">
+                      <img
+                        src={activeWritingPrompt.visual_content}
+                        alt={`Visual content for ${activeWritingPrompt.title}`}
+                        className="w-full h-auto rounded"
+                      />
+                    </div>
+                  )}
 
-                {/* Page-curl: the brand motif, deployed exactly once per passage */}
-                <span aria-hidden className="page-curl" />
-              </motion.article>
-            </AnimatePresence>
-          )}
+                  <p className="text-[11px] uppercase tracking-[0.18em] text-mint-deep">
+                    Suggested · {activeWritingPrompt.suggested_time} min
+                  </p>
+                </motion.article>
+              </AnimatePresence>
+            )}
+          </div>
 
-          {activeTab === "WRITING" && activeWritingPrompt && (
-            <AnimatePresence mode="wait" initial={false}>
-              <motion.article
-                key={activeWritingPrompt.id}
-                initial={{ opacity: 0, rotateX: -6, rotateY: 4, rotateZ: 1, scale: 0.99 }}
-                animate={{ opacity: 1, rotateX: 0, rotateY: 0, rotateZ: 0, scale: 1 }}
-                exit={{
-                  opacity: 0,
-                  rotateX: -18,
-                  rotateY: 18,
-                  rotateZ: -4,
-                  scale: 0.95,
-                  filter: "drop-shadow(-10px 10px 14px color-mix(in oklch, var(--ink) 18%, transparent))",
-                }}
-                transition={{ duration: 0.5, ease: [0.32, 0.04, 0.18, 1] }}
-                style={{
-                  transformOrigin: "100% 100%",
-                  transformStyle: "preserve-3d",
-                  backfaceVisibility: "hidden",
-                }}
-                className="space-y-10 pb-16"
-              >
-                <header className="space-y-5">
-                  <div className="flex items-baseline gap-4 border-b border-rule pb-3">
-                    <span className="font-serif text-[13px] font-medium tracking-tight text-mint-deep">
-                      Task {activeWritingPrompt.task_number}
-                    </span>
-                    <span className="text-[12px] uppercase tracking-[0.18em] text-muted">
-                      Writing
-                    </span>
-                  </div>
-                  <h2 className="font-serif text-[2.4rem] font-semibold text-ink leading-[1.08] tracking-[-0.022em]">
-                    {activeWritingPrompt.title}
-                  </h2>
-                </header>
-
-                <div className="font-serif text-[1.1875rem] leading-[1.7] text-ink max-w-[68ch] whitespace-pre-line">
-                  {activeWritingPrompt.prompt}
+          {/* Right Panel: Questions / Essay */}
+          <div className="space-y-12 pb-24 h-full">
+            {activeTab === "WRITING" ? (
+              <div className="flex flex-col h-full gap-3">
+                <div className="flex items-baseline justify-between border-b border-rule pb-2">
+                  <span className="text-[11px] uppercase tracking-[0.18em] text-muted">
+                    Your essay
+                  </span>
+                  <span className="text-[12px] font-medium text-ink-soft tabular-nums">
+                    {getWordCount(
+                      (() => {
+                        const v = watchAll[`writing_task_${writingTask}`];
+                        return typeof v === "string" ? v : "";
+                      })(),
+                    )}{" "}
+                    words
+                  </span>
                 </div>
-
-                {activeWritingPrompt.visual_content && (
-                  <div className="bg-paper-2 p-4 rounded-md border border-rule">
-                    <img
-                      src={activeWritingPrompt.visual_content}
-                      alt={`Visual content for ${activeWritingPrompt.title}`}
-                      className="w-full h-auto rounded"
+                <textarea
+                  key={`writing_task_${writingTask}`}
+                  {...methods.register(`writing_task_${writingTask}`, {
+                    // Flush on blur so clicking outside the textarea immediately
+                    // posts the latest content (no debounce wait).
+                    onBlur: () => {
+                      submitCurrentAnswers().catch(() => {});
+                    },
+                  })}
+                  // Exam integrity: the candidate must write unaided. Disable all
+                  // browser writing assistance — spellcheck squiggles, autocorrect,
+                  // autocapitalize, autocomplete — and block the right-click menu
+                  // (which exposes spellcheck suggestions, synonyms, and translate).
+                  spellCheck={false}
+                  autoCorrect="off"
+                  autoCapitalize="off"
+                  autoComplete="off"
+                  data-gramm="false"
+                  data-gramm_editor="false"
+                  data-enable-grammarly="false"
+                  onContextMenu={(e) => e.preventDefault()}
+                  className="flex-1 w-full min-h-[640px] p-8 font-serif text-[1.1875rem] leading-[1.75] tracking-tight text-ink bg-paper border border-rule rounded-md focus:border-mint focus:ring-1 focus:ring-mint/30 outline-none resize-none transition-all"
+                  placeholder="Begin writing here…"
+                />
+              </div>
+            ) : (
+              <>
+                {/* Section / passage level instructions */}
+                {activeTab === "LISTENING" && (() => {
+                  const sec = listeningSections[listeningPartIndex];
+                  return sec?.instructions ? (
+                    <p className="text-base font-bold text-ink border-b border-rule pb-4 mb-2">
+                      {sec.instructions}
+                    </p>
+                  ) : null;
+                })()}
+                {activeTab === "READING" &&
+                  sectionContent?.type === "reading" &&
+                  sectionContent.instructions && (
+                    <p className="text-base font-bold text-ink border-b border-rule pb-4 mb-2">
+                      {sectionContent.instructions}
+                    </p>
+                  )}
+                {/* Dynamic group-based rendering */}
+                <div className="space-y-20">
+                  {groupsToShow.map((group, idx) => (
+                    <GroupDispatcher
+                      key={group.id ?? idx}
+                      group={group}
+                      reviewSet={reviewSet}
+                      toggleReview={toggleReview}
+                      flashQuestionNumber={flashQuestionNumber}
+                      disabled={isFinished}
                     />
-                  </div>
-                )}
-
-                <p className="text-[11px] uppercase tracking-[0.18em] text-mint-deep">
-                  Suggested · {activeWritingPrompt.suggested_time} min
-                </p>
-              </motion.article>
-            </AnimatePresence>
-          )}
-        </div>
-
-        {/* Right Panel: Questions / Essay */}
-        <div className="space-y-12 pb-24 h-full">
-          {activeTab === "WRITING" ? (
-            <div className="flex flex-col h-full gap-3">
-              <div className="flex items-baseline justify-between border-b border-rule pb-2">
-                <span className="text-[11px] uppercase tracking-[0.18em] text-muted">
-                  Your essay
-                </span>
-                <span className="text-[12px] font-medium text-ink-soft tabular-nums">
-                  {getWordCount(
-                    (() => {
-                      const v = watchAll[`writing_task_${writingTask}`];
-                      return typeof v === "string" ? v : "";
-                    })(),
-                  )}{" "}
-                  words
-                </span>
-              </div>
-              <textarea
-                key={`writing_task_${writingTask}`}
-                {...methods.register(`writing_task_${writingTask}`, {
-                  // Flush on blur so clicking outside the textarea immediately
-                  // posts the latest content (no debounce wait).
-                  onBlur: () => {
-                    submitCurrentAnswers().catch(() => {});
-                  },
-                })}
-                // Exam integrity: the candidate must write unaided. Disable all
-                // browser writing assistance — spellcheck squiggles, autocorrect,
-                // autocapitalize, autocomplete — and block the right-click menu
-                // (which exposes spellcheck suggestions, synonyms, and translate).
-                spellCheck={false}
-                autoCorrect="off"
-                autoCapitalize="off"
-                autoComplete="off"
-                data-gramm="false"
-                data-gramm_editor="false"
-                data-enable-grammarly="false"
-                onContextMenu={(e) => e.preventDefault()}
-                className="flex-1 w-full min-h-[640px] p-8 font-serif text-[1.1875rem] leading-[1.75] tracking-tight text-ink bg-paper border border-rule rounded-md focus:border-mint focus:ring-1 focus:ring-mint/30 outline-none resize-none transition-all"
-                placeholder="Begin writing here…"
-              />
-            </div>
-          ) : (
-            <>
-              {/* Dynamic group-based rendering */}
-              <div className="space-y-20">
-                {groupsToShow.map((group, idx) => (
-                  <GroupDispatcher
-                    key={group.id ?? idx}
-                    group={group}
-                    reviewSet={reviewSet}
-                    toggleReview={toggleReview}
-                    flashQuestionNumber={flashQuestionNumber}
-                    disabled={isFinished}
-                  />
-                ))}
-              </div>
-            </>
-          )}
-
-        </div>
+                  ))}
+                </div>
+              </>
+            )}
+          </div>
         </CDIELTSLayout>
       </FormProvider>
     </>

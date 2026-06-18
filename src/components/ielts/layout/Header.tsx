@@ -14,6 +14,7 @@ interface HeaderProps {
   onTimeExpire?: () => void;
   hideSectionTabs?: boolean;
   onReviewClick?: () => void;
+  controlledSeconds?: number;
 }
 
 const sections: Array<{
@@ -33,6 +34,7 @@ const Header: React.FC<HeaderProps> = ({
   onTimeExpire,
   hideSectionTabs = false,
   onReviewClick,
+  controlledSeconds,
 }) => {
   return (
     <header className="h-[64px] bg-paper px-8 flex items-center justify-between fixed top-0 w-full z-50 border-b border-rule">
@@ -76,6 +78,7 @@ const Header: React.FC<HeaderProps> = ({
           key={activeTab}
           initialSeconds={initialSeconds}
           onTimeExpire={onTimeExpire}
+          controlledSeconds={controlledSeconds}
         />
       </div>
 

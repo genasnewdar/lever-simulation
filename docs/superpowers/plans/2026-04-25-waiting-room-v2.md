@@ -9,26 +9,27 @@
 **Tech Stack:** Next.js 15 · React 19 · Tailwind v4 · `lucide-react` · native `EventSource` for SSE (auth via query-string `code` param to match the existing SSE endpoint pattern).
 
 **Resolved scope decisions:**
+
 - **Audio test clip:** use a short bundled tone — `/audio/audio-check.mp3` (a 1-second 440Hz tone). The plan creates a placeholder file path; if the actual MP3 isn't on disk, the button still renders but logs a warning. User can swap in a real clip later.
 - **Roster privacy:** initials only (first letter of first 1-2 name parts). Self-marked with accent color. No full names, no avatars.
 - **SSE auth:** pass `?code={examCode}` as query param. Backend SSE endpoint already accepts code-based auth (existing pattern from `useExamCodeStore`).
 - **SSE failure handling:** if the EventSource errors out, hide the roster card silently. Polling keeps the page useful.
-- **Countdown:** 3 seconds (3 → 2 → 1 → "Эхлэе!") before redirect. During countdown, polling pauses to avoid overlapping toasts.
+- **Countdown:** 3 seconds (3 → 2 → 1 → "Эхэлье!") before redirect. During countdown, polling pauses to avoid overlapping toasts.
 
 ---
 
 ## File Structure
 
-| File | Status | Responsibility |
-|---|---|---|
-| `src/components/ielts/waiting/StatusPill.tsx` | create | Top "waiting / starting" pill with pulsing dot |
-| `src/components/ielts/waiting/AudioCheckButton.tsx` | create | Self-contained play/confirm audio test |
-| `src/components/ielts/waiting/RulesCard.tsx` | create | Static rules + section duration list |
-| `src/components/ielts/waiting/RosterCard.tsx` | create | "N/M ready" + initials grid, fed by props |
-| `src/components/ielts/waiting/CountdownOverlay.tsx` | create | Fullscreen 3-2-1 with auto-fire callback |
-| `src/lib/sse/rosterStream.ts` | create | Tiny EventSource wrapper for roster-updated events |
-| `src/app/(pages)/ielts/waiting/[sessionId]/page.tsx` | modify | Compose subcomponents, wire roster SSE, swap auto-redirect for countdown |
-| `public/audio/audio-check.mp3` | placeholder | Audio test clip (real file added later) |
+| File                                                 | Status      | Responsibility                                                           |
+| ---------------------------------------------------- | ----------- | ------------------------------------------------------------------------ |
+| `src/components/ielts/waiting/StatusPill.tsx`        | create      | Top "waiting / starting" pill with pulsing dot                           |
+| `src/components/ielts/waiting/AudioCheckButton.tsx`  | create      | Self-contained play/confirm audio test                                   |
+| `src/components/ielts/waiting/RulesCard.tsx`         | create      | Static rules + section duration list                                     |
+| `src/components/ielts/waiting/RosterCard.tsx`        | create      | "N/M ready" + initials grid, fed by props                                |
+| `src/components/ielts/waiting/CountdownOverlay.tsx`  | create      | Fullscreen 3-2-1 with auto-fire callback                                 |
+| `src/lib/sse/rosterStream.ts`                        | create      | Tiny EventSource wrapper for roster-updated events                       |
+| `src/app/(pages)/ielts/waiting/[sessionId]/page.tsx` | modify      | Compose subcomponents, wire roster SSE, swap auto-redirect for countdown |
+| `public/audio/audio-check.mp3`                       | placeholder | Audio test clip (real file added later)                                  |
 
 ---
 
@@ -63,9 +64,10 @@ const DOT_STYLES: Record<Props["variant"], string> = {
 export function StatusPill({ variant, label }: Props) {
   return (
     <div
-      className={`inline-flex items-center gap-2 rounded-full border px-3 py-1 text-xs font-medium ${STYLES[variant]}`}
-    >
-      <span className={`h-1.5 w-1.5 rounded-full ${DOT_STYLES[variant]} animate-pulse`} />
+      className={`inline-flex items-center gap-2 rounded-full border px-3 py-1 text-xs font-medium ${STYLES[variant]}`}>
+      <span
+        className={`h-1.5 w-1.5 rounded-full ${DOT_STYLES[variant]} animate-pulse`}
+      />
       <span>{label}</span>
     </div>
   );
@@ -101,7 +103,9 @@ export function AudioCheckButton({ src = "/audio/audio-check.mp3" }: Props) {
     setState("playing");
     if (!audioRef.current) {
       audioRef.current = new Audio(src);
-      audioRef.current.addEventListener("ended", () => setState((s) => (s === "playing" ? "idle" : s)));
+      audioRef.current.addEventListener("ended", () =>
+        setState((s) => (s === "playing" ? "idle" : s)),
+      );
       audioRef.current.addEventListener("error", () => {
         // Source missing or unplayable — drop back to idle so user can still confirm.
         setState("idle");
@@ -122,16 +126,19 @@ export function AudioCheckButton({ src = "/audio/audio-check.mp3" }: Props) {
       <div className="mb-2 text-xs font-semibold uppercase tracking-wide text-emerald-800">
         Audio Check
       </div>
-      <div className="mb-1 text-sm font-medium text-zinc-900">Чихэвчээ шалгана уу</div>
-      <div className="mb-3 text-xs text-zinc-600">Дуу сонсогдоход баталгаажуулна уу</div>
+      <div className="mb-1 text-sm font-medium text-zinc-900">
+        Чихэвчээ шалгана уу
+      </div>
+      <div className="mb-3 text-xs text-zinc-600">
+        Дуу сонсогдоход баталгаажуулна уу
+      </div>
 
       <div className="flex items-center gap-2">
         <button
           type="button"
           onClick={play}
           disabled={state === "confirmed"}
-          className="inline-flex items-center gap-2 rounded-full bg-emerald-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-emerald-700 disabled:opacity-50"
-        >
+          className="inline-flex items-center gap-2 rounded-full bg-emerald-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-emerald-700 disabled:opacity-50">
           <Headphones className="h-4 w-4" strokeWidth={1.5} />
           {state === "playing" ? "Тоглож байна..." : "Тест дуу тоглуулах"}
         </button>
@@ -145,8 +152,7 @@ export function AudioCheckButton({ src = "/audio/audio-check.mp3" }: Props) {
               state === "confirmed"
                 ? "border border-emerald-300 bg-white text-emerald-700"
                 : "border border-zinc-300 bg-white text-zinc-700 hover:bg-zinc-50"
-            }`}
-          >
+            }`}>
             {state === "confirmed" ? (
               <>
                 <Check className="h-4 w-4" strokeWidth={1.5} /> Сонссон
@@ -228,6 +234,7 @@ export function RulesCard() {
 ## Task 4: RosterCard component + SSE wrapper
 
 **Files:**
+
 - Create: `src/components/ielts/waiting/RosterCard.tsx`
 - Create: `src/lib/sse/rosterStream.ts`
 
@@ -324,8 +331,7 @@ export function RosterCard({ roster, selfUserId }: Props) {
                   ? "bg-emerald-600 text-white border border-emerald-600"
                   : "bg-zinc-100 text-zinc-600 border border-zinc-200"
               }`}
-              title={p.status}
-            >
+              title={p.status}>
               {p.initials || "?"}
             </div>
           );
@@ -374,19 +380,17 @@ export function CountdownOverlay({ onComplete, seconds = 3 }: Props) {
     <div
       className="fixed inset-0 z-50 flex items-center justify-center bg-zinc-950/95 text-white"
       role="alert"
-      aria-live="assertive"
-    >
+      aria-live="assertive">
       <div
         key={n}
         className="text-center"
         style={{
           animation: "scaleFade 700ms cubic-bezier(0.32, 0.04, 0.18, 1)",
-        }}
-      >
+        }}>
         {n > 0 ? (
           <div className="text-9xl font-bold tracking-tight">{n}</div>
         ) : (
-          <div className="text-5xl font-semibold tracking-tight">Эхлэе!</div>
+          <div className="text-5xl font-semibold tracking-tight">Эхэлье!</div>
         )}
       </div>
       <style>{`
@@ -411,6 +415,7 @@ export function CountdownOverlay({ onComplete, seconds = 3 }: Props) {
 **Files:** `src/app/(pages)/ielts/waiting/[sessionId]/page.tsx`
 
 This is the integration step. The existing page polls every 3s and auto-redirects when `can_take_test` becomes true. We're going to:
+
 - Add the new subcomponents into the layout
 - Open the SSE roster subscription on mount
 - Replace the immediate auto-redirect with the countdown overlay
@@ -577,7 +582,9 @@ export default function WaitingRoomPage() {
 
   return (
     <>
-      {countingDown && <CountdownOverlay onComplete={handleCountdownComplete} />}
+      {countingDown && (
+        <CountdownOverlay onComplete={handleCountdownComplete} />
+      )}
 
       <main className="min-h-screen bg-zinc-50 flex flex-col items-center px-6 py-12">
         <div className="w-full max-w-md flex flex-col gap-4">
@@ -654,6 +661,7 @@ If build fails, fix the specific error and re-run.
 ## Self-review
 
 **Spec coverage** (against `docs/superpowers/specs/2026-04-25-user-flow-design.md` §2.2):
+
 - Status pill ✓
 - Audio check button ✓
 - Roster (initials) ✓ (via SSE; self-marked accent)
@@ -669,5 +677,6 @@ If build fails, fix the specific error and re-run.
 **Scope check:** 5 new components (~50-90 lines each) + 1 SSE helper + 1 page rewrite. Coherent single shippable change.
 
 **Out of scope (explicit defers):**
+
 - Real audio test clip — placeholder MP3 path; user adds the file later.
 - Backend `roster-updated` event auth via cookie/header instead of query-string — works as-is with existing pattern.

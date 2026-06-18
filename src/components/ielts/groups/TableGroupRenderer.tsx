@@ -135,7 +135,7 @@ function TableFallback({
           </thead>
           <tbody>
             {group.questions.map((q) => {
-              const parts = (q.question_text ?? "").split("______");
+              const parts = (q.question_text ?? "").split(/_{2,}/);
               const regKey = `questions.${q.id}.answer`;
               return (
                 <tr

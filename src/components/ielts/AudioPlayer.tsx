@@ -15,6 +15,8 @@ interface AudioPlayerProps {
   storageKey?: string | null;
   /** Fired once when the audio finishes playing to its end. */
   onEnded?: () => void;
+  /** Fired on every timeupdate with the current playback position in seconds. */
+  onTimeUpdate?: (currentTime: number) => void;
 }
 
 const formatTime = (seconds: number) => {
@@ -32,6 +34,7 @@ const AudioPlayer: React.FC<AudioPlayerProps> = ({
   examMode = false,
   storageKey = null,
   onEnded,
+  onTimeUpdate,
 }) => {
   const audioRef = useRef<HTMLAudioElement>(null);
   const [isPlaying, setIsPlaying] = useState(false);
@@ -57,8 +60,11 @@ const AudioPlayer: React.FC<AudioPlayerProps> = ({
 
   const updateTime = useCallback(() => {
     const el = audioRef.current;
-    if (el) setCurrentTime(el.currentTime);
-  }, []);
+    if (el) {
+      setCurrentTime(el.currentTime);
+      onTimeUpdate?.(el.currentTime);
+    }
+  }, [onTimeUpdate]);
 
   // ── Persist position every 2s and on page unload ──────────────────────────
   useEffect(() => {
@@ -92,7 +98,11 @@ const AudioPlayer: React.FC<AudioPlayerProps> = ({
       setPlaying(false);
       // Clear saved position so the next student starts from the beginning.
       if (persistKey) {
-        try { localStorage.removeItem(persistKey); } catch { /* ignore */ }
+        try {
+          localStorage.removeItem(persistKey);
+        } catch {
+          /* ignore */
+        }
       }
       onEnded?.();
     };
@@ -125,19 +135,14 @@ const AudioPlayer: React.FC<AudioPlayerProps> = ({
       }, 300);
     };
 
-    // Stalled = browser can't get audio data. Reload from current position and resume.
+    // Stalled = browser can't get audio data.
+    // Do NOT call el.load() — it resets currentTime to 0, restarting the audio.
+    // Instead, just try to resume if the element is paused.
     const handleStalled = () => {
-      if (isEndedRef.current) return;
-      const pos = el.currentTime;
-      el.addEventListener(
-        "canplay",
-        () => {
-          el.currentTime = pos;
-          el.play().then(() => setPlaying(true)).catch(() => {});
-        },
-        { once: true },
-      );
-      el.load();
+      if (isEndedRef.current || !isPlayingRef.current) return;
+      if (el.paused) {
+        el.play().catch(() => {});
+      }
     };
 
     el.addEventListener("pause", handleUnexpectedPause);
@@ -156,12 +161,15 @@ const AudioPlayer: React.FC<AudioPlayerProps> = ({
       if (document.visibilityState === "visible") {
         const el = audioRef.current;
         if (el && el.paused && !isEndedRef.current) {
-          el.play().then(() => setPlaying(true)).catch(() => {});
+          el.play()
+            .then(() => setPlaying(true))
+            .catch(() => {});
         }
       }
     };
     document.addEventListener("visibilitychange", handleVisibility);
-    return () => document.removeEventListener("visibilitychange", handleVisibility);
+    return () =>
+      document.removeEventListener("visibilitychange", handleVisibility);
   }, [examMode, setPlaying]);
 
   // ── Load audio, restore position, then auto-play in exam mode ─────────────
@@ -196,7 +204,9 @@ const AudioPlayer: React.FC<AudioPlayerProps> = ({
         .catch(() => {
           // Browser blocked autoplay — retry on first user interaction.
           const resume = () => {
-            el.play().then(() => setPlaying(true)).catch(() => {});
+            el.play()
+              .then(() => setPlaying(true))
+              .catch(() => {});
             document.removeEventListener("click", resume);
             document.removeEventListener("keydown", resume);
           };
@@ -279,9 +289,8 @@ const AudioPlayer: React.FC<AudioPlayerProps> = ({
         className={cn(
           "flex items-center gap-3 w-full bg-paper border-b border-rule px-4 py-2",
           !hasAudio && "opacity-80",
-          className
-        )}
-      >
+          className,
+        )}>
         <audio ref={audioRef} preload="auto" />
         <div className="flex items-center gap-2">
           {isPlaying ? (
@@ -326,17 +335,15 @@ const AudioPlayer: React.FC<AudioPlayerProps> = ({
       className={cn(
         "flex items-center gap-4 w-full bg-paper border-b border-rule px-4 py-3",
         !hasAudio && "opacity-80",
-        className
-      )}
-    >
+        className,
+      )}>
       <audio ref={audioRef} preload="metadata" />
       <button
         type="button"
         onClick={rewind}
         disabled={!hasAudio}
         className="flex items-center justify-center w-9 h-9 rounded-full border border-rule text-ink-soft hover:border-mint hover:text-mint-deep transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-        title={`Rewind ${stepSeconds}s`}
-      >
+        title={`Rewind ${stepSeconds}s`}>
         <RotateCcw className="w-4 h-4" />
       </button>
       <button
@@ -344,8 +351,7 @@ const AudioPlayer: React.FC<AudioPlayerProps> = ({
         onClick={togglePlay}
         disabled={!hasAudio}
         className="flex items-center justify-center w-12 h-12 rounded-full bg-ink text-paper hover:bg-ink-soft transition-colors shadow-md disabled:opacity-50 disabled:cursor-not-allowed"
-        title={isPlaying ? "Pause" : "Play"}
-      >
+        title={isPlaying ? "Pause" : "Play"}>
         {isPlaying ? (
           <Pause className="w-6 h-6" />
         ) : (
@@ -357,8 +363,7 @@ const AudioPlayer: React.FC<AudioPlayerProps> = ({
         onClick={forward}
         disabled={!hasAudio}
         className="flex items-center justify-center w-9 h-9 rounded-full border border-rule text-ink-soft hover:border-mint hover:text-mint-deep transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-        title={`Forward ${stepSeconds}s`}
-      >
+        title={`Forward ${stepSeconds}s`}>
         <RotateCw className="w-4 h-4" />
       </button>
       <span className="text-sm font-mono font-semibold text-ink-soft min-w-[48px]">
@@ -393,8 +398,7 @@ const AudioPlayer: React.FC<AudioPlayerProps> = ({
         onClick={cycleSpeed}
         disabled={!hasAudio}
         className="px-3 py-1.5 rounded-md border border-rule text-sm font-semibold text-ink-soft hover:border-mint hover:text-mint-deep transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-        title="Playback speed"
-      >
+        title="Playback speed">
         {speedLabel}x
       </button>
       {!hasAudio && (

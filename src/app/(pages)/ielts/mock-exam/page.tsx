@@ -221,7 +221,7 @@ function IeltsMockExamPageInner() {
             Шалгалтын кодоо оруулна уу.
           </h1>
           <p className="mt-3 text-[15px] text-ink-soft leading-relaxed max-w-[42ch]">
-            Имэйлээр илгээсэн 12 оронтой кодыг доор оруулаад шалгалтаа эхлүүлээрэй.
+            Имэйлээр илгээсэн 10 оронтой кодыг доор оруулаад шалгалтаа эхлүүлээрэй.
           </p>
 
           <div className="mt-9 space-y-3">
