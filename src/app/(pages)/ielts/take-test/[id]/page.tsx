@@ -320,7 +320,7 @@ export default function IeltsTakeTestPage(props: PageProps) {
 
         setContentMeta(response);
         setSectionContent(response.content ?? null);
-        setSectionTimerSeconds(response.section_time_remaining_seconds);
+        setSectionTimerSeconds(section === "writing" ? 120 : response.section_time_remaining_seconds);
         setPendingSectionIntro({
           section: section as SectionId,
           duration: (response.content?.duration_minutes ?? 0) * 60,
@@ -398,9 +398,9 @@ export default function IeltsTakeTestPage(props: PageProps) {
         // Only sync timer if still on same section
         const currentTab = overview.current_section.toUpperCase();
         if (currentTab === activeTab) {
-          // TODO: remove — writing timer hardcoded to 2 min for testing
-          if (activeTab === "WRITING") return;
-          setSectionTimerSeconds(overview.section_time_remaining_seconds);
+          if (activeTab !== "WRITING") {
+            setSectionTimerSeconds(overview.section_time_remaining_seconds);
+          }
         } else {
           // Backend says we should be on a different section — reload
           const section = overview.current_section;
@@ -1140,7 +1140,6 @@ export default function IeltsTakeTestPage(props: PageProps) {
           ? Math.round((Date.now() - breakStartMsRef.current) / 1000)
           : 0;
       breakStartMsRef.current = null;
-      // TODO: remove — writing timer hardcoded to 2 min for testing
       const compensatedTimer = section === "writing"
         ? 120
         : response.section_time_remaining_seconds + breakElapsed;
