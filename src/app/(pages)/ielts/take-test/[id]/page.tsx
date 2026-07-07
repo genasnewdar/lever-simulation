@@ -50,10 +50,9 @@ import type {
 } from "@/types/ielts-simulation";
 import { normalizeContentResponse } from "@/lib/ielts-test-normalizer";
 
-// When the Listening audio finishes, the candidate gets exactly this long to
-// review/check answers before the section auto-submits and moves on.
-const LISTENING_REVIEW_SECONDS = 120;
-// Fixed break between skills (Listening→Reading, Reading→Writing). Adjust here.
+// Fixed break between skills (Listening→Reading, Reading→Writing). This one stays
+// static/client-side; every other duration (section time, post-audio Listening
+// review window) is provided by the backend content API.
 const SECTION_BREAK_SECONDS = 120;
 
 const DEBUG =
@@ -115,6 +114,9 @@ export default function IeltsTakeTestPage(props: PageProps) {
   const [isFinished, setIsFinished] = useState(false);
   const [retryKey, setRetryKey] = useState(0);
   const [sectionTimerSeconds, setSectionTimerSeconds] = useState<number>(0);
+  // Post-audio Listening review window length — provided by the backend.
+  const [listeningReviewSeconds, setListeningReviewSeconds] =
+    useState<number>(0);
   type SectionId = "listening" | "reading" | "writing";
   const [pendingSectionIntro, setPendingSectionIntro] = useState<{
     section: SectionId;
@@ -148,9 +150,9 @@ export default function IeltsTakeTestPage(props: PageProps) {
   const passageRef = useRef<HTMLDivElement>(null);
   const timeExpireCalledRef = useRef(false);
   const contentLoadFailCount = useRef(0);
-  // Set once the Listening audio finishes: the candidate then gets a fixed
-  // review window (see LISTENING_REVIEW_SECONDS) and the backend timer sync must
-  // not bump the clock back up during that window.
+  // Set once the Listening audio finishes: the candidate then gets the
+  // backend-configured review window (listeningReviewSeconds) and the backend
+  // timer sync must not bump the clock back up during that window.
   const listeningReviewActiveRef = useRef(false);
   // Keeps the periodic backend sync from auto-advancing sections while the
   // between-section break overlay is showing.
@@ -320,7 +322,8 @@ export default function IeltsTakeTestPage(props: PageProps) {
 
         setContentMeta(response);
         setSectionContent(response.content ?? null);
-        setSectionTimerSeconds(section === "writing" ? 120 : response.section_time_remaining_seconds);
+        setSectionTimerSeconds(response.section_time_remaining_seconds);
+        setListeningReviewSeconds(response.listening_review_seconds);
         setPendingSectionIntro({
           section: section as SectionId,
           duration: (response.content?.duration_minutes ?? 0) * 60,
@@ -398,9 +401,7 @@ export default function IeltsTakeTestPage(props: PageProps) {
         // Only sync timer if still on same section
         const currentTab = overview.current_section.toUpperCase();
         if (currentTab === activeTab) {
-          if (activeTab !== "WRITING") {
-            setSectionTimerSeconds(overview.section_time_remaining_seconds);
-          }
+          setSectionTimerSeconds(overview.section_time_remaining_seconds);
         } else {
           // Backend says we should be on a different section — reload
           const section = overview.current_section;
@@ -408,6 +409,7 @@ export default function IeltsTakeTestPage(props: PageProps) {
           setContentMeta(response);
           setSectionContent(response.content ?? null);
           setSectionTimerSeconds(response.section_time_remaining_seconds);
+          setListeningReviewSeconds(response.listening_review_seconds);
           setPendingSectionIntro({
             section: section as SectionId,
             duration: response.section_time_remaining_seconds,
@@ -1044,16 +1046,16 @@ export default function IeltsTakeTestPage(props: PageProps) {
 
   // ── Listening: clamp the clock to a short review window when audio ends ─────
   // Real IELTS gives time to transfer/check answers after the recording ends.
-  // Here we give a fixed LISTENING_REVIEW_SECONDS, then the section auto-submits
-  // via the normal timer-expiry path. The ref tells the backend sync (below) not
-  // to push the clock back up during this window.
+  // The window length comes from the backend (listeningReviewSeconds); then the
+  // section auto-submits via the normal timer-expiry path. The ref tells the
+  // backend sync (below) not to push the clock back up during this window.
   const handleAudioEnded = useCallback(() => {
     if (activeTab !== "LISTENING") return;
     if (listeningReviewActiveRef.current) return;
     listeningReviewActiveRef.current = true;
-    setSectionTimerSeconds(LISTENING_REVIEW_SECONDS);
-    toast.info("Сонсголын бичлэг дууслаа. Хариултаа шалгах 2 минут.");
-  }, [activeTab]);
+    setSectionTimerSeconds(listeningReviewSeconds);
+    toast.info("Сонсголын бичлэг дууслаа. Хариултаа шалгана уу.");
+  }, [activeTab, listeningReviewSeconds]);
 
   // ── Helper: submit current answers ─────────────────────────────────────────
   const submitCurrentAnswers = useCallback(async () => {
@@ -1140,13 +1142,13 @@ export default function IeltsTakeTestPage(props: PageProps) {
           ? Math.round((Date.now() - breakStartMsRef.current) / 1000)
           : 0;
       breakStartMsRef.current = null;
-      const compensatedTimer = section === "writing"
-        ? 120
-        : response.section_time_remaining_seconds + breakElapsed;
+      const compensatedTimer =
+        response.section_time_remaining_seconds + breakElapsed;
 
       setContentMeta(response);
       setSectionContent(response.content ?? null);
       setSectionTimerSeconds(compensatedTimer);
+      setListeningReviewSeconds(response.listening_review_seconds);
       setPendingSectionIntro({
         section: section as SectionId,
         duration: (response.content?.duration_minutes ?? 0) * 60,
@@ -1416,6 +1418,34 @@ export default function IeltsTakeTestPage(props: PageProps) {
     }
   }, [activeTab, submitCurrentAnswers, params.id]);
 
+  const handleDevFinish = useCallback(async () => {
+    if (timeExpireCalledRef.current) return;
+    timeExpireCalledRef.current = true;
+
+    const sectionName =
+      activeTab === "LISTENING" ? "listening"
+      : activeTab === "READING" ? "reading"
+      : "writing";
+
+    try { await submitCurrentAnswers(); } catch { /* best-effort */ }
+
+    fetch("/api/ielts/finish-section", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ attempt_id: params.id, section: sectionName }),
+    }).catch(() => {});
+
+    if (activeTab === "WRITING") {
+      toast.success("Шалгалт дууслаа!");
+      setIsFinished(true);
+    } else {
+      // Skip break overlay — go straight to next section
+      breakStartMsRef.current = null;
+      onBreakRef.current = false;
+      transitionToNextSection();
+    }
+  }, [activeTab, submitCurrentAnswers, params.id, transitionToNextSection]);
+
   // ── Render: Loading ─────────────────────────────────────────────────────────
   if (isLoading) {
     return (
@@ -1562,6 +1592,7 @@ export default function IeltsTakeTestPage(props: PageProps) {
           userName="IELTS Candidate"
           initialSeconds={timerInitialSeconds}
           onTimeExpire={handleTimeExpire}
+          onDevFinish={handleDevFinish}
           onQuestionClick={handleQuestionClick}
           answeredQuestions={answeredSet}
           reviewQuestions={reviewSet}

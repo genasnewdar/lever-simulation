@@ -15,6 +15,7 @@ interface HeaderProps {
   hideSectionTabs?: boolean;
   onReviewClick?: () => void;
   controlledSeconds?: number;
+  onDevFinish?: () => void;
 }
 
 const sections: Array<{
@@ -26,6 +27,11 @@ const sections: Array<{
   { id: "WRITING", label: "Writing" },
 ];
 
+const isLocalhost =
+  typeof window !== "undefined" &&
+  (window.location.hostname === "localhost" ||
+    window.location.hostname === "127.0.0.1");
+
 const Header: React.FC<HeaderProps> = ({
   userName,
   initialSeconds,
@@ -35,6 +41,7 @@ const Header: React.FC<HeaderProps> = ({
   hideSectionTabs = false,
   onReviewClick,
   controlledSeconds,
+  onDevFinish,
 }) => {
   return (
     <header className="h-[64px] bg-paper px-8 flex items-center justify-between fixed top-0 w-full z-50 border-b border-rule">
@@ -86,6 +93,14 @@ const Header: React.FC<HeaderProps> = ({
         <span className="text-[13px] font-medium text-ink-soft tracking-tight">
           {userName}
         </span>
+        {isLocalhost && onDevFinish && (
+          <button
+            onClick={onDevFinish}
+            className="px-2.5 py-1 rounded-md border border-rose-300 bg-rose-50 text-rose-600 text-xs font-semibold tracking-tight hover:bg-rose-100 transition-colors"
+          >
+            Finish section
+          </button>
+        )}
         {onReviewClick && (
           <button
             onClick={onReviewClick}

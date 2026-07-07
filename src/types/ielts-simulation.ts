@@ -203,6 +203,8 @@ export interface ContentResponseMeta {
   current_section: string;
   time_remaining_seconds: number;
   section_time_remaining_seconds: number;
+  /** Post-audio Listening review window length (seconds), backend-configured. */
+  listening_review_seconds: number;
   sections_status: {
     listening: SectionStatus;
     reading: SectionStatus;

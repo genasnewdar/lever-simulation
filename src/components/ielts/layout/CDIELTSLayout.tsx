@@ -120,6 +120,8 @@ interface CDIELTSLayoutProps {
   audioStorageKey?: string | null;
   /** For Listening: fired once when the audio finishes playing to its end. */
   onAudioEnded?: () => void;
+  /** Dev-only: shown in header on localhost to instantly finish the current section. */
+  onDevFinish?: () => void;
 }
 
 const CDIELTSLayout: React.FC<CDIELTSLayoutProps> = ({
@@ -155,6 +157,7 @@ const CDIELTSLayout: React.FC<CDIELTSLayoutProps> = ({
   reviewAnswers = {},
   audioStorageKey = null,
   onAudioEnded,
+  onDevFinish,
 }) => {
   const [internalIndex, setInternalIndex] = useState(0);
 
@@ -434,6 +437,7 @@ const CDIELTSLayout: React.FC<CDIELTSLayoutProps> = ({
         onTimeExpire={onTimeExpire}
         hideSectionTabs={hideSectionTabs}
         controlledSeconds={listeningControlled}
+        onDevFinish={onDevFinish}
       />
 
       {activeTab === "LISTENING" && (
