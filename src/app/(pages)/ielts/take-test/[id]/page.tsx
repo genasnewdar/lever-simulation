@@ -785,6 +785,23 @@ export default function IeltsTakeTestPage(props: PageProps) {
     readingPartIndex,
   ]);
 
+  // Currently visible listening section — highlights/notes are keyed per section
+  // so they persist and reload correctly when the student changes parts.
+  const activeListeningSection = useMemo(() => {
+    if (activeTab === "LISTENING" && sectionContent?.type === "listening") {
+      return sectionContent.sections[listeningPartIndex] ?? null;
+    }
+    return null;
+  }, [activeTab, sectionContent, listeningPartIndex]);
+
+  // Storage key for highlights on the questions/listening panel (CSS Highlight API).
+  const questionsHighlightKey = useMemo((): string | null => {
+    if (activeTab === "READING" && activePassage) return `q-${activePassage.id}`;
+    if (activeTab === "LISTENING" && activeListeningSection)
+      return `ql-${activeListeningSection.id}`;
+    return null;
+  }, [activeTab, activePassage, activeListeningSection]);
+
   const answeredSet = useMemo(() => {
     const answered = new Set<number>();
     if (!watchAll || !sectionContent) return answered;
@@ -926,12 +943,18 @@ export default function IeltsTakeTestPage(props: PageProps) {
 
   const containerKeyFor = useCallback(
     (container: HighlightContainer): string | null => {
+      // Listening has only a questions panel (no passage body).
+      if (activeTab === "LISTENING") {
+        return activeListeningSection
+          ? `ql-${activeListeningSection.id}`
+          : null;
+      }
       if (!activePassage) return null;
       return container === "questions"
         ? `q-${activePassage.id}`
         : activePassage.id;
     },
-    [activePassage],
+    [activeTab, activeListeningSection, activePassage],
   );
 
   const generateHighlightId = useCallback(() => {
@@ -1615,15 +1638,21 @@ export default function IeltsTakeTestPage(props: PageProps) {
           isWritingTaskAnswered={isWritingTaskAnswered}
           sections={sections}
           onHighlightText={
-            activeTab === "READING" ? handleAddHighlight : undefined
+            activeTab === "READING" || activeTab === "LISTENING"
+              ? handleAddHighlight
+              : undefined
           }
-          onUpdateNote={activeTab === "READING" ? handleUpdateNote : undefined}
+          onUpdateNote={
+            activeTab === "READING" || activeTab === "LISTENING"
+              ? handleUpdateNote
+              : undefined
+          }
           questionsHighlights={
-            activeTab === "READING" && activePassage
-              ? (highlightsByPassageId[`q-${activePassage.id}`] ?? [])
+            questionsHighlightKey
+              ? (highlightsByPassageId[questionsHighlightKey] ?? [])
               : []
           }
-          questionsHighlightVersion={activePassage?.id}
+          questionsHighlightVersion={questionsHighlightKey ?? undefined}
           noteEditor={noteEditor}
           onCloseNoteEditor={handleCloseNoteEditor}
           audioUrl={

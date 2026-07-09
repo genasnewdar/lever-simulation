@@ -3,6 +3,7 @@
 import { Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { ArrowRight } from "lucide-react";
+import { ThemeToggle } from "@/components/ThemeToggle";
 
 const IeltsPageInner = () => {
   const router = useRouter();
@@ -26,6 +27,9 @@ const IeltsPageInner = () => {
 
   return (
     <div className="min-h-screen bg-paper flex items-center justify-center px-6">
+      <div className="absolute top-5 right-5">
+        <ThemeToggle />
+      </div>
       <div className="w-full max-w-[640px] grid gap-12">
         {/* Brand mark */}
         <div className="flex items-center gap-3 text-ink-soft">

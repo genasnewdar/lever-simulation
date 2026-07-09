@@ -69,7 +69,7 @@ export function LayoutCells({
     <>
       {items.map((item, i) => {
         if (item.kind === "text") {
-          return <span key={i}>{item.value}</span>;
+          return <span key={i} className="break-words">{item.value}</span>;
         }
         const { q } = item;
         const reg: UseFormRegisterReturn = register(`questions.${q.id}.answer`);

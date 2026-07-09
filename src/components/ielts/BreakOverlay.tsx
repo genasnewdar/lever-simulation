@@ -18,8 +18,8 @@ const fmt = (total: number) => {
 
 /**
  * Full-screen fixed break shown between skills. Counts down from `seconds` and
- * then calls `onDone`, which loads the next section. The candidate may end the
- * break early with the button. While this is mounted, no section timer runs.
+ * then calls `onDone`, which loads the next section automatically. While this is
+ * mounted, no section timer runs.
  */
 export function BreakOverlay({ seconds, onDone }: Props) {
   const [remaining, setRemaining] = useState(seconds);
@@ -49,22 +49,22 @@ export function BreakOverlay({ seconds, onDone }: Props) {
 
   return (
     <div
-      className="fixed inset-0 z-[200] flex items-center justify-center bg-white/95 backdrop-blur-sm"
+      className="fixed inset-0 z-[200] flex items-center justify-center bg-paper/95 backdrop-blur-sm"
       role="dialog"
       aria-label="Break between sections"
     >
-      <div className="flex flex-col items-center gap-6 rounded-2xl border border-zinc-200 bg-white px-12 py-10 shadow-xl">
-        <Coffee className="h-10 w-10 text-emerald-600" strokeWidth={1.5} />
+      <div className="flex flex-col items-center gap-6 rounded-2xl border border-rule bg-paper-2 px-12 py-10 shadow-xl">
+        <Coffee className="h-10 w-10 text-mint-deep" strokeWidth={1.5} />
         <div className="text-center">
-          <div className="text-4xl font-semibold tracking-tight text-zinc-900">
+          <div className="text-4xl font-semibold tracking-tight text-ink">
             Завсарлага
           </div>
-          <div className="mt-2 font-serif text-5xl font-semibold tabular-nums text-emerald-600">
+          <div className="mt-2 font-serif text-5xl font-semibold tabular-nums text-mint-deep">
             {fmt(remaining)}
           </div>
         </div>
-        <div className="max-w-xs text-center text-sm text-zinc-600">
-          Дараагийн хэсэг автоматаар эхэлнэ. Бэлэн бол доорх товчийг дарж үргэлжлүүлж болно.
+        <div className="max-w-xs text-center text-sm text-ink-soft">
+          Дараагийн хэсэг автоматаар эхэлнэ.
         </div>
       </div>
     </div>

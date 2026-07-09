@@ -31,7 +31,7 @@ export default function FormGroupRenderer({
             {layout.title}
           </h4>
         )}
-        <div className="border border-rule rounded-lg overflow-hidden">
+        <div className="border border-rule rounded-lg overflow-x-auto">
           <table className="w-full border-collapse">
             <tbody>
               {layout.rows.map((row, rowIdx) => {
@@ -41,10 +41,10 @@ export default function FormGroupRenderer({
 
                 return (
                   <tr key={rowIdx} className="border-b border-rule last:border-b-0 hover:bg-paper-2">
-                    <td className="border-r border-rule p-2 text-sm font-semibold text-ink-soft w-[160px] align-middle">
+                    <td className="border-r border-rule p-2 text-sm font-semibold text-ink-soft w-[160px] align-middle break-words">
                       {row.label}
                     </td>
-                    <td className="border-r border-rule p-2 text-sm text-ink align-middle">
+                    <td className="border-r border-rule p-2 text-sm text-ink align-middle break-words">
                       <span className="flex flex-wrap items-center gap-1">
                         <LayoutCells
                           cells={row.content}

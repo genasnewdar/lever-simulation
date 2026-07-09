@@ -212,8 +212,16 @@ export function normalizeContentResponse(raw: ContentResponse): ContentResponse 
     const sortedSections = [...(out.content.sections as SectionLike[])].sort(
       (a, b) => (a.section_number ?? 0) - (b.section_number ?? 0),
     );
+    // Some backends only populate audio_url on the section(s), not at the
+    // content level. Hoist the first available section URL up so the player
+    // (which reads content.audio_url) always finds it.
+    const hoistedAudioUrl =
+      out.content.audio_url ??
+      sortedSections.find((s) => s.audio_url)?.audio_url ??
+      null;
     out.content = {
       ...out.content,
+      audio_url: hoistedAudioUrl,
       sections: sortedSections.map((s, i) => {
         const sid = s.id ?? `sec-${s.section_number ?? i + 1}`;
         const questions = sectionQuestions(s, sid);

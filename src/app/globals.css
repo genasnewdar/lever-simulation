@@ -28,8 +28,36 @@
     --page-turn-ease: cubic-bezier(0.22, 0.61, 0.36, 1);
   }
 
+  /* Dark theme — toggled by the `.dark` class on <html> (darkMode: "class").
+     Only the color tokens flip; every token-based utility re-themes for free. */
+  .dark {
+    /* Ink becomes light (text on a dark surface) */
+    --ink:      oklch(0.94 0.004 264);
+    --ink-soft: oklch(0.76 0.008 264);
+    --muted:    oklch(0.62 0.010 264);
+    --rule:     oklch(0.34 0.008 264);
+
+    /* Paper becomes dark (surfaces) */
+    --paper:    oklch(0.205 0.006 264);
+    --paper-2:  oklch(0.245 0.007 264);
+    --paper-3:  oklch(0.295 0.008 264);
+
+    /* Mint: keep the accent bright; flip the soft tint dark and the ink/deep light */
+    --mint:       oklch(0.80 0.17 158);
+    --mint-soft:  oklch(0.34 0.07 158);
+    --mint-deep:  oklch(0.74 0.15 158);
+    --mint-ink:   oklch(0.82 0.13 158);
+  }
+
   * {
     border-color: var(--rule);
+  }
+
+  html {
+    color-scheme: light;
+  }
+  html.dark {
+    color-scheme: dark;
   }
 
   html {

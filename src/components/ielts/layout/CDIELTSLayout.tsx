@@ -548,7 +548,11 @@ const CDIELTSLayout: React.FC<CDIELTSLayoutProps> = ({
             </Panel>
           </Group>
         ) : (
-          <div className="h-full overflow-y-auto custom-scrollbar px-8 lg:px-14 py-10 lg:py-14 bg-paper-2 right-panel-scroll">
+          <div
+            ref={questionsContainerRef}
+            onMouseUp={captureSelection}
+            className="h-full overflow-y-auto custom-scrollbar px-8 lg:px-14 py-10 lg:py-14 bg-paper-2 right-panel-scroll select-text"
+          >
             <div className="max-w-[68ch] mx-auto">
               <AnimatePresence mode="wait" initial={false}>
                 <motion.div

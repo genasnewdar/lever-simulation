@@ -43,6 +43,8 @@ const AudioPlayer: React.FC<AudioPlayerProps> = ({
   const [volume, setVolume] = useState(1);
   const [playbackRate, setPlaybackRate] = useState(1);
   const [speedLabel, setSpeedLabel] = useState("1");
+  // True when the audio element failed to load its source (bad/expired URL, CORS…).
+  const [hasError, setHasError] = useState(false);
 
   // Use storageKey alone (not including audioUrl) — signed URLs rotate on each page load,
   // so including the URL in the key would make the saved position unrecoverable after refresh.
@@ -92,7 +94,16 @@ const AudioPlayer: React.FC<AudioPlayerProps> = ({
   useEffect(() => {
     const el = audioRef.current;
     if (!el) return;
-    const onLoadedMetadata = () => setDuration(el.duration);
+    const onLoadedMetadata = () => {
+      setDuration(el.duration);
+      setHasError(false);
+    };
+    const handleError = () => {
+      // Source failed to load — nothing to play. Surface it so the student
+      // isn't stuck staring at a frozen timer with no feedback.
+      setHasError(true);
+      setPlaying(false);
+    };
     const handleEnded = () => {
       isEndedRef.current = true;
       setPlaying(false);
@@ -109,10 +120,12 @@ const AudioPlayer: React.FC<AudioPlayerProps> = ({
     el.addEventListener("timeupdate", updateTime);
     el.addEventListener("loadedmetadata", onLoadedMetadata);
     el.addEventListener("ended", handleEnded);
+    el.addEventListener("error", handleError);
     return () => {
       el.removeEventListener("timeupdate", updateTime);
       el.removeEventListener("loadedmetadata", onLoadedMetadata);
       el.removeEventListener("ended", handleEnded);
+      el.removeEventListener("error", handleError);
     };
   }, [updateTime, onEnded, persistKey, setPlaying]);
 
@@ -179,6 +192,7 @@ const AudioPlayer: React.FC<AudioPlayerProps> = ({
     if (!el) return;
 
     isEndedRef.current = false;
+    setHasError(false);
     el.src = audioUrl;
     setDuration(0);
 
@@ -240,6 +254,29 @@ const AudioPlayer: React.FC<AudioPlayerProps> = ({
     }
   };
 
+  // Explicit start (tap-to-play). Used in exam mode when autoplay was blocked
+  // by the browser or the source needs a reload after an error. The click
+  // itself provides the user gesture browsers require to allow playback.
+  const startPlayback = useCallback(() => {
+    const el = audioRef.current;
+    if (!el || !audioUrl) return;
+    isEndedRef.current = false;
+    // If the previous load errored (or the element lost its src), re-point it.
+    if (el.error || !el.src) {
+      setHasError(false);
+      el.src = audioUrl;
+      el.load();
+    }
+    el.play()
+      .then(() => {
+        setHasError(false);
+        setPlaying(true);
+      })
+      .catch(() => {
+        /* still blocked — leave the tap-to-play affordance visible */
+      });
+  }, [audioUrl, setPlaying]);
+
   const rewind = () => {
     const el = audioRef.current;
     if (el) {
@@ -292,20 +329,38 @@ const AudioPlayer: React.FC<AudioPlayerProps> = ({
           className,
         )}>
         <audio ref={audioRef} preload="auto" />
-        <div className="flex items-center gap-2">
-          {isPlaying ? (
+        {isPlaying ? (
+          <div className="flex items-center gap-2">
             <div className="flex items-center gap-1">
               <span className="w-1 h-3 bg-mint rounded-full animate-pulse" />
               <span className="w-1 h-2 bg-mint rounded-full animate-pulse [animation-delay:150ms]" />
               <span className="w-1 h-4 bg-mint rounded-full animate-pulse [animation-delay:300ms]" />
             </div>
-          ) : (
-            <Volume2 className="w-4 h-4 text-gray-400" />
-          )}
-          <span className="text-[10px] font-semibold text-mint-deep uppercase tracking-wider">
-            {isPlaying ? "Playing" : hasAudio ? "Ready" : "No audio"}
-          </span>
-        </div>
+            <span className="text-[10px] font-semibold text-mint-deep uppercase tracking-wider">
+              Playing
+            </span>
+          </div>
+        ) : (
+          <button
+            type="button"
+            onClick={startPlayback}
+            disabled={!hasAudio}
+            title={hasError ? "Дахин оролдох" : "Аудио эхлүүлэх"}
+            className={cn(
+              "flex items-center gap-1.5 rounded-full px-3 py-1 text-[11px] font-semibold uppercase tracking-wider transition-colors disabled:opacity-50 disabled:cursor-not-allowed",
+              hasError
+                ? "bg-rose-100 text-rose-600 hover:bg-rose-200"
+                : "bg-mint-soft text-mint-deep hover:bg-mint hover:text-paper",
+            )}
+          >
+            {hasError ? (
+              <RotateCcw className="w-3.5 h-3.5" />
+            ) : (
+              <Play className="w-3.5 h-3.5" />
+            )}
+            {hasError ? "Дахин оролдох" : hasAudio ? "Аудио тоглуулах" : "Аудио байхгүй"}
+          </button>
+        )}
         <div className="flex-1 relative h-1 bg-paper-3 rounded-full overflow-hidden">
           <div
             className="absolute inset-y-0 left-0 bg-mint rounded-full transition-all duration-300"

@@ -28,7 +28,7 @@ export default function TableGroupRenderer({
         instructions={group.instructions}
         wordLimitText={group.word_limit_text}
       />
-      <div className="border border-rule rounded-lg overflow-hidden">
+      <div className="border border-rule rounded-lg overflow-x-auto">
         <table className="w-full border-collapse">
           <thead>
             <tr className="bg-paper-3 border-b border-rule">
@@ -66,7 +66,7 @@ export default function TableGroupRenderer({
                     <td
                       key={cellIdx}
                       className={cn(
-                        "p-2 text-base text-ink align-middle",
+                        "p-2 text-base text-ink align-middle break-words",
                         cellIdx < row.cells.length - 1 && "border-r border-rule",
                       )}
                       colSpan={cell.colspan}
@@ -121,7 +121,7 @@ function TableFallback({
         instructions={group.instructions}
         wordLimitText={group.word_limit_text}
       />
-      <div className="border border-rule rounded-lg overflow-hidden">
+      <div className="border border-rule rounded-lg overflow-x-auto">
         <table className="w-full border-collapse">
           <thead>
             <tr className="bg-paper-2 border-b border-rule">
