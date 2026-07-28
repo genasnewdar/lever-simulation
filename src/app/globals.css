@@ -119,10 +119,12 @@
 .passage-prose {
   color: var(--ink);
   font-family: var(--font-serif), ui-serif, Georgia, serif;
-  font-size: 1.1875rem;
+  /* Font size / width are driven by the Reading toolbar (S/M/L). The layout
+     sets these custom properties on an ancestor; the fallbacks apply elsewhere. */
+  font-size: var(--passage-font-size, 1.1875rem);
   line-height: 1.7;
   font-feature-settings: "ss01", "liga", "kern", "onum";
-  max-width: 72ch;
+  max-width: var(--passage-max-width, 72ch);
 }
 .passage-prose p + p { margin-top: 1em; }
 .passage-prose strong { color: var(--ink); font-weight: 600; }
@@ -139,9 +141,26 @@
 }
 
 .passage-prose mark[data-hl="1"] {
-  padding: 0.05em 0.1em;
+  /* No horizontal padding: a mid-word highlight must not push letters apart. */
+  padding: 0.1em 0;
   border-radius: 2px;
   background-clip: padding-box;
+  position: relative;
+}
+/* Blended tint where a yellow and a pink highlight overlap. */
+.passage-prose mark[data-hl-overlap="1"] {
+  background-color: color-mix(in oklch, #f5d665 40%, #f498c4 40%);
+}
+/* Note pin sits out of the text flow so it never splits a word. */
+.passage-prose [data-note-pin="1"] {
+  position: absolute;
+  top: -0.7em;
+  right: -0.35em;
+  font-size: 0.7em;
+  line-height: 1;
+  color: var(--mint-deep);
+  cursor: pointer;
+  user-select: none;
 }
 
 /* CSS Custom Highlight API decorations for the questions panel (no DOM mutation,

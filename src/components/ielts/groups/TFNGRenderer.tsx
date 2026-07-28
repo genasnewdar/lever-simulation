@@ -41,7 +41,7 @@ export default function TFNGRenderer({
       />
 
       {/* Instruction box */}
-      <div className="border border-rule rounded-lg overflow-hidden bg-white">
+      <div className="border border-rule rounded-lg overflow-hidden bg-paper">
         <table className="w-full border-collapse text-base">
           <tbody>
             {optionLabels.map((opt, i) => (
@@ -75,7 +75,7 @@ export default function TFNGRenderer({
               <select
                 disabled={disabled}
                 {...register(regKey)}
-                className="flex-shrink-0 min-w-[140px] px-3 py-2 border border-rule rounded-lg bg-white font-semibold text-ink focus:ring-1 focus:ring-mint focus:border-mint outline-none"
+                className="flex-shrink-0 min-w-[140px] px-3 py-2 border border-rule rounded-lg bg-paper font-semibold text-ink focus:ring-1 focus:ring-mint focus:border-mint outline-none"
               >
                 <option value="">Select Option</option>
                 {optionLabels.map((opt) => (

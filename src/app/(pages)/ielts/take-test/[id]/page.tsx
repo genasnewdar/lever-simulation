@@ -25,6 +25,7 @@ import type {
 } from "@/components/ielts/layout/CDIELTSLayout";
 import type { HighlightColor } from "@/components/ielts/tools/FloatingToolbar";
 import GroupDispatcher from "@/components/ielts/groups/GroupDispatcher";
+import { countWords } from "@/lib/utils";
 import { api } from "@/lib";
 import { Loader2, CheckCircle2 } from "lucide-react";
 import { toast } from "react-toastify";
@@ -759,6 +760,22 @@ export default function IeltsTakeTestPage(props: PageProps) {
     return [];
   }, [activeTab, sectionContent, listeningPartIndex, readingPartIndex]);
 
+  /** True when a group in the active section already renders `text` as its
+   *  title or instructions — used to avoid showing the section-level
+   *  instruction (and its label box) a second time. */
+  const isInstructionShownInGroups = useCallback(
+    (text?: string | null): boolean => {
+      const norm = (s?: string | null) =>
+        (s ?? "").trim().replace(/\s+/g, " ").toLowerCase();
+      const t = norm(text);
+      if (!t) return false;
+      return groupsToShow.some(
+        (g) => norm(g.instructions) === t || norm(g.title) === t,
+      );
+    },
+    [groupsToShow],
+  );
+
   const activePassage = useMemo(() => {
     if (
       activeTab === "READING" &&
@@ -902,8 +919,7 @@ export default function IeltsTakeTestPage(props: PageProps) {
     [watchAll],
   );
 
-  const getWordCount = (text: string = "") =>
-    text.trim() ? text.trim().split(/\s+/).length : 0;
+  const getWordCount = (text: string = "") => countWords(text);
 
   const activeWritingPrompt = useMemo(
     () =>
@@ -1090,7 +1106,7 @@ export default function IeltsTakeTestPage(props: PageProps) {
         const key = `writing_task_${task.task_number}`;
         const content = formValues[key];
         if (typeof content === "string" && content.trim().length > 0) {
-          const wordCount = content.trim().split(/\s+/).filter(Boolean).length;
+          const wordCount = countWords(content);
           await api
             .post("/api/student/ielts/test/writing/submit", {
               attempt_id: attemptId,
@@ -1220,10 +1236,7 @@ export default function IeltsTakeTestPage(props: PageProps) {
             const key = `writing_task_${task.task_number}`;
             const content = formValues[key];
             if (typeof content === "string" && content.trim().length > 0) {
-              const wordCount = content
-                .trim()
-                .split(/\s+/)
-                .filter(Boolean).length;
+              const wordCount = countWords(content);
               debugLog("writing-submit", {
                 task_id: task.id,
                 word_count: wordCount,
@@ -1862,18 +1875,24 @@ export default function IeltsTakeTestPage(props: PageProps) {
               </div>
             ) : (
               <>
-                {/* Section / passage level instructions */}
+                {/* Section / passage level instructions.
+                    Skip these when a question group already renders the same
+                    text in its own header — otherwise the instruction (and the
+                    "Questions N–M" label box) shows up twice. */}
                 {activeTab === "LISTENING" && (() => {
                   const sec = listeningSections[listeningPartIndex];
-                  return sec?.instructions ? (
+                  if (!sec?.instructions) return null;
+                  if (isInstructionShownInGroups(sec.instructions)) return null;
+                  return (
                     <p className="text-base font-bold text-ink border-b border-rule pb-4 mb-2">
                       {sec.instructions}
                     </p>
-                  ) : null;
+                  );
                 })()}
                 {activeTab === "READING" &&
                   sectionContent?.type === "reading" &&
-                  sectionContent.instructions && (
+                  sectionContent.instructions &&
+                  !isInstructionShownInGroups(sectionContent.instructions) && (
                     <p className="text-base font-bold text-ink border-b border-rule pb-4 mb-2">
                       {sectionContent.instructions}
                     </p>

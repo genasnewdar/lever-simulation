@@ -18,7 +18,7 @@ import ReadingPassage from "@/components/ielts/ReadingPassage";
 import type { PassageHighlight } from "@/components/ielts/ReadingPassage";
 import { MOCK_SIMULATION_DATA } from "./mock-data";
 import { mapBackendToQuestion } from "@/lib/ielts-mapper";
-import { cn } from "@/lib/utils";
+import { cn, countWords } from "@/lib/utils";
 
 type PageProps = {
   params?: Promise<Record<string, string | string[]>>;
@@ -294,8 +294,7 @@ export default function IELTSReplicaPage(props: PageProps) {
     [watchAll]
   );
 
-  const getWordCount = (text: string = "") =>
-    text.trim() ? text.trim().split(/\s+/).length : 0;
+  const getWordCount = (text: string = "") => countWords(text);
 
   const toggleReview = useCallback((qNum: number) => {
     setReviewSet((prev) => {

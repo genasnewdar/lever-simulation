@@ -489,10 +489,13 @@ const CDIELTSLayout: React.FC<CDIELTSLayoutProps> = ({
                 onMouseUp={captureSelection}
                 style={
                   activeTab === "READING"
-                    ? {
-                        fontSize: FONT_PRESET[readingFontSize].fontSize,
+                    ? ({
                         fontWeight: FONT_PRESET[readingFontSize].fontWeight,
-                      }
+                        // Consumed by `.passage-prose` (see globals.css) so the
+                        // S/M/L control actually resizes the passage text/width.
+                        "--passage-font-size": FONT_PRESET[readingFontSize].fontSize,
+                        "--passage-max-width": FONT_PRESET[readingFontSize].maxWidth,
+                      } as React.CSSProperties)
                     : undefined
                 }
               >

@@ -31,12 +31,27 @@ function isHtmlContent(text: string): boolean {
 
 type Segment =
   | { kind: "text"; start: number; end: number }
-  | { kind: "mark"; start: number; end: number; color: HighlightColor; note?: string; id?: string };
+  | {
+      kind: "mark";
+      /** Render slice within the passage text. */
+      start: number;
+      end: number;
+      color: HighlightColor;
+      /** True where a yellow and a pink highlight overlap this run. */
+      overlap: boolean;
+      /** Original range of the topmost highlight — used for right-click removal. */
+      hlStart: number;
+      hlEnd: number;
+      hlId?: string;
+      /** Note (and its owning highlight range), shown once at the run that ends
+       *  at the noted highlight's tail so a split highlight has a single pin. */
+      note?: string;
+      noteStart?: number;
+      noteEnd?: number;
+      noteId?: string;
+    };
 
-const SegmentRenderer = React.memo<{
-  seg: Segment;
-  text: string;
-}>(({ seg, text }) => {
+const SegmentRenderer: React.FC<{ seg: Segment; text: string }> = ({ seg, text }) => {
   if (seg.kind === "mark") {
     const bg =
       seg.color === "yellow"
@@ -46,67 +61,51 @@ const SegmentRenderer = React.memo<{
       ? `Note: ${seg.note}\n(Right-click to remove)`
       : "Right-click to remove highlight";
     return (
-      <React.Fragment>
-        <mark
-          data-hl="1"
-          data-hl-start={seg.start}
-          data-hl-end={seg.end}
-          data-hl-id={seg.id}
-          title={titleText}
-          className="cursor-context-menu"
-          style={{
-            backgroundColor: bg,
-            color: "inherit",
-            padding: "0.05em 0.1em",
-            borderRadius: "2px",
-          }}
-        >
-          {text}
-        </mark>
+      <mark
+        data-hl="1"
+        data-hl-overlap={seg.overlap ? "1" : undefined}
+        data-hl-start={seg.hlStart}
+        data-hl-end={seg.hlEnd}
+        data-hl-id={seg.hlId}
+        title={titleText}
+        className="cursor-context-menu"
+        style={{
+          backgroundColor: seg.overlap
+            ? "color-mix(in oklch, #f5d665 40%, #f498c4 40%)"
+            : bg,
+          color: "inherit",
+          padding: "0.1em 0",
+          borderRadius: "2px",
+          position: "relative",
+        }}
+      >
+        {text}
         {seg.note && (
           <span
             data-note-pin="1"
-            data-hl-start={seg.start}
-            data-hl-end={seg.end}
-            data-hl-id={seg.id}
+            data-hl-start={seg.noteStart}
+            data-hl-end={seg.noteEnd}
+            data-hl-id={seg.noteId}
             title={seg.note}
             style={{
-              display: "inline-block",
-              marginLeft: 2,
-              fontSize: "0.75em",
+              position: "absolute",
+              top: "-0.7em",
+              right: "-0.35em",
+              fontSize: "0.7em",
+              lineHeight: 1,
               color: "var(--mint-deep)",
               cursor: "pointer",
               userSelect: "none",
-              verticalAlign: "super",
             }}
           >
             ✎
           </span>
         )}
-      </React.Fragment>
+      </mark>
     );
   }
   return <span>{text}</span>;
-}, (prevProps, nextProps) => {
-  // Deep compare seg object
-  const seg1 = prevProps.seg;
-  const seg2 = nextProps.seg;
-  
-  if (seg1.kind !== seg2.kind) return false;
-  if (prevProps.text !== nextProps.text) return false;
-  
-  if (seg1.kind === "mark" && seg2.kind === "mark") {
-    return (
-      seg1.start === seg2.start &&
-      seg1.end === seg2.end &&
-      seg1.color === seg2.color &&
-      seg1.note === seg2.note &&
-      seg1.id === seg2.id
-    );
-  }
-  
-  return seg1.start === seg2.start && seg1.end === seg2.end;
-});
+};
 
 SegmentRenderer.displayName = "SegmentRenderer";
 
@@ -147,8 +146,9 @@ function applyHighlightToDOM(container: HTMLElement, h: PassageHighlight) {
           : "color-mix(in oklch, #f498c4 40%, transparent)";
       mark.className = "cursor-context-menu";
       mark.style.color = "inherit";
-      mark.style.padding = "0.05em 0.1em";
+      mark.style.padding = "0.1em 0";
       mark.style.borderRadius = "2px";
+      mark.style.position = "relative";
 
       range.surroundContents(mark);
 
@@ -160,9 +160,10 @@ function applyHighlightToDOM(container: HTMLElement, h: PassageHighlight) {
         if (h.id) pin.setAttribute("data-hl-id", h.id);
         pin.title = h.note;
         pin.textContent = "✎";
+        // Out of the text flow so it never splits a word.
         pin.style.cssText =
-          "display:inline-block;margin-left:2px;font-size:0.75em;color:var(--mint-deep);cursor:pointer;user-select:none;vertical-align:super;";
-        mark.insertAdjacentElement("afterend", pin);
+          "position:absolute;top:-0.7em;right:-0.35em;font-size:0.7em;line-height:1;color:var(--mint-deep);cursor:pointer;user-select:none;";
+        mark.appendChild(pin);
       }
     } catch {
       // surroundContents can fail for cross-element ranges
@@ -179,37 +180,66 @@ const ReadingPassage = React.memo(forwardRef<HTMLDivElement, ReadingPassageProps
 
     const html = useMemo(() => isHtmlContent(content), [content]);
 
-    type Segment =
-      | { kind: "text"; start: number; end: number }
-      | { kind: "mark"; start: number; end: number; color: HighlightColor; note?: string; id?: string };
-    
     const segments = useMemo(() => {
       const result: Segment[] = [];
-      if (!html) {
-        const sorted = [...highlights].sort((a, b) => a.start - b.start);
-        let pos = 0;
-        for (const h of sorted) {
-          if (h.start > pos) {
-            result.push({ kind: "text", start: pos, end: h.start });
-          }
-          if (h.end > h.start) {
-            result.push({
-              kind: "mark",
-              start: h.start,
-              end: h.end,
-              color: h.color,
-              note: h.note,
-              id: h.id,
-            });
-          }
-          pos = Math.max(pos, h.end);
+      if (html) return result;
+
+      const clamp = (n: number) => Math.max(0, Math.min(content.length, n));
+      const valid = highlights
+        .map((h) => ({ ...h, start: clamp(h.start), end: clamp(h.end) }))
+        .filter((h) => h.end > h.start);
+
+      if (valid.length === 0) {
+        if (content.length > 0) result.push({ kind: "text", start: 0, end: content.length });
+        return result;
+      }
+
+      // Boundary sweep: every highlight edge becomes a cut point so overlapping
+      // ranges split into disjoint runs. Each run is then fully covered (or not)
+      // by each highlight, which lets us blend colours where two overlap.
+      const bounds = new Set<number>([0, content.length]);
+      for (const h of valid) {
+        bounds.add(h.start);
+        bounds.add(h.end);
+      }
+      const points = [...bounds].sort((a, b) => a - b);
+
+      for (let i = 0; i < points.length - 1; i++) {
+        const start = points[i];
+        const end = points[i + 1];
+        if (end <= start) continue;
+
+        const covers = valid.filter((h) => h.start <= start && h.end >= end);
+        if (covers.length === 0) {
+          result.push({ kind: "text", start, end });
+          continue;
         }
-        if (pos < content.length) {
-          result.push({ kind: "text", start: pos, end: content.length });
-        }
+
+        // Topmost = most recently added highlight (last in the array).
+        const top = covers[covers.length - 1];
+        const overlap =
+          covers.some((c) => c.color === "yellow") &&
+          covers.some((c) => c.color === "pink");
+        // Show a note pin once, on the run that ends at the noted highlight's tail.
+        const noteHl = covers.find((c) => c.note && c.end === end);
+
+        result.push({
+          kind: "mark",
+          start,
+          end,
+          color: top.color,
+          overlap,
+          hlStart: top.start,
+          hlEnd: top.end,
+          hlId: top.id,
+          note: noteHl?.note,
+          noteStart: noteHl?.start,
+          noteEnd: noteHl?.end,
+          noteId: noteHl?.id,
+        });
       }
       return result;
-    }, [content, highlights, html])
+    }, [content, highlights, html]);
 
     useEffect(() => {
       const el = localRef.current;

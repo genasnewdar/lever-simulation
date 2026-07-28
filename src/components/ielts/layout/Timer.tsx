@@ -14,27 +14,40 @@ interface TimerProps {
 const Timer: React.FC<TimerProps> = ({ initialSeconds, onTimeExpire, controlledSeconds }) => {
   const [seconds, setSeconds] = useState(initialSeconds);
   const expiredRef = useRef(false);
+  // Anchor for the wall-clock countdown: remaining = base - (now - atMs).
+  const anchorRef = useRef<{ atMs: number; base: number }>({
+    atMs: Date.now(),
+    base: initialSeconds,
+  });
 
+  // Re-anchor whenever the authoritative time changes (section start, the 30s
+  // backend correction, or the post-audio review window opening).
   useEffect(() => {
     setSeconds(initialSeconds);
     expiredRef.current = false;
+    anchorRef.current = { atMs: Date.now(), base: initialSeconds };
   }, [initialSeconds]);
 
-  // Uncontrolled mode: wall-clock setInterval countdown.
+  // Uncontrolled mode: derive the remaining time from the wall clock instead of
+  // decrementing a counter, so it stays accurate even when the tab is
+  // backgrounded (setInterval is throttled) or the machine sleeps.
   useEffect(() => {
     if (controlledSeconds !== undefined) return;
-    if (seconds <= 0) return;
-    const interval = setInterval(() => {
-      setSeconds((prev) => {
-        if (prev <= 1) {
-          onTimeExpire?.();
-          return 0;
-        }
-        return prev - 1;
-      });
-    }, 1000);
+    if (initialSeconds <= 0) return;
+    const tick = () => {
+      const { atMs, base } = anchorRef.current;
+      const elapsed = Math.floor((Date.now() - atMs) / 1000);
+      const remaining = Math.max(0, base - elapsed);
+      setSeconds(remaining);
+      if (remaining <= 0 && !expiredRef.current) {
+        expiredRef.current = true;
+        onTimeExpire?.();
+      }
+    };
+    tick();
+    const interval = setInterval(tick, 500);
     return () => clearInterval(interval);
-  }, [seconds, onTimeExpire, controlledSeconds]);
+  }, [initialSeconds, onTimeExpire, controlledSeconds]);
 
   // Controlled mode: fire onTimeExpire once when audio-driven time hits 0.
   useEffect(() => {

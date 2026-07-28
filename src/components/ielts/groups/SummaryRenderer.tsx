@@ -26,7 +26,7 @@ export default function SummaryRenderer({
           instructions={group.instructions}
           wordLimitText={group.word_limit_text}
         />
-        <div className="border border-rule rounded-md p-5 bg-white space-y-4">
+        <div className="border border-rule rounded-md p-5 bg-paper space-y-4">
           {layout.paragraphs.map((para, i) => (
             <p key={i} className="text-ink text-base leading-relaxed">
               <LayoutCells
@@ -77,7 +77,7 @@ export default function SummaryRenderer({
         </div>
       )}
 
-      <div className="border border-rule rounded-md p-5 bg-white">
+      <div className="border border-rule rounded-md p-5 bg-paper">
         <div className="text-ink text-base leading-[2]">
           {group.questions.map((q) => {
             const parts = (q.question_text ?? "").split("______");

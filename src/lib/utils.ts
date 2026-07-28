@@ -5,6 +5,24 @@ export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
 
+/**
+ * IELTS-style word count. Splits on whitespace and counts only tokens that
+ * contain at least one letter or digit. Standalone punctuation and symbols
+ * (e.g. "-", "—", "&", "/", "...") are NOT counted as words, matching how the
+ * examiner counts. Hyphenated words ("well-known") and contractions ("don't")
+ * count as a single word.
+ */
+export function countWords(text: string | null | undefined): number {
+  if (!text) return 0;
+  const trimmed = text.trim();
+  if (!trimmed) return 0;
+  let count = 0;
+  for (const token of trimmed.split(/\s+/)) {
+    if (/[\p{L}\p{N}]/u.test(token)) count++;
+  }
+  return count;
+}
+
 /** Get the first text node inside a node, or the node itself if it is a text node. */
 function getFirstTextNode(node: Node): Text | null {
   if (node.nodeType === Node.TEXT_NODE) return node as Text;

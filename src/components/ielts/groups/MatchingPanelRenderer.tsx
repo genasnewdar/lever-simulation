@@ -63,7 +63,7 @@ export default function MatchingPanelRenderer({
                 <select
                   {...register(regKey)}
                   disabled={disabled}
-                  className="min-w-[80px] px-3 py-2 border border-rule rounded-lg bg-white font-semibold text-ink focus:ring-1 focus:ring-mint focus:border-mint outline-none"
+                  className="min-w-[80px] px-3 py-2 border border-rule rounded-lg bg-paper font-semibold text-ink focus:ring-1 focus:ring-mint focus:border-mint outline-none"
                 >
                   <option value="">—</option>
                   {options.map((opt) => (

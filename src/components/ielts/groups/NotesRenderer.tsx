@@ -25,7 +25,7 @@ export default function NotesRenderer({
           instructions={group.instructions}
           wordLimitText={group.word_limit_text}
         />
-        <div className="border border-rule rounded-md p-5 bg-white space-y-5">
+        <div className="border border-rule rounded-md p-5 bg-paper space-y-5">
           {layout.sections.map((section, sIdx) => (
             <div key={sIdx} className="space-y-2">
               <h4 className="font-semibold text-ink text-base">

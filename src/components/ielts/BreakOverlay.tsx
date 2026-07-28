@@ -33,16 +33,18 @@ export function BreakOverlay({ seconds, onDone }: Props) {
   };
 
   useEffect(() => {
+    // Anchor to wall-clock time so the break length stays accurate even if the
+    // tab is backgrounded (setInterval throttling) or the machine sleeps.
+    const startMs = Date.now();
     const id = setInterval(() => {
-      setRemaining((prev) => {
-        if (prev <= 1) {
-          clearInterval(id);
-          finish();
-          return 0;
-        }
-        return prev - 1;
-      });
-    }, 1000);
+      const elapsed = Math.floor((Date.now() - startMs) / 1000);
+      const rem = Math.max(0, seconds - elapsed);
+      setRemaining(rem);
+      if (rem <= 0) {
+        clearInterval(id);
+        finish();
+      }
+    }, 500);
     return () => clearInterval(id);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);

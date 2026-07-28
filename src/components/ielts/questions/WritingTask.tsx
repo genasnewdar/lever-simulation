@@ -4,6 +4,7 @@ import React, { useEffect, useState } from "react";
 import Image from "next/image";
 import { useFormContext } from "react-hook-form";
 import { Question } from "../../../types/ielts";
+import { countWords } from "@/lib/utils";
 
 interface WritingTaskProps {
   question: Question;
@@ -18,11 +19,7 @@ const WritingTask: React.FC<WritingTaskProps> = ({ question, disabled }) => {
   const [wordCount, setWordCount] = useState(0);
 
   useEffect(() => {
-    const words = textValue
-      .trim()
-      .split(/\s+/)
-      .filter((word: string) => word.length > 0);
-    setWordCount(words.length);
+    setWordCount(countWords(textValue));
   }, [textValue]);
 
   const isTask2 = type === "WRITING_TASK_2";

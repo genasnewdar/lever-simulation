@@ -114,7 +114,7 @@ export default function FallbackRenderer({
                         <select
                           {...register(regKey)}
                           disabled={disabled}
-                          className="min-w-[140px] px-3 py-2 border border-rule rounded-lg bg-white font-semibold text-ink focus:ring-2 focus:ring-mint outline-none">
+                          className="min-w-[140px] px-3 py-2 border border-rule rounded-lg bg-paper font-semibold text-ink focus:ring-2 focus:ring-mint outline-none">
                           <option value="">Select</option>
                           {isTFNG && (
                             <>
@@ -166,7 +166,7 @@ export default function FallbackRenderer({
                           {...register(regKey)}
                           disabled={disabled}
                           placeholder="Your answer..."
-                          className="w-full max-w-[300px] px-3 py-2 border border-rule rounded-lg bg-white font-medium text-ink focus:ring-2 focus:ring-mint outline-none"
+                          className="w-full max-w-[300px] px-3 py-2 border border-rule rounded-lg bg-paper font-medium text-ink focus:ring-2 focus:ring-mint outline-none"
                         />
                       </div>
                     )}
