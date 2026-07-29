@@ -5,6 +5,28 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useSpeechSynthesis } from "@/lib/speaking/useSpeechSynthesis";
 
 /**
+ * Read the audio for a line.
+ *
+ * The CDN serves these without `Access-Control-Allow-Origin`, so fetching one
+ * directly from the page is blocked — hence `/api/speaking/voice`, which
+ * re-serves it from our own origin. The direct URL is still tried afterwards,
+ * so a CDN that does send CORS skips the extra hop.
+ */
+async function fetchAudio(url: string): Promise<ArrayBuffer | null> {
+  const routes = [`/api/speaking/voice?src=${encodeURIComponent(url)}`, url];
+
+  for (const route of routes) {
+    try {
+      const response = await fetch(route);
+      if (response.ok) return await response.arrayBuffer();
+    } catch {
+      // Blocked or unreachable — try the next route, then browser speech.
+    }
+  }
+  return null;
+}
+
+/**
  * The examiner's voice.
  *
  * lever-edu synthesises each examiner line with neural TTS and returns a CDN
@@ -92,11 +114,12 @@ export function useExaminerVoice() {
       // Not cached in memory: each line is spoken once per session, and a
       // decoded buffer is far larger than the file it came from. A replay
       // after reconnecting re-fetches, which the CDN serves from its edge.
+      const bytes = await fetchAudio(url);
+      if (!bytes) return false;
+
       let buffer: AudioBuffer;
       try {
-        const response = await fetch(url);
-        if (!response.ok) return false;
-        buffer = await context.decodeAudioData(await response.arrayBuffer());
+        buffer = await context.decodeAudioData(bytes);
       } catch {
         return false;
       }
