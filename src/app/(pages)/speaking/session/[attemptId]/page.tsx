@@ -377,6 +377,10 @@ export default function SpeakingSessionPage() {
     bootedRef.current = true;
     setStarted(true);
 
+    // Before any await, while this click still counts as the gesture that
+    // lets audio play.
+    voice.prime();
+
     const micReady = await recorder.prepare();
     if (!micReady) {
       failSession(
@@ -397,7 +401,7 @@ export default function SpeakingSessionPage() {
           : null;
       failSession(detail || "Ярианы шалгалт эхлүүлэх боломжгүй байна.");
     }
-  }, [advance, attemptId, failSession, recorder]);
+  }, [advance, attemptId, failSession, recorder, voice]);
 
   useEffect(() => {
     return () => {

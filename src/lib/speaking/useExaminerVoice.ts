@@ -55,8 +55,9 @@ export function useExaminerVoice() {
   const generationRef = useRef(0);
 
   /**
-   * The context is created on first speech, which only happens after the
-   * student has pressed "start" — autoplay policy requires that gesture.
+   * Audio output needs a user gesture to open. `prime()` is called from the
+   * start button so the context exists before any awaits — Safari only grants
+   * one that was created inside the handler itself.
    */
   const getContext = useCallback((): AudioContext | null => {
     if (contextRef.current) return contextRef.current;
@@ -71,6 +72,15 @@ export function useExaminerVoice() {
     contextRef.current = new Ctor();
     return contextRef.current;
   }, []);
+
+  /** Open audio output while the student's click still counts as a gesture. */
+  const prime = useCallback(() => {
+    getContext()
+      ?.resume()
+      .catch(() => {
+        // Still blocked — `speak` retries, and browser speech backs it up.
+      });
+  }, [getContext]);
 
   const stopMeter = useCallback(() => {
     if (rafRef.current !== null) {
@@ -210,6 +220,7 @@ export function useExaminerVoice() {
   }, []);
 
   return {
+    prime,
     speak,
     cancel,
     speaking: playing || fallback.speaking,
