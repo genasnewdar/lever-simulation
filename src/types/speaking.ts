@@ -133,6 +133,63 @@ export interface SpeakingResultsSuccess {
 
 export type SpeakingResults = SpeakingResultsPending | SpeakingResultsSuccess;
 
+/** What kind of mistake a correction points at. */
+export type CorrectionKind =
+  | "grammar"
+  | "vocabulary"
+  | "collocation"
+  | "pronunciation"
+  | "fluency"
+  | "register";
+
+/**
+ * One mistake and its fix. `original` is copied verbatim out of the student's
+ * transcript, which is what lets the UI mark it in place.
+ */
+export interface SpeakingCorrection {
+  original: string;
+  corrected: string;
+  /** Written in Mongolian — it explains the rule, not just the fix. */
+  explanation: string;
+  kind: CorrectionKind;
+}
+
+export interface SpeakingAnswerFeedback {
+  index: number;
+  part: number | null;
+  question: string | null;
+  transcript: string;
+  corrections: SpeakingCorrection[];
+  /** The student's own answer rewritten at band 7.5-8, keeping their ideas. */
+  improved: string;
+  note: string;
+}
+
+export interface SpeakingFocusArea {
+  title: string;
+  detail: string;
+  example?: string;
+}
+
+export interface SpeakingFeedbackSuccess {
+  status: "success";
+  attempt_id: string;
+  answers: SpeakingAnswerFeedback[];
+  focus_areas: SpeakingFocusArea[];
+  summary: string;
+}
+
+/**
+ * `building` means the model is still working — the results page polls. It is
+ * served separately from the bands so a slow generation never delays them.
+ */
+export interface SpeakingFeedbackPending {
+  status: "building" | "unavailable";
+  attempt_id: string;
+}
+
+export type SpeakingFeedback = SpeakingFeedbackSuccess | SpeakingFeedbackPending;
+
 /**
  * What the UI is doing right now — drives the orb and the controls.
  *

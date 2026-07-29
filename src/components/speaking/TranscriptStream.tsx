@@ -19,10 +19,15 @@ interface TranscriptStreamProps {
  * stays on the current turn without the history disappearing entirely.
  */
 export function TranscriptStream({ lines, className }: TranscriptStreamProps) {
-  const endRef = useRef<HTMLDivElement>(null);
+  const scrollRef = useRef<HTMLDivElement>(null);
 
+  // Scroll this box directly rather than calling `scrollIntoView` on a marker:
+  // that walks up the tree and shifts scrollable ancestors too, which on a
+  // short viewport drags the whole stage out of view.
   useEffect(() => {
-    endRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
+    const box = scrollRef.current;
+    if (!box) return;
+    box.scrollTo({ top: box.scrollHeight, behavior: "smooth" });
   }, [lines]);
 
   // Only the tail is worth rendering — anything older is off-screen anyway.
@@ -30,6 +35,7 @@ export function TranscriptStream({ lines, className }: TranscriptStreamProps) {
 
   return (
     <div
+      ref={scrollRef}
       className={cn(
         "w-full max-w-[46rem] overflow-y-auto px-6",
         // Fade the top edge so scrolled-past lines dissolve instead of clipping.
@@ -80,7 +86,6 @@ export function TranscriptStream({ lines, className }: TranscriptStreamProps) {
             );
           })}
         </AnimatePresence>
-        <div ref={endRef} />
       </div>
     </div>
   );

@@ -6,6 +6,7 @@ import { useSpeakingStore } from "@/lib/speaking/store";
 import type {
   NextTurnResponse,
   PrepDoneResponse,
+  SpeakingFeedback,
   SpeakingResults,
   SpeakingStateResponse,
   StartSessionResponse,
@@ -102,6 +103,19 @@ export async function completeSession(attemptId: string) {
 export async function fetchResults(attemptId: string) {
   const { data } = await speakingApi.get<SpeakingResults>(
     `${base(attemptId)}/results`,
+  );
+  return data;
+}
+
+/**
+ * Correction-level feedback — the mistakes, their fixes, and what to practise.
+ *
+ * Generated on the pro model, so it lands after the bands do; the caller polls
+ * while `status` is `building`.
+ */
+export async function fetchFeedback(attemptId: string) {
+  const { data } = await speakingApi.get<SpeakingFeedback>(
+    `${base(attemptId)}/feedback`,
   );
   return data;
 }

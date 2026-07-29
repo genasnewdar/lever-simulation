@@ -29,6 +29,9 @@ interface SpeechRecognitionEventLike extends Event {
   resultIndex: number;
   results: SpeechRecognitionResultList;
 }
+interface SpeechRecognitionErrorEventLike extends Event {
+  error: string;
+}
 interface SpeechRecognitionLike extends EventTarget {
   lang: string;
   continuous: boolean;
@@ -38,9 +41,21 @@ interface SpeechRecognitionLike extends EventTarget {
   stop: () => void;
   abort: () => void;
   onresult: ((e: SpeechRecognitionEventLike) => void) | null;
-  onerror: ((e: Event) => void) | null;
+  onerror: ((e: SpeechRecognitionErrorEventLike) => void) | null;
   onend: (() => void) | null;
 }
+
+/**
+ * Errors that mean transcription is not going to work at all, as opposed to
+ * `no-speech` / `aborted`, which fire routinely during a normal turn.
+ */
+const FATAL_ERRORS = new Set([
+  "not-allowed",
+  "service-not-allowed",
+  "audio-capture",
+  "network",
+  "language-not-supported",
+]);
 type SpeechRecognitionCtor = new () => SpeechRecognitionLike;
 
 function getCtor(): SpeechRecognitionCtor | null {
@@ -56,6 +71,12 @@ export function useSpeechRecognition() {
   const [supported, setSupported] = useState(false);
   const [finalText, setFinalText] = useState("");
   const [interimText, setInterimText] = useState("");
+  /**
+   * Set when transcription has genuinely broken — the browser blocked the mic,
+   * or it cannot reach the speech service. Swallowing these was why an empty
+   * transcript looked like a student who had said nothing.
+   */
+  const [fatalError, setFatalError] = useState<string | null>(null);
 
   const recognitionRef = useRef<SpeechRecognitionLike | null>(null);
   const finalRef = useRef("");
@@ -79,6 +100,7 @@ export function useSpeechRecognition() {
     interimRef.current = "";
     setFinalText("");
     setInterimText("");
+    setFatalError(null);
     wantActiveRef.current = true;
 
     const recognition = new Ctor();
@@ -103,8 +125,15 @@ export function useSpeechRecognition() {
       setInterimText(interimRef.current);
     };
 
-    recognition.onerror = () => {
+    recognition.onerror = (event) => {
       // no-speech / aborted fire routinely; onend decides whether to resume.
+      if (!FATAL_ERRORS.has(event.error)) return;
+
+      setFatalError(event.error);
+      console.warn(
+        `[speaking] speech recognition failed (${event.error}) — the recording ` +
+          `is still uploaded and transcribed server-side`,
+      );
     };
 
     recognition.onend = () => {
@@ -155,5 +184,5 @@ export function useSpeechRecognition() {
     };
   }, []);
 
-  return { supported, finalText, interimText, start, stop };
+  return { supported, fatalError, finalText, interimText, start, stop };
 }

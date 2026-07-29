@@ -6,10 +6,17 @@ import { motion } from "framer-motion";
 import { ArrowLeft, Loader2 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
-import { fetchResults } from "@/lib/speaking/api";
+import {
+  AnswerFeedback,
+  FeedbackBuilding,
+} from "@/components/speaking/AnswerFeedback";
+import { fetchFeedback, fetchResults } from "@/lib/speaking/api";
 import { useSpeakingStore } from "@/lib/speaking/store";
 import { cn } from "@/lib/utils";
-import type { SpeakingResultsSuccess } from "@/types/speaking";
+import type {
+  SpeakingFeedbackSuccess,
+  SpeakingResultsSuccess,
+} from "@/types/speaking";
 
 const POLL_MS = 5000;
 
@@ -31,28 +38,56 @@ export default function SpeakingResultsPage() {
   const { studentName, clear } = useSpeakingStore();
 
   const [result, setResult] = useState<SpeakingResultsSuccess | null>(null);
+  const [feedback, setFeedback] = useState<SpeakingFeedbackSuccess | null>(null);
+  const [feedbackUnavailable, setFeedbackUnavailable] = useState(false);
   const [failed, setFailed] = useState(false);
-  const stopRef = useRef(false);
 
+  const resultDoneRef = useRef(false);
+  const feedbackDoneRef = useRef(false);
+
+  /**
+   * Bands and detailed feedback are generated separately and land at different
+   * times, so each is polled until it settles rather than waiting on the pair.
+   */
   const poll = useCallback(async () => {
-    try {
-      const data = await fetchResults(attemptId);
-      if (data.status === "success") {
-        stopRef.current = true;
-        setResult(data);
+    if (!resultDoneRef.current) {
+      try {
+        const data = await fetchResults(attemptId);
+        if (data.status === "success") {
+          resultDoneRef.current = true;
+          setResult(data);
+        }
+      } catch {
+        resultDoneRef.current = true;
+        feedbackDoneRef.current = true;
+        setFailed(true);
+        return;
       }
-    } catch {
-      stopRef.current = true;
-      setFailed(true);
+    }
+
+    if (!feedbackDoneRef.current) {
+      try {
+        const data = await fetchFeedback(attemptId);
+        if (data.status === "success") {
+          feedbackDoneRef.current = true;
+          setFeedback(data);
+        } else if (data.status === "unavailable") {
+          feedbackDoneRef.current = true;
+          setFeedbackUnavailable(true);
+        }
+      } catch {
+        // Supplementary to the band — keep polling, never fail the page on it.
+      }
     }
   }, [attemptId]);
 
   useEffect(() => {
-    stopRef.current = false;
+    resultDoneRef.current = false;
+    feedbackDoneRef.current = false;
     poll();
 
     const interval = window.setInterval(() => {
-      if (stopRef.current) {
+      if (resultDoneRef.current && feedbackDoneRef.current) {
         window.clearInterval(interval);
         return;
       }
@@ -60,7 +95,8 @@ export default function SpeakingResultsPage() {
     }, POLL_MS);
 
     return () => {
-      stopRef.current = true;
+      resultDoneRef.current = true;
+      feedbackDoneRef.current = true;
       window.clearInterval(interval);
     };
   }, [poll]);
@@ -196,7 +232,8 @@ export default function SpeakingResultsPage() {
           </section>
         )}
 
-        {/* Transcript */}
+        {/* Per-answer bands. The words themselves move to the correction
+            section below once it arrives, so they are not printed twice. */}
         {result.responses.length > 0 && (
           <section className="mt-12">
             <h2 className="font-serif text-[1.4rem] font-semibold tracking-[-0.015em] text-ink">
@@ -215,11 +252,13 @@ export default function SpeakingResultsPage() {
                       </span>
                     )}
                   </div>
-                  <p className="mt-2 text-[14px] leading-relaxed text-ink-soft">
-                    {response.transcript || (
-                      <span className="text-muted">Бичвэр бүртгэгдээгүй.</span>
-                    )}
-                  </p>
+                  {!feedback && (
+                    <p className="mt-2 text-[14px] leading-relaxed text-ink-soft">
+                      {response.transcript || (
+                        <span className="text-muted">Бичвэр бүртгэгдээгүй.</span>
+                      )}
+                    </p>
+                  )}
                   {response.duration !== null && (
                     <p className="mt-2 font-mono text-[11px] text-muted">
                       {response.duration}s
@@ -229,6 +268,80 @@ export default function SpeakingResultsPage() {
               ))}
             </div>
           </section>
+        )}
+
+        {/* Corrections */}
+        {!feedback && !feedbackUnavailable && (
+          <section className="mt-12">
+            <h2 className="font-serif text-[1.4rem] font-semibold tracking-[-0.015em] text-ink">
+              Алдаа ба засвар
+            </h2>
+            <FeedbackBuilding className="mt-4" />
+          </section>
+        )}
+
+        {feedback && (
+          <>
+            {feedback.summary && (
+              <section className="mt-12 rounded-lg border border-rule bg-paper-2 px-6 py-6">
+                <h2 className="font-serif text-[1.4rem] font-semibold tracking-[-0.015em] text-ink">
+                  Ерөнхий дүгнэлт
+                </h2>
+                <p className="mt-3 whitespace-pre-line text-[15px] leading-relaxed text-ink-soft">
+                  {feedback.summary}
+                </p>
+              </section>
+            )}
+
+            {feedback.answers.length > 0 && (
+              <section className="mt-12">
+                <h2 className="font-serif text-[1.4rem] font-semibold tracking-[-0.015em] text-ink">
+                  Алдаа ба засвар
+                </h2>
+                <p className="mt-2 text-[13px] leading-relaxed text-muted">
+                  <span className="text-red-600 dark:text-red-400">Улаанаар</span>{" "}
+                  таны алдсан хэсэг,{" "}
+                  <span className="text-mint-ink">ногооноор</span> хэрхэн хэлэх
+                  ёстой байсныг тэмдэглэв.
+                </p>
+                <div className="mt-2 divide-y divide-rule border-y border-rule">
+                  {feedback.answers.map((answer) => (
+                    <AnswerFeedback key={answer.index} answer={answer} />
+                  ))}
+                </div>
+              </section>
+            )}
+
+            {feedback.focus_areas.length > 0 && (
+              <section className="mt-12">
+                <h2 className="font-serif text-[1.4rem] font-semibold tracking-[-0.015em] text-ink">
+                  Цаашид анхаарах
+                </h2>
+                <ol className="mt-5 flex flex-col gap-5">
+                  {feedback.focus_areas.map((area, i) => (
+                    <li key={i} className="flex gap-4">
+                      <span className="mt-0.5 shrink-0 font-mono text-[12px] text-mint-deep">
+                        {String(i + 1).padStart(2, "0")}
+                      </span>
+                      <div>
+                        <p className="text-[15px] font-medium text-ink">
+                          {area.title}
+                        </p>
+                        <p className="mt-1 text-[14px] leading-relaxed text-ink-soft">
+                          {area.detail}
+                        </p>
+                        {area.example && (
+                          <p className="mt-2 font-serif text-[14px] leading-relaxed text-mint-ink">
+                            “{area.example}”
+                          </p>
+                        )}
+                      </div>
+                    </li>
+                  ))}
+                </ol>
+              </section>
+            )}
+          </>
         )}
 
         <p className="mt-12 text-[12px] leading-relaxed text-muted">

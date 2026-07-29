@@ -42,6 +42,35 @@ interface ArmedTurn {
   part: number;
 }
 
+/**
+ * Orb size for the current viewport.
+ *
+ * The stage does not scroll, so a fixed 320px orb eats the height the
+ * transcript needs and pushes the conversation off a laptop screen entirely.
+ * Everything around the orb is a fixed cost — header, status, controls — so the
+ * orb is what gives way.
+ */
+function useOrbSize() {
+  // 320 matches the design on a full-height window; the hook only shrinks it.
+  const [size, setSize] = useState(320);
+
+  useEffect(() => {
+    const measure = () => {
+      const height = window.innerHeight;
+      if (height >= 900) setSize(320);
+      else if (height >= 800) setSize(280);
+      else if (height >= 700) setSize(240);
+      else setSize(200);
+    };
+
+    measure();
+    window.addEventListener("resize", measure);
+    return () => window.removeEventListener("resize", measure);
+  }, []);
+
+  return size;
+}
+
 export default function SpeakingSessionPage() {
   const router = useRouter();
   const params = useParams<{ attemptId: string }>();
@@ -52,6 +81,7 @@ export default function SpeakingSessionPage() {
   const recorder = useVoiceRecorder();
   const recognition = useSpeechRecognition();
   const voice = useExaminerVoice();
+  const orbSize = useOrbSize();
 
   const [phase, setPhase] = useState<SessionPhase>("connecting");
   const [started, setStarted] = useState(false);
@@ -272,7 +302,13 @@ export default function SpeakingSessionPage() {
             ? {
                 ...line,
                 interim: false,
-                text: transcript || line.text || "(бичигдээгүй)",
+                // An empty transcript is not a lost answer: the recording is
+                // uploaded either way and lever-edu transcribes it before
+                // grading. Say that, rather than implying nothing was heard.
+                text:
+                  transcript ||
+                  line.text ||
+                  "(бичлэг хадгалагдсан — бичвэр рүү сервер дээр хөрвүүлэгдэнэ)",
               }
             : line,
         ),
@@ -441,8 +477,11 @@ export default function SpeakingSessionPage() {
     );
   }
 
+  // The stage deliberately carries no `overflow-hidden`: it silently clipped
+  // whatever did not fit instead of letting the page scroll, which is how the
+  // conversation disappeared on a short window.
   return (
-    <div className="relative flex min-h-screen flex-col overflow-hidden bg-paper">
+    <div className="relative flex min-h-screen flex-col bg-paper">
       {/* Header */}
       <header className="flex items-center justify-between px-7 py-6">
         <div className="flex items-center gap-2 text-[11px] uppercase tracking-[0.2em] text-muted">
@@ -466,9 +505,9 @@ export default function SpeakingSessionPage() {
       </header>
 
       {/* Stage */}
-      <main className="flex flex-1 flex-col items-center justify-center px-6">
-        <div className="relative flex items-center justify-center">
-          <SpeakingOrb level={orbLevel} mode={orbMode} size={320} />
+      <main className="flex min-h-0 flex-1 flex-col items-center justify-center px-6">
+        <div className="relative flex shrink-0 items-center justify-center">
+          <SpeakingOrb level={orbLevel} mode={orbMode} size={orbSize} />
 
           <AnimatePresence>
             {remaining !== null && (
@@ -509,7 +548,14 @@ export default function SpeakingSessionPage() {
         </AnimatePresence>
 
         {phase !== "prep" && (
-          <TranscriptStream lines={lines} className="mt-2 max-h-[32vh]" />
+          // The floor replaces `min-height: auto`, which would otherwise refuse
+          // to shrink below the content and push the conversation off a short
+          // viewport — the page does not scroll. Two lines always remain, so a
+          // tight window costs history, never the line being spoken.
+          <TranscriptStream
+            lines={lines}
+            className="mt-2 min-h-[6rem] max-h-[32vh]"
+          />
         )}
 
         {phase === "error" && errorMessage && (

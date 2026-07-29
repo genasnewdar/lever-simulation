@@ -9,8 +9,8 @@ import { useSpeechSynthesis } from "@/lib/speaking/useSpeechSynthesis";
  *
  * The CDN serves these without `Access-Control-Allow-Origin`, so fetching one
  * directly from the page is blocked — hence `/api/speaking/voice`, which
- * re-serves it from our own origin. The direct URL is still tried afterwards,
- * so a CDN that does send CORS skips the extra hop.
+ * re-serves it from our own origin and is therefore tried first. The direct URL
+ * is the fallback, covering audio hosted somewhere the proxy refuses to fetch.
  */
 async function fetchAudio(url: string): Promise<ArrayBuffer | null> {
   const routes = [`/api/speaking/voice?src=${encodeURIComponent(url)}`, url];
@@ -182,6 +182,12 @@ export function useExaminerVoice() {
       if (audioUrl) {
         const played = await playUrl(audioUrl, generation);
         if (played) return;
+        // Worth a warning: the examiner is about to sound robotic, and the
+        // reason is invisible from the UI.
+        console.warn(
+          "[speaking] examiner audio would not play, using browser speech:",
+          audioUrl,
+        );
       }
       if (generation !== generationRef.current) return;
 
