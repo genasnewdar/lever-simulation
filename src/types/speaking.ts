@@ -16,7 +16,15 @@ interface TurnBase {
   session_complete: false;
 }
 
-export interface ExaminerSpeechTurn extends TurnBase {
+/**
+ * Neural TTS of the line this turn speaks, served from the CDN.
+ *
+ * Null when lever-edu could not synthesise it in time (cold cache) or has TTS
+ * switched off — the browser reads the text aloud instead.
+ */
+type ExaminerVoice = { examiner_audio_url?: string | null };
+
+export interface ExaminerSpeechTurn extends TurnBase, ExaminerVoice {
   turn_type: "EXAMINER_SPEECH";
   examiner_text: string | null;
   auto_advance: true;
@@ -29,7 +37,7 @@ export interface PrepTurn extends TurnBase {
   prep_started_at: string;
 }
 
-export interface StudentResponseTurn extends TurnBase {
+export interface StudentResponseTurn extends TurnBase, ExaminerVoice {
   turn_type: "STUDENT_RESPONSE";
   question_id: string | null;
   question_text: string | null;

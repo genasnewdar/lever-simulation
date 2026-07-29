@@ -19,8 +19,8 @@ import {
   uploadTurnAudio,
 } from "@/lib/speaking/api";
 import { useSpeakingStore } from "@/lib/speaking/store";
+import { useExaminerVoice } from "@/lib/speaking/useExaminerVoice";
 import { useSpeechRecognition } from "@/lib/speaking/useSpeechRecognition";
-import { useSpeechSynthesis } from "@/lib/speaking/useSpeechSynthesis";
 import { useVoiceRecorder } from "@/lib/speaking/useVoiceRecorder";
 import { cn } from "@/lib/utils";
 import type {
@@ -51,7 +51,7 @@ export default function SpeakingSessionPage() {
 
   const recorder = useVoiceRecorder();
   const recognition = useSpeechRecognition();
-  const synthesis = useSpeechSynthesis();
+  const voice = useExaminerVoice();
 
   const [phase, setPhase] = useState<SessionPhase>("connecting");
   const [started, setStarted] = useState(false);
@@ -133,7 +133,7 @@ export default function SpeakingSessionPage() {
     deadlineRef.current = null;
     setRemaining(null);
     setPhase("complete");
-    synthesis.cancel();
+    voice.cancel();
     recorder.release();
 
     try {
@@ -143,7 +143,7 @@ export default function SpeakingSessionPage() {
       toast.warning("Дүгнэлт эхлүүлэхэд саатал гарлаа. Үр дүнг шалгана уу.");
     }
     router.push(`/speaking/results/${attemptId}`);
-  }, [attemptId, recorder, router, synthesis]);
+  }, [attemptId, recorder, router, voice]);
 
   /**
    * Hand the turn to the student without opening the mic.
@@ -205,7 +205,7 @@ export default function SpeakingSessionPage() {
         setPhase("examiner_speaking");
         const text = turn.examiner_text ?? "";
         if (text) pushLine({ speaker: "examiner", text, part: turn.part });
-        await synthesis.speak(text);
+        await voice.speak(text, turn.examiner_audio_url);
         await flowRef.current.advance();
         return;
       }
@@ -226,11 +226,11 @@ export default function SpeakingSessionPage() {
       const question = turn.question_text ?? "";
       if (question) {
         pushLine({ speaker: "examiner", text: question, part: turn.part });
-        await synthesis.speak(question);
+        await voice.speak(question, turn.examiner_audio_url);
       }
       armTurn(turn.turn_id, turn.time_limit_seconds, turn.part);
     },
-    [armTurn, pushLine, synthesis],
+    [armTurn, pushLine, voice],
   );
 
   const advance = useCallback(async () => {
@@ -401,7 +401,7 @@ export default function SpeakingSessionPage() {
 
   useEffect(() => {
     return () => {
-      synthesis.cancel();
+      voice.cancel();
       recorder.release();
     };
     // Unmount-only cleanup.
@@ -423,7 +423,7 @@ export default function SpeakingSessionPage() {
     phase === "listening"
       ? recorder.level
       : phase === "examiner_speaking"
-        ? synthesis.level
+        ? voice.level
         : 0;
 
   const showPushToTalk = phase === "awaiting" || phase === "listening";
