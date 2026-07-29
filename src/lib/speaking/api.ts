@@ -108,6 +108,19 @@ export async function fetchResults(attemptId: string) {
 }
 
 /**
+ * Build the PDF report and email it to the student and every admin.
+ *
+ * Idempotent server-side, so calling it whenever results finish is safe — the
+ * first call sends and the rest return `already_sent`.
+ */
+export async function sendReport(attemptId: string) {
+  const { data } = await speakingApi.post<{ status: string }>(
+    `/api/public/ielts/report/${attemptId}`,
+  );
+  return data;
+}
+
+/**
  * Correction-level feedback — the mistakes, their fixes, and what to practise.
  *
  * Generated on the pro model, so it lands after the bands do; the caller polls

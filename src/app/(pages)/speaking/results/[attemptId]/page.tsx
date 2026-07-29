@@ -10,7 +10,7 @@ import {
   AnswerFeedback,
   FeedbackBuilding,
 } from "@/components/speaking/AnswerFeedback";
-import { fetchFeedback, fetchResults } from "@/lib/speaking/api";
+import { fetchFeedback, fetchResults, sendReport } from "@/lib/speaking/api";
 import { useSpeakingStore } from "@/lib/speaking/store";
 import { cn } from "@/lib/utils";
 import type {
@@ -44,6 +44,7 @@ export default function SpeakingResultsPage() {
 
   const resultDoneRef = useRef(false);
   const feedbackDoneRef = useRef(false);
+  const reportSentRef = useRef(false);
 
   /**
    * Bands and detailed feedback are generated separately and land at different
@@ -78,6 +79,16 @@ export default function SpeakingResultsPage() {
       } catch {
         // Supplementary to the band — keep polling, never fail the page on it.
       }
+    }
+
+    // Mail the PDF once both halves have settled, so the report carries the
+    // corrections rather than the bands alone. The server is idempotent; this
+    // guard just avoids the extra round trips.
+    if (resultDoneRef.current && feedbackDoneRef.current && !reportSentRef.current) {
+      reportSentRef.current = true;
+      sendReport(attemptId).catch(() => {
+        // The student has their results on screen either way.
+      });
     }
   }, [attemptId]);
 

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { api } from "@/lib/axios";
 import {
@@ -154,6 +154,8 @@ export default function ResultsPage() {
 
   const [data, setData] = useState<ResultsData | null>(null);
   const [loading, setLoading] = useState(true);
+  /** The report is mailed once per mount; the server dedupes the rest. */
+  const reportSentRef = useRef(false);
   const [error, setError] = useState<string | null>(null);
   const [expandedTask, setExpandedTask] = useState<number | null>(1);
   const [showEssay, setShowEssay] = useState<Record<number, boolean>>({});
@@ -179,6 +181,16 @@ export default function ResultsPage() {
 
         setData(res.data);
         setLoading(false);
+
+        // Grading is done — mail the PDF report to the student and the admins.
+        // Fire-and-forget: the server is idempotent and nothing on this page
+        // depends on it.
+        if (!reportSentRef.current) {
+          reportSentRef.current = true;
+          api
+            .post(`/api/public/ielts/report/${attemptId}`)
+            .catch(() => {});
+        }
       // eslint-disable-next-line @typescript-eslint/no-unused-vars
       } catch (err) {
         if (cancelled) return;
