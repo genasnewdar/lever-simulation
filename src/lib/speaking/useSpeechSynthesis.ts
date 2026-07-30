@@ -71,22 +71,25 @@ export function useSpeechSynthesis() {
   }, []);
 
   /**
-   * Speak `text` and resolve when it finishes. Resolves immediately if the
-   * browser has no speechSynthesis, so a turn can never hang on it.
+   * Speak `text` and resolve when it finishes, with whether it was actually
+   * heard. Resolves immediately if the browser has no speechSynthesis, so a
+   * turn can never hang on it — and `false` tells the caller the line went out
+   * silently, which now matters: the examiner's words are no longer printed on
+   * screen, so a silent turn would leave the student with nothing at all.
    */
   const speak = useCallback(
-    (text: string): Promise<void> => {
+    (text: string): Promise<boolean> => {
       if (
         typeof window === "undefined" ||
         !window.speechSynthesis ||
         !text.trim()
       ) {
-        return Promise.resolve();
+        return Promise.resolve(false);
       }
 
       window.speechSynthesis.cancel();
 
-      return new Promise<void>((resolve) => {
+      return new Promise<boolean>((resolve) => {
         const utterance = new SpeechSynthesisUtterance(text);
         if (voiceRef.current) utterance.voice = voiceRef.current;
         utterance.lang = voiceRef.current?.lang || "en-GB";
@@ -94,16 +97,21 @@ export function useSpeechSynthesis() {
         utterance.pitch = 1.0;
 
         let settled = false;
+        // `onstart` is the only signal that the utterance reached an output
+        // device. A voice that errors, or one the browser drops on the floor,
+        // never fires it.
+        let started = false;
         const finish = () => {
           if (settled) return;
           settled = true;
           targetRef.current = 0;
           stopEnvelope();
           setSpeaking(false);
-          resolve();
+          resolve(started);
         };
 
         utterance.onstart = () => {
+          started = true;
           setSpeaking(true);
           targetRef.current = 0.75;
           runEnvelope();

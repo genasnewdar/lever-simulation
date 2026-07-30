@@ -4,11 +4,12 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { AnimatePresence, motion } from "framer-motion";
 import { toast } from "react-toastify";
-import { AlertTriangle, Loader2, Mic, MicOff } from "lucide-react";
+import { AlertTriangle, Loader2, MicOff, Volume2 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
-import { PushToTalk } from "@/components/speaking/PushToTalk";
+import { MicCheck } from "@/components/speaking/MicCheck";
 import { SpeakingOrb } from "@/components/speaking/SpeakingOrb";
+import { TalkControl } from "@/components/speaking/TalkControl";
 import { TranscriptStream } from "@/components/speaking/TranscriptStream";
 import {
   completeSession,
@@ -35,11 +36,48 @@ const PART_LABEL: Record<number, string> = {
   3: "Part 3 · Discussion",
 };
 
+/** Line the examiner speaks when the student asks to hear the question again. */
+const REPEAT_PREFIX = "Of course. ";
+
+/**
+ * Shortest answer that is treated as an answer.
+ *
+ * Below this the student has not said anything gradable — they tapped by
+ * mistake, or started before they were ready. Submitting it would spend the
+ * question on a second of silence, so the take is thrown away and the same
+ * question is handed straight back instead.
+ */
+const MIN_ANSWER_MS = 1000;
+
+/** Above this the student is speaking. */
+const SPEECH_LEVEL = 0.1;
+/** Below this the room is quiet. The gap between the two stops flapping. */
+const SILENCE_LEVEL = 0.05;
+/** How long the quiet has to hold before the answer is submitted for them. */
+const SILENCE_MS = 3500;
+/** When to start warning that it is about to happen. */
+const SILENCE_WARN_MS = 2000;
+
+/**
+ * The pause before the examiner speaks.
+ *
+ * Deliberate, and the only added wait in the whole flow. A reply that starts
+ * the instant the student stops talking reads as a machine that was never
+ * listening; three quarters of a second of the orb visibly working reads as
+ * someone who heard the answer and is responding to it. It sits between turns,
+ * never inside one, so it costs the student no speaking time.
+ */
+const CONSIDER_MS = 750;
+
+const beat = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
 /** A student turn that has been announced but not yet spoken into. */
 interface ArmedTurn {
   turnId: string;
   limitSeconds: number;
   part: number;
+  questionText: string | null;
+  audioUrl: string | null;
 }
 
 /**
@@ -90,7 +128,10 @@ export default function SpeakingSessionPage() {
   const [progress, setProgress] = useState({ index: 0, total: 0 });
   const [cueCard, setCueCard] = useState<string | null>(null);
   const [remaining, setRemaining] = useState<number | null>(null);
-  const [locked, setLocked] = useState(false);
+  const [repeating, setRepeating] = useState(false);
+  const [autoStopIn, setAutoStopIn] = useState<number | null>(null);
+  /** Bumped when an answer is captured, to fire the orb's acknowledgement. */
+  const [pulse, setPulse] = useState(0);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   // Session data the async flow reads — refs, not state, so an in-flight turn
@@ -167,6 +208,8 @@ export default function SpeakingSessionPage() {
     recorder.release();
 
     try {
+      // Slow on purpose: the server transcribes every recording from its audio
+      // before it will grade them, and the student's screen says so.
       await completeSession(attemptId);
     } catch {
       // The session is over either way; results will report if grading failed.
@@ -178,25 +221,18 @@ export default function SpeakingSessionPage() {
   /**
    * Hand the turn to the student without opening the mic.
    *
-   * Recording is theirs to start — the clock only runs while they actually
-   * hold the control, so thinking time is never charged against the answer.
+   * Recording is theirs to start — the clock only runs while they are actually
+   * answering, so thinking time is never charged against the answer.
    */
-  const armTurn = useCallback(
-    (turnId: string, timeLimitSeconds: number, turnPart: number) => {
-      armedTurnRef.current = {
-        turnId,
-        limitSeconds: timeLimitSeconds > 0 ? timeLimitSeconds : 45,
-        part: turnPart,
-      };
-      setLocked(false);
-      setRemaining(armedTurnRef.current.limitSeconds);
-      deadlineRef.current = null;
-      setPhase("awaiting");
-    },
-    [],
-  );
+  const armTurn = useCallback((armed: ArmedTurn) => {
+    armedTurnRef.current = armed;
+    setRemaining(armed.limitSeconds);
+    deadlineRef.current = null;
+    setAutoStopIn(null);
+    setPhase("awaiting");
+  }, []);
 
-  /** The student pressed and held — start capturing. */
+  /** The student pressed start — begin capturing. */
   const startSpeaking = useCallback(async () => {
     const armed = armedTurnRef.current;
     if (!armed || busyRef.current) return;
@@ -232,10 +268,18 @@ export default function SpeakingSessionPage() {
       if (turn.turn_type === "EXAMINER_SPEECH") {
         setCueCard(null);
         setRemaining(null);
+        setPhase("considering");
+        await beat(CONSIDER_MS);
         setPhase("examiner_speaking");
+        // Spoken, not printed — reading the examiner's lines off the screen is
+        // not what the exam tests, and it is not what the real room offers.
         const text = turn.examiner_text ?? "";
-        if (text) pushLine({ speaker: "examiner", text, part: turn.part });
-        await voice.speak(text, turn.examiner_audio_url);
+        const heard = await voice.speak(text, turn.examiner_audio_url);
+        // Unless nothing came out of the speakers, in which case a printed line
+        // is the difference between a hard test and an impossible one.
+        if (!heard && text) {
+          pushLine({ speaker: "examiner", text, part: turn.part });
+        }
         await flowRef.current.advance();
         return;
       }
@@ -252,13 +296,23 @@ export default function SpeakingSessionPage() {
       // examiner reads it here before handing over.
       setCueCard(turn.cue_card);
       setRemaining(null);
+      setPhase("considering");
+      await beat(CONSIDER_MS);
       setPhase("examiner_speaking");
       const question = turn.question_text ?? "";
       if (question) {
-        pushLine({ speaker: "examiner", text: question, part: turn.part });
-        await voice.speak(question, turn.examiner_audio_url);
+        const heard = await voice.speak(question, turn.examiner_audio_url);
+        if (!heard) pushLine({ speaker: "examiner", text: question, part: turn.part });
       }
-      armTurn(turn.turn_id, turn.time_limit_seconds, turn.part);
+
+      armTurn({
+        turnId: turn.turn_id,
+        limitSeconds:
+          turn.time_limit_seconds > 0 ? turn.time_limit_seconds : 45,
+        part: turn.part,
+        questionText: turn.question_text,
+        audioUrl: turn.examiner_audio_url ?? null,
+      });
     },
     [armTurn, pushLine, voice],
   );
@@ -283,18 +337,33 @@ export default function SpeakingSessionPage() {
     const turn = activeTurnRef.current;
     if (!turn || turn.turn_type !== "STUDENT_RESPONSE") return;
 
+    const armed = armedTurnRef.current;
+    const elapsedMs = Date.now() - recordingStartRef.current;
+
     busyRef.current = true;
-    armedTurnRef.current = null;
     deadlineRef.current = null;
-    setRemaining(null);
-    setLocked(false);
-    setPhase("submitting");
+    setAutoStopIn(null);
 
     const transcript = recognition.stop();
     const blob = await recorder.stop();
-    const duration = Math.round((Date.now() - recordingStartRef.current) / 1000);
-
     const lineId = studentLineIdRef.current;
+    studentLineIdRef.current = null;
+
+    // Too short to be an answer — drop the take, hand the question back.
+    if (elapsedMs < MIN_ANSWER_MS && armed) {
+      setLines((prev) => prev.filter((line) => line.id !== lineId));
+      busyRef.current = false;
+      armTurn(armed);
+      toast.info("Хэт богино байна. Бэлэн болмогцоо дахин ярина уу.");
+      return;
+    }
+
+    armedTurnRef.current = null;
+    setRemaining(null);
+    // "Got it" — fired on the real answer only, never on a discarded take.
+    setPulse((n) => n + 1);
+    setPhase("submitting");
+
     if (lineId) {
       setLines((prev) =>
         prev.map((line) =>
@@ -314,12 +383,11 @@ export default function SpeakingSessionPage() {
         ),
       );
     }
-    studentLineIdRef.current = null;
 
     try {
       await submitTurn(attemptId, turn.turn_id, {
         transcript: transcript || null,
-        duration,
+        duration: Math.round(elapsedMs / 1000),
       });
 
       // Audio is evidence, not the grading input — never block the next
@@ -334,7 +402,7 @@ export default function SpeakingSessionPage() {
       busyRef.current = false;
       failSession("Хариултыг илгээхэд алдаа гарлаа.");
     }
-  }, [advance, attemptId, failSession, recognition, recorder]);
+  }, [advance, armTurn, attemptId, failSession, recognition, recorder]);
 
   /** Part 2 — prep is over (tapped early or ran out), hand over the turn. */
   const endPrep = useCallback(async () => {
@@ -365,7 +433,14 @@ export default function SpeakingSessionPage() {
       };
 
       busyRef.current = false;
-      armTurn(result.turn_id, result.time_limit_seconds, turn.part);
+      armTurn({
+        turnId: result.turn_id,
+        limitSeconds:
+          result.time_limit_seconds > 0 ? result.time_limit_seconds : 45,
+        part: turn.part,
+        questionText: result.question_text,
+        audioUrl: null,
+      });
     } catch {
       busyRef.current = false;
       failSession("Бэлтгэл дуусгахад алдаа гарлаа.");
@@ -374,15 +449,34 @@ export default function SpeakingSessionPage() {
 
   flowRef.current = { advance, startSpeaking, endTurn, endPrep };
 
-  // Stable identities: PushToTalk keeps window key listeners keyed to these, so
-  // inline arrows would resubscribe on every render.
+  // Stable identities: TalkControl keeps a window key listener keyed to these,
+  // so inline arrows would resubscribe on every render.
   const handleTalkStart = useCallback(() => {
     flowRef.current.startSpeaking();
   }, []);
-  const handleTalkLock = useCallback(() => setLocked(true), []);
   const handleTalkFinish = useCallback(() => {
     flowRef.current.endTurn();
   }, []);
+
+  /**
+   * Say the question again.
+   *
+   * Nothing is written on screen any more, so this is what replaces re-reading
+   * it — the same thing a candidate is allowed to ask for in Part 1 and 3.
+   */
+  const repeatQuestion = useCallback(async () => {
+    const armed = armedTurnRef.current;
+    if (!armed?.questionText || repeating) return;
+
+    setRepeating(true);
+    try {
+      // Spoken fresh rather than replaying the cached audio: the audio file is
+      // the question alone, and "Of course." is what makes it a reply.
+      await voice.speak(`${REPEAT_PREFIX}${armed.questionText}`);
+    } finally {
+      setRepeating(false);
+    }
+  }, [repeating, voice]);
 
   // ── Countdown ─────────────────────────────────────────────────────────────
 
@@ -406,24 +500,72 @@ export default function SpeakingSessionPage() {
     return () => window.clearInterval(interval);
   }, [phase]);
 
+  // ── Silence detection ─────────────────────────────────────────────────────
+
+  const getLevel = recorder.getLevel;
+
+  /**
+   * End the turn once the student has stopped talking.
+   *
+   * The clock only starts after they have said something: a candidate who takes
+   * four seconds to begin is thinking, not finished. Once it does start, the
+   * control counts down out loud, so the submission is never a surprise.
+   */
+  useEffect(() => {
+    if (phase !== "listening") {
+      setAutoStopIn(null);
+      return;
+    }
+
+    let spoke = false;
+    let quietSince: number | null = null;
+
+    const interval = window.setInterval(() => {
+      const level = getLevel();
+
+      if (level >= SPEECH_LEVEL) {
+        spoke = true;
+        quietSince = null;
+        setAutoStopIn(null);
+        return;
+      }
+      // Between the two thresholds is neither speech nor silence — hold.
+      if (!spoke || level >= SILENCE_LEVEL) return;
+
+      quietSince ??= Date.now();
+      const left = SILENCE_MS - (Date.now() - quietSince);
+
+      if (left <= 0) {
+        flowRef.current.endTurn();
+        return;
+      }
+      setAutoStopIn(left <= SILENCE_WARN_MS ? Math.ceil(left / 1000) : null);
+    }, 200);
+
+    return () => window.clearInterval(interval);
+  }, [getLevel, phase]);
+
   // ── Boot ──────────────────────────────────────────────────────────────────
+
+  /** Mic check step one: open audio both ways so the student can test them. */
+  const handleConnect = useCallback(async () => {
+    // Before any await, while this click still counts as the gesture that
+    // lets audio play.
+    voice.prime();
+    return recorder.monitor();
+  }, [recorder, voice]);
+
+  const handleTestVoice = useCallback(async () => {
+    await voice.speak(
+      "Hello. Can you hear me clearly? Let's begin your speaking test.",
+    );
+  }, [voice]);
 
   const handleBegin = useCallback(async () => {
     if (bootedRef.current) return;
     bootedRef.current = true;
     setStarted(true);
-
-    // Before any await, while this click still counts as the gesture that
-    // lets audio play.
-    voice.prime();
-
-    const micReady = await recorder.prepare();
-    if (!micReady) {
-      failSession(
-        "Микрофоны зөвшөөрөл олгогдоогүй байна. Хөтчийн тохиргоог шалгаад дахин оролдоно уу.",
-      );
-      return;
-    }
+    recorder.stopMonitor();
 
     try {
       const session = await startSession(attemptId);
@@ -437,7 +579,7 @@ export default function SpeakingSessionPage() {
           : null;
       failSession(detail || "Ярианы шалгалт эхлүүлэх боломжгүй байна.");
     }
-  }, [advance, attemptId, failSession, recorder, voice]);
+  }, [advance, attemptId, failSession, recorder]);
 
   useEffect(() => {
     return () => {
@@ -453,11 +595,15 @@ export default function SpeakingSessionPage() {
   const orbMode =
     phase === "examiner_speaking"
       ? "examiner"
-      : phase === "listening" || phase === "awaiting"
-        ? "student"
-        : phase === "submitting" || phase === "connecting"
-          ? "thinking"
-          : "idle";
+      : phase === "considering"
+        ? "gathering"
+        : phase === "listening" || phase === "awaiting"
+          ? "student"
+          : phase === "submitting" ||
+              phase === "connecting" ||
+              phase === "complete"
+            ? "thinking"
+            : "idle";
 
   const orbLevel =
     phase === "listening"
@@ -466,11 +612,20 @@ export default function SpeakingSessionPage() {
         ? voice.level
         : 0;
 
-  const showPushToTalk = phase === "awaiting" || phase === "listening";
+  const showTalkControl = phase === "awaiting" || phase === "listening";
+  // Part 2 hands out a cue card and the candidate keeps it for the whole long
+  // turn. Hiding it the moment they started speaking took away the one thing
+  // they were meant to be speaking from.
+  const showCueCard =
+    Boolean(cueCard) &&
+    (phase === "prep" || phase === "awaiting" || phase === "listening");
 
   if (!started) {
     return (
-      <ReadyGate
+      <MicCheck
+        onConnect={handleConnect}
+        getLevel={recorder.getLevel}
+        onTestVoice={handleTestVoice}
         onBegin={handleBegin}
         recognitionSupported={recognition.supported}
       />
@@ -507,7 +662,12 @@ export default function SpeakingSessionPage() {
       {/* Stage */}
       <main className="flex min-h-0 flex-1 flex-col items-center justify-center px-6">
         <div className="relative flex shrink-0 items-center justify-center">
-          <SpeakingOrb level={orbLevel} mode={orbMode} size={orbSize} />
+          <SpeakingOrb
+            level={orbLevel}
+            mode={orbMode}
+            pulse={pulse}
+            size={orbSize}
+          />
 
           <AnimatePresence>
             {remaining !== null && (
@@ -530,7 +690,7 @@ export default function SpeakingSessionPage() {
         <StatusLabel phase={phase} />
 
         <AnimatePresence>
-          {phase === "prep" && cueCard && (
+          {showCueCard && (
             <motion.div
               initial={{ opacity: 0, y: 16 }}
               animate={{ opacity: 1, y: 0 }}
@@ -554,7 +714,10 @@ export default function SpeakingSessionPage() {
           // tight window costs history, never the line being spoken.
           <TranscriptStream
             lines={lines}
-            className="mt-2 min-h-[6rem] max-h-[32vh]"
+            className={cn(
+              "mt-2 min-h-[6rem]",
+              showCueCard ? "max-h-[20vh]" : "max-h-[32vh]",
+            )}
           />
         )}
 
@@ -577,14 +740,26 @@ export default function SpeakingSessionPage() {
           </Button>
         )}
 
-        {showPushToTalk && (
-          <PushToTalk
+        {showTalkControl && (
+          <TalkControl
             recording={phase === "listening"}
-            locked={locked}
+            disabled={repeating}
+            autoStopIn={autoStopIn}
             onStart={handleTalkStart}
-            onLock={handleTalkLock}
             onFinish={handleTalkFinish}
           />
+        )}
+
+        {phase === "awaiting" && armedTurnRef.current?.questionText && (
+          <button
+            type="button"
+            onClick={repeatQuestion}
+            disabled={repeating}
+            className="inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-[12px] text-muted transition-colors hover:text-ink disabled:opacity-60"
+          >
+            <Volume2 className="h-3.5 w-3.5" />
+            {repeating ? "Уншиж байна…" : "Асуултыг дахин сонсох"}
+          </button>
         )}
 
         {phase === "error" && (
@@ -597,7 +772,7 @@ export default function SpeakingSessionPage() {
           </Button>
         )}
 
-        {!showPushToTalk && (
+        {!showTalkControl && (
           <MicIndicator denied={recorder.status === "denied"} phase={phase} />
         )}
       </footer>
@@ -607,78 +782,27 @@ export default function SpeakingSessionPage() {
 
 // ── Sub-views ───────────────────────────────────────────────────────────────
 
-function ReadyGate({
-  onBegin,
-  recognitionSupported,
-}: {
-  onBegin: () => void;
-  recognitionSupported: boolean;
-}) {
-  const [isTouch, setIsTouch] = useState(false);
-
-  useEffect(() => {
-    setIsTouch(window.matchMedia?.("(pointer: coarse)").matches ?? false);
-  }, []);
-
-  return (
-    <div className="flex min-h-screen items-center justify-center bg-paper px-6">
-      <div className="w-full max-w-[440px]">
-        <div className="flex items-center gap-2 pb-7 text-[12px] uppercase tracking-[0.2em] text-muted">
-          <span className="h-1 w-1 rounded-full bg-mint" />
-          Бэлтгэл
-        </div>
-
-        <h1 className="font-serif text-[2.1rem] font-semibold leading-[1.08] tracking-[-0.022em] text-ink">
-          Эхлэхэд бэлэн үү?
-        </h1>
-        <p className="mt-3 max-w-[42ch] text-[15px] leading-relaxed text-ink-soft">
-          Шалгагч асуултаа асуусны дараа таны ээлж ирнэ.{" "}
-          {isTouch
-            ? "Товчийг дараад бариад хариулна уу, тавихад хариулт илгээгдэнэ."
-            : "Space товчийг дараад бариад хариулна уу, тавихад хариулт илгээгдэнэ."}{" "}
-          Богино дарж тавибал бичлэг үргэлжилж, гараа чөлөөлж болно.
-        </p>
-
-        <Button
-          onClick={onBegin}
-          className="mt-9 h-11 w-full rounded-md bg-ink text-[14px] font-medium tracking-tight text-paper hover:bg-ink-soft active:scale-[0.99]"
-        >
-          <Mic className="mr-2 h-4 w-4" />
-          Микрофон холбож эхлэх
-        </Button>
-
-        {!recognitionSupported && (
-          <p className="mt-6 max-w-[42ch] text-[12px] leading-relaxed text-muted">
-            Энэ хөтөч дээр ярианы бичвэр шууд харагдахгүй. Шалгалт хэвийн
-            үргэлжилж, бичлэгийг сервер дээр хөрвүүлж дүгнэнэ. Chrome ашиглавал
-            бичвэрээ шууд харах боломжтой.
-          </p>
-        )}
-      </div>
-    </div>
-  );
-}
-
 function StatusLabel({ phase }: { phase: SessionPhase }) {
   const label: Record<SessionPhase, string> = {
     connecting: "Холбогдож байна…",
+    considering: "Бодож байна…",
     examiner_speaking: "Шалгагч ярьж байна",
     prep: "Бэлтгэх хугацаа",
     awaiting: "Таны ээлж",
     listening: "Сонсож байна",
     submitting: "Хариултыг илгээж байна…",
-    complete: "Шалгалт дууслаа",
+    complete: "Хариултуудыг боловсруулж байна…",
     error: "Алдаа гарлаа",
   };
 
   return (
-    <p className="mt-6 h-5 text-[12px] uppercase tracking-[0.22em] text-muted">
+    <p className="mt-6 h-5 text-[12.5px] tracking-[0.1em] text-muted">
       {label[phase]}
     </p>
   );
 }
 
-/** Ambient status shown only when the push-to-talk control is not on screen. */
+/** Ambient status shown only when the talk control is not on screen. */
 function MicIndicator({
   denied,
   phase,
@@ -695,12 +819,14 @@ function MicIndicator({
     );
   }
 
-  if (phase === "error" || phase === "complete") return null;
+  if (phase === "error") return null;
 
   return (
     <span className="inline-flex items-center gap-2 text-[11px] text-muted">
       <Loader2 className="h-3 w-3 animate-spin" />
-      Хүлээнэ үү
+      {phase === "complete"
+        ? "Бичлэгүүдийг бичвэр рүү хөрвүүлж байна. Хуудсаа хаахгүй байна уу."
+        : "Хүлээнэ үү"}
     </span>
   );
 }

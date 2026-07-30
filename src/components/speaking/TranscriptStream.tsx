@@ -58,14 +58,14 @@ export function TranscriptStream({ lines, className }: TranscriptStreamProps) {
                 transition={{ duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
                 className="text-center"
               >
-                <span
-                  className={cn(
-                    "mb-2 block text-[10px] uppercase tracking-[0.22em]",
-                    isExaminer ? "text-mint-deep" : "text-muted",
-                  )}
-                >
-                  {isExaminer ? "Examiner" : "You"}
-                </span>
+                {/* The examiner is heard, never printed, so a speaker label
+                    would sit above a column of lines that are all the
+                    student's. It stays for any line that isn't theirs. */}
+                {isExaminer && (
+                  <span className="mb-2 block text-[10px] uppercase tracking-[0.22em] text-mint-deep">
+                    Examiner
+                  </span>
+                )}
 
                 <p
                   className={cn(

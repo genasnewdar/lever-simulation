@@ -13,9 +13,12 @@ import {
 import { fetchFeedback, fetchResults, sendReport } from "@/lib/speaking/api";
 import { useSpeakingStore } from "@/lib/speaking/store";
 import { cn } from "@/lib/utils";
-import type {
-  SpeakingFeedbackSuccess,
-  SpeakingResultsSuccess,
+import {
+  CEFR_LEVELS,
+  type SpeakingFeedbackSuccess,
+  type SpeakingRepeatedWord,
+  type SpeakingResultsSuccess,
+  type SpeakingVocabularyProfile,
 } from "@/types/speaking";
 
 const POLL_MS = 5000;
@@ -166,9 +169,13 @@ export default function SpeakingResultsPage() {
         </button>
 
         {/* Overall band */}
-        <div className="flex items-center gap-2 pb-6 text-[12px] uppercase tracking-[0.2em] text-muted">
+        {/* Cyrillic has no small-caps tradition and reads as shouting when it
+            is forced upper — so the eyebrow keeps its tracking and drops the
+            case change wherever the label is Mongolian. */}
+        <div className="flex items-center gap-2 pb-6 text-[12px] tracking-[0.14em] text-muted">
           <span className="h-1 w-1 rounded-full bg-mint" />
-          IELTS Speaking · үнэлгээ
+          <span className="uppercase tracking-[0.2em]">IELTS Speaking</span> ·
+          үнэлгээ
         </div>
 
         <motion.div
@@ -312,8 +319,8 @@ export default function SpeakingResultsPage() {
                 <p className="mt-2 text-[13px] leading-relaxed text-muted">
                   <span className="text-red-600 dark:text-red-400">Улаанаар</span>{" "}
                   таны алдсан хэсэг,{" "}
-                  <span className="text-mint-ink">ногооноор</span> хэрхэн хэлэх
-                  ёстой байсныг тэмдэглэв.
+                  <span className="text-mint-ink">ногооноор</span> сайн хэлсэн
+                  хэсгийг тэмдэглэв.
                 </p>
                 <div className="mt-2 divide-y divide-rule border-y border-rule">
                   {feedback.answers.map((answer) => (
@@ -321,6 +328,14 @@ export default function SpeakingResultsPage() {
                   ))}
                 </div>
               </section>
+            )}
+
+            {feedback.vocabulary_profile && (
+              <VocabularyProfile profile={feedback.vocabulary_profile} />
+            )}
+
+            {feedback.repeated_words && feedback.repeated_words.length > 0 && (
+              <RepeatedWords words={feedback.repeated_words} />
             )}
 
             {feedback.focus_areas.length > 0 && (
@@ -363,6 +378,129 @@ export default function SpeakingResultsPage() {
   );
 }
 
+/**
+ * Which CEFR levels the student's vocabulary actually reached.
+ *
+ * The words themselves are listed, not just counted: a count on its own is a
+ * number to argue with, whereas the words are the evidence for it — and the
+ * B2/C1 rows double as the list worth revising.
+ */
+function VocabularyProfile({
+  profile,
+}: {
+  profile: SpeakingVocabularyProfile;
+}) {
+  const rows = CEFR_LEVELS.map((level) => ({
+    level,
+    words: (profile[level] ?? []).filter((word) => word?.trim()),
+  })).filter((row) => row.words.length > 0);
+
+  if (!rows.length) return null;
+
+  const widest = Math.max(...rows.map((row) => row.words.length));
+
+  return (
+    <section className="mt-12">
+      <h2 className="font-serif text-[1.4rem] font-semibold tracking-[-0.015em] text-ink">
+        Ашигласан үгсийн түвшин
+      </h2>
+      <p className="mt-2 text-[13px] leading-relaxed text-muted">
+        Таны ярианд хэрэглэсэн үг, хэллэгийг CEFR түвшнээр ангилав.
+      </p>
+
+      <div className="mt-5 flex flex-col gap-5">
+        {rows.map(({ level, words }) => (
+          <div key={level}>
+            <div className="flex items-baseline gap-3">
+              <span className="w-7 shrink-0 font-mono text-[12px] font-semibold uppercase tracking-[0.1em] text-ink">
+                {level}
+              </span>
+              <span className="font-mono text-[12px] text-mint-deep">
+                {words.length}
+              </span>
+              <div className="ml-1 h-1 flex-1 overflow-hidden rounded-full bg-paper-3">
+                <motion.div
+                  initial={{ width: 0 }}
+                  animate={{ width: `${(words.length / widest) * 100}%` }}
+                  transition={{ duration: 0.6, ease: [0.22, 1, 0.36, 1] }}
+                  className="h-full rounded-full bg-mint-deep"
+                />
+              </div>
+            </div>
+            <div className="ml-10 mt-2 flex flex-wrap gap-1.5">
+              {words.map((word, i) => (
+                <span
+                  key={`${word}-${i}`}
+                  className="rounded border border-rule bg-paper-2 px-2 py-0.5 text-[12.5px] text-ink-soft"
+                >
+                  {word}
+                </span>
+              ))}
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {profile.note && (
+        <p className="mt-6 text-[14px] leading-relaxed text-ink-soft">
+          {profile.note}
+        </p>
+      )}
+    </section>
+  );
+}
+
+/** Words the student leaned on, with something to reach for instead. */
+function RepeatedWords({ words }: { words: SpeakingRepeatedWord[] }) {
+  return (
+    <section className="mt-12">
+      <h2 className="font-serif text-[1.4rem] font-semibold tracking-[-0.015em] text-ink">
+        Дахин давтагдсан үг
+      </h2>
+      <p className="mt-2 text-[13px] leading-relaxed text-muted">
+        Хэдэн удаа хэлснийг бичвэрээс тоолов.
+      </p>
+
+      <ul className="mt-5 flex flex-col gap-4">
+        {words.map((entry) => (
+          <li
+            key={entry.word}
+            className="rounded-md border border-rule bg-paper-2 px-4 py-3.5"
+          >
+            <div className="flex items-baseline gap-2.5">
+              <span className="text-[15px] font-medium text-ink">
+                {entry.word}
+              </span>
+              <span className="font-mono text-[12px] text-muted">
+                {entry.count}×
+              </span>
+            </div>
+
+            {entry.alternatives.length > 0 && (
+              <div className="mt-2.5 flex flex-wrap gap-1.5">
+                {entry.alternatives.map((alternative, i) => (
+                  <span
+                    key={`${alternative}-${i}`}
+                    className="rounded border border-mint-soft bg-mint-soft/40 px-2 py-0.5 text-[13px] text-mint-ink"
+                  >
+                    {alternative}
+                  </span>
+                ))}
+              </div>
+            )}
+
+            {entry.note && (
+              <p className="mt-2.5 text-[13px] leading-relaxed text-ink-soft">
+                {entry.note}
+              </p>
+            )}
+          </li>
+        ))}
+      </ul>
+    </section>
+  );
+}
+
 function BandBar({ value }: { value: number }) {
   const pct = Math.max(0, Math.min(100, (value / 9) * 100));
   return (
@@ -402,7 +540,12 @@ function extractPartObservations(
   return Object.entries(observations as Record<string, unknown>)
     .filter(([, text]) => typeof text === "string" && text.trim())
     .map(([key, text]) => ({
-      label: key.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase()),
+      // The grader emits `part1`; an earlier shape used `part_1`. Splitting on
+      // the digit covers both — without it, `part1` rendered as "Part1".
+      label: key
+        .replace(/_/g, " ")
+        .replace(/([a-z])(\d)/i, "$1 $2")
+        .replace(/\b\w/g, (c) => c.toUpperCase()),
       text: text as string,
     }));
 }

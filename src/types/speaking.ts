@@ -154,14 +154,64 @@ export interface SpeakingCorrection {
   kind: CorrectionKind;
 }
 
+/**
+ * A note about how the transcript is written down rather than about the
+ * English in it — a missing full stop, a lowercase name.
+ *
+ * Kept apart from `corrections` because nobody speaks punctuation: the student
+ * cannot have got it wrong, so it must never read as a mistake or count against
+ * the band. It is still shown, quietly, when the point is worth knowing.
+ */
+export interface SpeakingPolishNote {
+  original: string;
+  corrected: string;
+  /** Written in Mongolian. */
+  explanation: string;
+}
+
+/** Something the student said well, quoted verbatim from their own answer. */
+export interface SpeakingHighlight {
+  quote: string;
+  /** Why it was good — written in Mongolian. */
+  why: string;
+}
+
 export interface SpeakingAnswerFeedback {
   index: number;
   part: number | null;
   question: string | null;
   transcript: string;
   corrections: SpeakingCorrection[];
+  /** Optional: feedback cached before these fields existed has neither. */
+  highlights?: SpeakingHighlight[];
+  polish?: SpeakingPolishNote[];
   /** The student's own answer rewritten at band 7.5-8, keeping their ideas. */
   improved: string;
+  note: string;
+}
+
+/** CEFR level → the words and phrases the student actually used at it. */
+export type SpeakingVocabularyProfile = Record<
+  "a1" | "a2" | "b1" | "b2" | "c1" | "c2",
+  string[]
+> & {
+  /** How to read the spread — written in Mongolian. */
+  note: string;
+};
+
+export const CEFR_LEVELS = ["a1", "a2", "b1", "b2", "c1", "c2"] as const;
+
+/**
+ * A word the student leaned on, with something to say instead.
+ *
+ * `count` is measured on the server rather than estimated by the model, so it
+ * always matches what a student finds by reading their own transcript.
+ */
+export interface SpeakingRepeatedWord {
+  word: string;
+  count: number;
+  alternatives: string[];
+  /** Written in Mongolian. Says when repeating it is actually fine. */
   note: string;
 }
 
@@ -175,6 +225,9 @@ export interface SpeakingFeedbackSuccess {
   status: "success";
   attempt_id: string;
   answers: SpeakingAnswerFeedback[];
+  /** Optional: feedback cached before these fields existed has neither. */
+  vocabulary_profile?: SpeakingVocabularyProfile;
+  repeated_words?: SpeakingRepeatedWord[];
   focus_areas: SpeakingFocusArea[];
   summary: string;
 }
@@ -194,10 +247,16 @@ export type SpeakingFeedback = SpeakingFeedbackSuccess | SpeakingFeedbackPending
  * What the UI is doing right now — drives the orb and the controls.
  *
  * `awaiting` is the student's turn with the mic armed but not yet capturing:
- * recording only begins once they hold Space (or the on-screen button).
+ * recording only begins once they press the talk control.
+ *
+ * `considering` is the beat between having the student's answer and speaking
+ * again. It is deliberate, not latency: an examiner who replies the instant you
+ * stop talking has obviously not listened, and the pause is what makes the turn
+ * read as a conversation rather than a form submission.
  */
 export type SessionPhase =
   | "connecting"
+  | "considering"
   | "examiner_speaking"
   | "prep"
   | "awaiting"

@@ -174,14 +174,19 @@ export function useExaminerVoice() {
   /**
    * Speak a line and resolve when it finishes: the synthesised audio when the
    * turn carries it, the browser's own voice otherwise.
+   *
+   * Resolves `false` when neither could be heard. The examiner's words are not
+   * printed on screen any more, so the caller needs to know a line went out in
+   * silence — that is the one case where showing the text is better than
+   * staying faithful to the exam.
    */
   const speak = useCallback(
-    async (text: string, audioUrl?: string | null): Promise<void> => {
+    async (text: string, audioUrl?: string | null): Promise<boolean> => {
       const generation = generationRef.current;
 
       if (audioUrl) {
         const played = await playUrl(audioUrl, generation);
-        if (played) return;
+        if (played) return true;
         // Worth a warning: the examiner is about to sound robotic, and the
         // reason is invisible from the UI.
         console.warn(
@@ -189,9 +194,11 @@ export function useExaminerVoice() {
           audioUrl,
         );
       }
-      if (generation !== generationRef.current) return;
+      // Cancelled mid-line: the turn is over by someone's intent, not because
+      // the audio failed, so there is nothing to fall back to.
+      if (generation !== generationRef.current) return true;
 
-      await fallback.speak(text);
+      return fallback.speak(text);
     },
     [fallback, playUrl],
   );

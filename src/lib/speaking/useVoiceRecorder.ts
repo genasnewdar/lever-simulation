@@ -169,6 +169,33 @@ export function useVoiceRecorder() {
     return blob;
   }, [stopMetering]);
 
+  /**
+   * Watch the input level without recording anything.
+   *
+   * The mic check needs to show the student their own voice moving a meter
+   * before the exam starts, and silence detection during a turn needs the level
+   * whether or not React has re-rendered — hence `getLevel`, which reads the
+   * same value straight off the ref.
+   */
+  const monitor = useCallback(async () => {
+    const ok = await prepare();
+    if (!ok) return false;
+    if (audioCtxRef.current?.state === "suspended") {
+      await audioCtxRef.current.resume().catch(() => {});
+    }
+    // Recording drives the meter itself; starting a second loop would double
+    // the callbacks and fight over `levelRef`.
+    if (rafRef.current === null) startMetering();
+    return true;
+  }, [prepare, startMetering]);
+
+  const stopMonitor = useCallback(() => {
+    if (recorderRef.current) return; // A live recording still needs the meter.
+    stopMetering();
+  }, [stopMetering]);
+
+  const getLevel = useCallback(() => levelRef.current, []);
+
   /** Release the mic. Called when the session ends or the page unmounts. */
   const release = useCallback(() => {
     stopMetering();
@@ -186,5 +213,15 @@ export function useVoiceRecorder() {
 
   useEffect(() => release, [release]);
 
-  return { status, level, prepare, start, stop, release };
+  return {
+    status,
+    level,
+    getLevel,
+    prepare,
+    monitor,
+    stopMonitor,
+    start,
+    stop,
+    release,
+  };
 }
