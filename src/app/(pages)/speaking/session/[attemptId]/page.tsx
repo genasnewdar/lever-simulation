@@ -14,6 +14,7 @@ import { TranscriptStream } from "@/components/speaking/TranscriptStream";
 import {
   completeSession,
   fetchNextTurn,
+  fetchVoiceCheck,
   markPrepDone,
   startSession,
   submitTurn,
@@ -28,6 +29,7 @@ import type {
   SessionPhase,
   SpeakingTurn,
   TranscriptLine,
+  VoiceCheckResponse,
 } from "@/types/speaking";
 
 const PART_LABEL: Record<number, string> = {
@@ -38,6 +40,16 @@ const PART_LABEL: Record<number, string> = {
 
 /** Line the examiner speaks when the student asks to hear the question again. */
 const REPEAT_PREFIX = "Of course. ";
+
+/**
+ * What the mic check says if the examiner's own recording cannot be had.
+ *
+ * The server sends its copy of this line down with the audio, and that is the
+ * one normally spoken; this exists so a failed request still says something
+ * sensible rather than leaving the speaker test silent.
+ */
+const VOICE_CHECK_FALLBACK =
+  "Hello. Can you hear me clearly? Let's begin your speaking test.";
 
 /**
  * Shortest answer that is treated as an answer.
@@ -547,19 +559,48 @@ export default function SpeakingSessionPage() {
 
   // ── Boot ──────────────────────────────────────────────────────────────────
 
+  /**
+   * The examiner's recording of the mic-check line, fetched once.
+   *
+   * Asked for when the microphone is connected rather than when the speaker
+   * test is pressed: a line the CDN has not been asked for before takes several
+   * seconds to synthesise, and the student spends about that long saying
+   * "Hello, my name is…" into the meter first.
+   */
+  const voiceCheckRef = useRef<Promise<VoiceCheckResponse | null> | null>(null);
+
+  const primeVoiceCheck = useCallback(() => {
+    voiceCheckRef.current ??= fetchVoiceCheck(attemptId).catch(() => {
+      // Cleared rather than cached, so pressing the button again retries
+      // instead of pinning the session to the browser voice over one lost
+      // request.
+      voiceCheckRef.current = null;
+      return null;
+    });
+    return voiceCheckRef.current;
+  }, [attemptId]);
+
   /** Mic check step one: open audio both ways so the student can test them. */
   const handleConnect = useCallback(async () => {
     // Before any await, while this click still counts as the gesture that
     // lets audio play.
     voice.prime();
+    primeVoiceCheck();
     return recorder.monitor();
-  }, [recorder, voice]);
+  }, [primeVoiceCheck, recorder, voice]);
 
+  /**
+   * Play the speaker test in the examiner's real voice.
+   *
+   * It used to call `speak` with text alone, which meant the browser's
+   * `speechSynthesis` read it — so the screen whose whole job is to let the
+   * student confirm the audio sounds right was the only one in the flow that
+   * never played the voice they were about to hear.
+   */
   const handleTestVoice = useCallback(async () => {
-    await voice.speak(
-      "Hello. Can you hear me clearly? Let's begin your speaking test.",
-    );
-  }, [voice]);
+    const check = await primeVoiceCheck();
+    await voice.speak(check?.text ?? VOICE_CHECK_FALLBACK, check?.audio_url);
+  }, [primeVoiceCheck, voice]);
 
   const handleBegin = useCallback(async () => {
     if (bootedRef.current) return;

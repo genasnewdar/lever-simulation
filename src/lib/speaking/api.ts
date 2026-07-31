@@ -11,6 +11,7 @@ import type {
   SpeakingStateResponse,
   StartSessionResponse,
   SubmitTurnResponse,
+  VoiceCheckResponse,
 } from "@/types/speaking";
 
 /**
@@ -33,6 +34,22 @@ speakingApi.interceptors.request.use((config) => {
 });
 
 const base = (attemptId: string) => `/api/public/ielts/speaking/${attemptId}`;
+
+/**
+ * The examiner's own recording of the mic-check line.
+ *
+ * Its own endpoint because the mic check runs before `/start`, so there is no
+ * turn to carry `examiner_audio_url` yet — and without it the speaker test
+ * played the browser's robotic voice, which is the opposite of what a student
+ * is being asked to judge. Worth fetching early: a line the CDN has never been
+ * asked for takes seconds to synthesise.
+ */
+export async function fetchVoiceCheck(attemptId: string) {
+  const { data } = await speakingApi.get<VoiceCheckResponse>(
+    `${base(attemptId)}/voice-check`,
+  );
+  return data;
+}
 
 export async function startSession(attemptId: string) {
   const { data } = await speakingApi.post<StartSessionResponse>(

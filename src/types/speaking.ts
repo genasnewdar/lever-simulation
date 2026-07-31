@@ -66,6 +66,17 @@ export interface StartSessionResponse {
   instructions: string | null;
 }
 
+/**
+ * The line the mic check plays, and the examiner's recording of it.
+ *
+ * `audio_url` is null when the server could not synthesise it, in which case
+ * `text` is what the browser speaks instead.
+ */
+export interface VoiceCheckResponse {
+  text: string;
+  audio_url: string | null;
+}
+
 export interface SpeakingStateResponse {
   attempt_id: string;
   current_turn_index: number;
