@@ -1,9 +1,9 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Headphones, BookOpen, PenLine } from "lucide-react";
+import { Headphones, BookOpen, PenLine, Mic } from "lucide-react";
 
-type SectionId = "listening" | "reading" | "writing";
+import type { SectionId } from "@/types/ielts-simulation";
 
 interface Props {
   section: SectionId;
@@ -28,6 +28,11 @@ const COPY: Record<SectionId, { label: string; cue: string; Icon: typeof Headpho
     label: "Writing",
     cue: "Хоёр даалгавартай",
     Icon: PenLine,
+  },
+  speaking: {
+    label: "Speaking",
+    cue: "Микрофоноо бэлэн байлгана уу",
+    Icon: Mic,
   },
 };
 

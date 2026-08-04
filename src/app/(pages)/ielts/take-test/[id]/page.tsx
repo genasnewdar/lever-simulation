@@ -47,9 +47,12 @@ import type {
   BackendQuestionGroup,
   ContentResponseMeta,
   SectionContent,
+  SectionId,
+  SectionTab,
   ContentResponse,
 } from "@/types/ielts-simulation";
 import { normalizeContentResponse } from "@/lib/ielts-test-normalizer";
+import { prepareSpeakingHandoff } from "@/lib/speaking/handoff";
 
 // Fixed break between skills (Listening→Reading, Reading→Writing). This one stays
 // static/client-side; every other duration (section time, post-audio Listening
@@ -90,6 +93,24 @@ async function fetchSectionContent(
   return normalizeContentResponse(res.data as ContentResponse);
 }
 
+const tabOf = (section: string): SectionTab =>
+  section.toUpperCase() as SectionTab;
+
+const SECTION_LABEL: Record<SectionId, string> = {
+  listening: "Listening",
+  reading: "Reading",
+  writing: "Writing",
+  speaking: "Speaking",
+};
+
+/**
+ * What a test contains when the backend doesn't say.
+ *
+ * Older backends don't return `sections`; every test built before partial tests
+ * existed is these three in this order, so that is the safe assumption.
+ */
+const LEGACY_SECTION_ORDER: SectionId[] = ["listening", "reading", "writing"];
+
 // ─── Main Page Component ─────────────────────────────────────────────────────
 export default function IeltsTakeTestPage(props: PageProps) {
   const params = use(props.params);
@@ -118,7 +139,6 @@ export default function IeltsTakeTestPage(props: PageProps) {
   // Post-audio Listening review window length — provided by the backend.
   const [listeningReviewSeconds, setListeningReviewSeconds] =
     useState<number>(0);
-  type SectionId = "listening" | "reading" | "writing";
   const [pendingSectionIntro, setPendingSectionIntro] = useState<{
     section: SectionId;
     duration: number;
@@ -134,9 +154,34 @@ export default function IeltsTakeTestPage(props: PageProps) {
 
   // ── Exam UI state ───────────────────────────────────────────────────────────
   const [currentQIndex, setCurrentQIndex] = useState(0);
-  const [activeTab, setActiveTab] = useState<
-    "LISTENING" | "READING" | "WRITING"
-  >("LISTENING");
+  const [activeTab, setActiveTab] = useState<SectionTab>("LISTENING");
+
+  // The sections THIS test contains, in sitting order — a test is any
+  // combination of the four skills, so "which section is last" is a property of
+  // the test rather than always Writing.
+  const sectionOrder: SectionId[] =
+    contentMeta?.sections?.length ? contentMeta.sections : LEGACY_SECTION_ORDER;
+  const currentSectionId = activeTab.toLowerCase() as SectionId;
+  const isLastSection =
+    sectionOrder[sectionOrder.length - 1] === currentSectionId;
+
+  /**
+   * Continue the sitting in the speaking interview.
+   *
+   * The speaking flow keeps its own store and its own axios instance, so the
+   * exam session has to be copied over before navigating — otherwise the
+   * session page's guard bounces the candidate to `/speaking` and every request
+   * goes out unauthenticated. If there is no code to copy, stay put and say so
+   * rather than dumping them on a page that will reject them.
+   */
+  const goToSpeaking = useCallback(() => {
+    if (!prepareSpeakingHandoff(params.id)) {
+      toast.error("Ярианы шалгалт руу шилжих боломжгүй. Шалгалтын кодоо оруулна уу.");
+      router.push("/ielts/mock-exam");
+      return;
+    }
+    router.push(`/speaking/session/${params.id}`);
+  }, [params.id, router]);
   const [writingTask, setWritingTask] = useState(1);
   const [reviewSet, setReviewSet] = useState<Set<number>>(new Set());
   const [flashQuestionNumber, setFlashQuestionNumber] = useState<number | null>(
@@ -285,16 +330,20 @@ export default function IeltsTakeTestPage(props: PageProps) {
 
     const loadContent = async () => {
       try {
-        // Try fetching with section=listening first (OFFLINE always starts with listening).
-        // If the student is on a different section (refresh mid-exam), the backend
-        // returns current_section in the response so we can re-fetch the right one.
+        // A test contains any combination of skills, so there is no section we
+        // can assume is first — asking for "listening" on a Reading-and-Writing
+        // test is now a 400, which this loop would read as "not started yet"
+        // and poll on forever. So: resume the section we last stored, otherwise
+        // ask for the overview and let the backend name the section.
         const savedSection =
           typeof window !== "undefined"
             ? sessionStorage.getItem(sectionStorageKey)?.toLowerCase()
             : null;
-        const guessSection = savedSection || "listening";
 
-        let response = await fetchSectionContent(params.id, guessSection);
+        let response = await fetchSectionContent(
+          params.id,
+          savedSection || undefined,
+        );
 
         if (cancelled) return;
 
@@ -305,9 +354,21 @@ export default function IeltsTakeTestPage(props: PageProps) {
           return;
         }
 
-        // If our guess was wrong (backend says we should be on a different section),
-        // fetch the correct section
-        if (response.current_section !== guessSection || !response.content) {
+        // Reloaded (or resumed) while the speaking interview is the current
+        // section — that runs on its own route, so hand over rather than
+        // trying to render it inside the written-paper layout.
+        if (response.current_section === "speaking") {
+          if (pollId) {
+            clearInterval(pollId);
+            pollId = null;
+          }
+          goToSpeaking();
+          return;
+        }
+
+        // Overview only, or the stored section was stale — fetch the section
+        // the backend says the candidate is actually on.
+        if (response.current_section !== savedSection || !response.content) {
           response = await fetchSectionContent(
             params.id,
             response.current_section,
@@ -316,10 +377,7 @@ export default function IeltsTakeTestPage(props: PageProps) {
         }
 
         const section = response.current_section;
-        const tab = section.toUpperCase() as
-          | "LISTENING"
-          | "READING"
-          | "WRITING";
+        const tab = tabOf(section);
 
         setContentMeta(response);
         setSectionContent(response.content ?? null);
@@ -406,6 +464,10 @@ export default function IeltsTakeTestPage(props: PageProps) {
         } else {
           // Backend says we should be on a different section — reload
           const section = overview.current_section;
+          if (section === "speaking") {
+            goToSpeaking();
+            return;
+          }
           const response = await fetchSectionContent(params.id, section);
           setContentMeta(response);
           setSectionContent(response.content ?? null);
@@ -415,9 +477,7 @@ export default function IeltsTakeTestPage(props: PageProps) {
             section: section as SectionId,
             duration: response.section_time_remaining_seconds,
           });
-          setActiveTab(
-            section.toUpperCase() as "LISTENING" | "READING" | "WRITING",
-          );
+          setActiveTab(tabOf(section));
           setCurrentQIndex(0);
           timeExpireCalledRef.current = false;
         }
@@ -426,7 +486,7 @@ export default function IeltsTakeTestPage(props: PageProps) {
       }
     }, 30000);
     return () => clearInterval(interval);
-  }, [isStarted, isFinished, params.id, activeTab, onBreak]);
+  }, [isStarted, isFinished, params.id, activeTab, onBreak, router]);
 
   // ── Persist current section + question index ─
   useEffect(() => {
@@ -1171,6 +1231,21 @@ export default function IeltsTakeTestPage(props: PageProps) {
       }
 
       const section = overview.current_section;
+
+      // Speaking is a different kind of section: a spoken exchange with an
+      // examiner, needing the whole viewport for the orb, transcript and mic.
+      // It lives at its own route and is entered by navigating there on the
+      // same attempt — so a four-skill test still runs as one sitting, the
+      // candidate just moves from the written paper to the interview.
+      if (section === "speaking") {
+        if (typeof window !== "undefined") {
+          sessionStorage.removeItem(sectionStorageKey);
+          sessionStorage.removeItem(currentQIndexStorageKey);
+        }
+        goToSpeaking();
+        return;
+      }
+
       const response = await fetchSectionContent(params.id, section);
 
       // Compensate for backend counting down during the frontend break.
@@ -1192,9 +1267,7 @@ export default function IeltsTakeTestPage(props: PageProps) {
         section: section as SectionId,
         duration: (response.content?.duration_minutes ?? 0) * 60,
       });
-      setActiveTab(
-        section.toUpperCase() as "LISTENING" | "READING" | "WRITING",
-      );
+      setActiveTab(tabOf(section));
       setCurrentQIndex(0);
       timeExpireCalledRef.current = false;
 
@@ -1413,13 +1486,6 @@ export default function IeltsTakeTestPage(props: PageProps) {
     if (timeExpireCalledRef.current) return;
     timeExpireCalledRef.current = true;
 
-    const sectionName =
-      activeTab === "LISTENING"
-        ? "listening"
-        : activeTab === "READING"
-          ? "reading"
-          : "writing";
-
     // Submit current answers before section ends
     try {
       await submitCurrentAnswers();
@@ -1431,47 +1497,36 @@ export default function IeltsTakeTestPage(props: PageProps) {
     fetch("/api/ielts/finish-section", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ attempt_id: params.id, section: sectionName }),
+      body: JSON.stringify({ attempt_id: params.id, section: currentSectionId }),
     }).catch(() => {});
 
-    const label =
-      activeTab === "LISTENING"
-        ? "Listening"
-        : activeTab === "READING"
-          ? "Reading"
-          : "Writing";
-    if (activeTab === "WRITING") {
+    if (isLastSection) {
       toast.success("Шалгалт дууслаа!");
       setIsFinished(true);
     } else {
       // Hold on a fixed break before loading the next section. The next
       // section (and its timer) only starts once the break ends, so the
       // candidate doesn't lose any of their next section's time.
-      toast.info(`${label} дууслаа. Завсарлага.`);
+      toast.info(`${SECTION_LABEL[currentSectionId]} дууслаа. Завсарлага.`);
       breakStartMsRef.current = Date.now();
       onBreakRef.current = true;
       setOnBreak(true);
     }
-  }, [activeTab, submitCurrentAnswers, params.id]);
+  }, [currentSectionId, isLastSection, submitCurrentAnswers, params.id]);
 
   const handleDevFinish = useCallback(async () => {
     if (timeExpireCalledRef.current) return;
     timeExpireCalledRef.current = true;
-
-    const sectionName =
-      activeTab === "LISTENING" ? "listening"
-      : activeTab === "READING" ? "reading"
-      : "writing";
 
     try { await submitCurrentAnswers(); } catch { /* best-effort */ }
 
     fetch("/api/ielts/finish-section", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ attempt_id: params.id, section: sectionName }),
+      body: JSON.stringify({ attempt_id: params.id, section: currentSectionId }),
     }).catch(() => {});
 
-    if (activeTab === "WRITING") {
+    if (isLastSection) {
       toast.success("Шалгалт дууслаа!");
       setIsFinished(true);
     } else {
@@ -1480,7 +1535,13 @@ export default function IeltsTakeTestPage(props: PageProps) {
       onBreakRef.current = false;
       transitionToNextSection();
     }
-  }, [activeTab, submitCurrentAnswers, params.id, transitionToNextSection]);
+  }, [
+    currentSectionId,
+    isLastSection,
+    submitCurrentAnswers,
+    params.id,
+    transitionToNextSection,
+  ]);
 
   // ── Render: Loading ─────────────────────────────────────────────────────────
   if (isLoading) {

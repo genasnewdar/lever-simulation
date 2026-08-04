@@ -3,6 +3,7 @@
 import React from "react";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { cn } from "@/lib/utils";
+import type { SectionTab } from "@/types/ielts-simulation";
 
 export interface MapSection {
   title: string;
@@ -16,7 +17,7 @@ interface QuestionMapProps {
   onQuestionClick: (index: number) => void;
   answeredQuestions: Set<number>;
   reviewQuestions: Set<number>;
-  activeTab: "LISTENING" | "READING" | "WRITING";
+  activeTab: SectionTab;
   writingTask?: number;
   onWritingTaskChange?: (task: number) => void;
   isWritingTaskAnswered?: (task: number) => boolean;

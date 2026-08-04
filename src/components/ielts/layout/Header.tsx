@@ -5,12 +5,13 @@ import Timer from "./Timer";
 import { ClipboardList } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Logo } from "@/components/Logo";
+import type { SectionTab } from "@/types/ielts-simulation";
 
 interface HeaderProps {
   userName: string;
   initialSeconds: number;
-  activeTab: "LISTENING" | "READING" | "WRITING";
-  onTabChange: (tab: "LISTENING" | "READING" | "WRITING") => void;
+  activeTab: SectionTab;
+  onTabChange: (tab: SectionTab) => void;
   onTimeExpire?: () => void;
   hideSectionTabs?: boolean;
   onReviewClick?: () => void;
@@ -19,7 +20,7 @@ interface HeaderProps {
 }
 
 const sections: Array<{
-  id: "LISTENING" | "READING" | "WRITING";
+  id: SectionTab;
   label: string;
 }> = [
   { id: "LISTENING", label: "Listening" },

@@ -21,6 +21,7 @@ import {
   uploadTurnAudio,
 } from "@/lib/speaking/api";
 import { useSpeakingStore } from "@/lib/speaking/store";
+import { useExamCodeStore } from "@/lib/stores/exam-code-store";
 import { useExaminerVoice } from "@/lib/speaking/useExaminerVoice";
 import { useSpeechRecognition } from "@/lib/speaking/useSpeechRecognition";
 import { useVoiceRecorder } from "@/lib/speaking/useVoiceRecorder";
@@ -227,7 +228,18 @@ export default function SpeakingSessionPage() {
       // The session is over either way; results will report if grading failed.
       toast.warning("Дүгнэлт эхлүүлэхэд саатал гарлаа. Үр дүнг шалгана уу.");
     }
-    router.push(`/speaking/results/${attemptId}`);
+
+    // Speaking can be a test on its own, or the last section of a sitting that
+    // also had Listening/Reading/Writing. The exam store still holds that
+    // sitting's attempt, so it tells us which results page is the right one —
+    // the speaking-only page would hide the bands they just sat for.
+    const partOfSitting =
+      useExamCodeStore.getState().attemptId === attemptId;
+    router.push(
+      partOfSitting
+        ? `/ielts/results/${attemptId}`
+        : `/speaking/results/${attemptId}`,
+    );
   }, [attemptId, recorder, router, voice]);
 
   /**

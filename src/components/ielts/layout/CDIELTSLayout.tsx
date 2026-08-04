@@ -10,6 +10,7 @@ import AudioPlayer from "../AudioPlayer";
 import type { HighlightColor } from "../tools/FloatingToolbar";
 import { cn, getSelectionCharacterOffsets } from "@/lib/utils";
 import { useTextHighlights, type HighlightSpec } from "@/lib/hooks/useTextHighlights";
+import type { SectionTab } from "@/types/ielts-simulation";
 
 export type HighlightContainer = "passage" | "questions";
 
@@ -71,8 +72,8 @@ interface CDIELTSLayoutProps {
   answeredQuestions?: Set<number>;
   reviewQuestions?: Set<number>;
   layoutMode: "SINGLE" | "SPLIT";
-  activeTab: "LISTENING" | "READING" | "WRITING";
-  onTabChange: (tab: "LISTENING" | "READING" | "WRITING") => void;
+  activeTab: SectionTab;
+  onTabChange: (tab: SectionTab) => void;
   writingTask?: number;
   onWritingTaskChange?: (task: number) => void;
   isWritingTaskAnswered?: (task: number) => boolean;

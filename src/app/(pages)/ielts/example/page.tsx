@@ -19,6 +19,7 @@ import type { PassageHighlight } from "@/components/ielts/ReadingPassage";
 import { MOCK_SIMULATION_DATA } from "./mock-data";
 import { mapBackendToQuestion } from "@/lib/ielts-mapper";
 import { cn, countWords } from "@/lib/utils";
+import type { SectionTab } from "@/types/ielts-simulation";
 
 type PageProps = {
   params?: Promise<Record<string, string | string[]>>;
@@ -83,9 +84,7 @@ export default function IELTSReplicaPage(props: PageProps) {
   const data = MOCK_SIMULATION_DATA;
   const [isStarted, setIsStarted] = useState(false);
   const [currentQIndex, setCurrentQIndex] = useState(0);
-  const [activeTab, setActiveTab] = useState<
-    "LISTENING" | "READING" | "WRITING"
-  >("READING");
+  const [activeTab, setActiveTab] = useState<SectionTab>("READING");
   const [writingTask, setWritingTask] = useState(1);
   const [reviewSet, setReviewSet] = useState<Set<number>>(new Set());
   const [flashQuestionNumber, setFlashQuestionNumber] = useState<number | null>(

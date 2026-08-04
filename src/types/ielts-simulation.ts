@@ -194,6 +194,15 @@ export interface SectionStatus {
   can_access: boolean;
 }
 
+/** A skill a test can contain. A test has any combination of one to four. */
+export type SectionId = 'listening' | 'reading' | 'writing' | 'speaking';
+
+/** The same four, as the exam UI names its tabs. */
+export type SectionTab = 'LISTENING' | 'READING' | 'WRITING' | 'SPEAKING';
+
+export const sectionTab = (section: string): SectionTab =>
+  section.toUpperCase() as SectionTab;
+
 export interface ContentResponseMeta {
   attempt_id: string;
   test_id: string;
@@ -201,16 +210,23 @@ export interface ContentResponseMeta {
   mode: string;
   status: string;
   current_section: string;
+  /**
+   * The sections THIS test contains, in sitting order.
+   *
+   * Not every test is Listening → Reading → Writing: a test is built from any
+   * combination of the four skills, so the exam navigation is driven by this
+   * rather than by a fixed order. Absent on older backends, where the classic
+   * three-section order is the right fallback.
+   */
+  sections?: SectionId[];
+  /** Where the candidate goes when the current section closes; null at the end. */
+  next_section?: SectionId | null;
   time_remaining_seconds: number;
   section_time_remaining_seconds: number;
   /** Post-audio Listening review window length (seconds), backend-configured. */
   listening_review_seconds: number;
-  sections_status: {
-    listening: SectionStatus;
-    reading: SectionStatus;
-    writing: SectionStatus;
-    speaking: SectionStatus;
-  };
+  /** Only the sections this test has appear here. */
+  sections_status: Partial<Record<SectionId, SectionStatus>>;
 }
 
 export interface ListeningContent {
