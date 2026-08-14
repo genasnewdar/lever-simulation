@@ -33,7 +33,11 @@ const Timer: React.FC<TimerProps> = ({ initialSeconds, onTimeExpire, controlledS
   // backgrounded (setInterval is throttled) or the machine sleeps.
   useEffect(() => {
     if (controlledSeconds !== undefined) return;
-    if (initialSeconds <= 0) return;
+    // A missing/garbage value would make every countdown NaN — hold the clock
+    // rather than expiring the section on bad data. Zero (or less) is real,
+    // though: that section is out of time and must expire, not park at 00:00:00
+    // with no expiry ever firing.
+    if (!Number.isFinite(initialSeconds)) return;
     const tick = () => {
       const { atMs, base } = anchorRef.current;
       const elapsed = Math.floor((Date.now() - atMs) / 1000);
@@ -57,10 +61,10 @@ const Timer: React.FC<TimerProps> = ({ initialSeconds, onTimeExpire, controlledS
     onTimeExpire?.();
   }, [controlledSeconds, onTimeExpire]);
 
-  const display =
-    controlledSeconds !== undefined
-      ? Math.max(0, Math.round(controlledSeconds))
-      : seconds;
+  const raw =
+    controlledSeconds !== undefined ? Math.round(controlledSeconds) : seconds;
+  // Never render NaN at the candidate — a bad value shows as 00:00:00.
+  const display = Number.isFinite(raw) ? Math.max(0, raw) : 0;
 
   const hours = Math.floor(display / 3600);
   const minutes = Math.floor((display % 3600) / 60);

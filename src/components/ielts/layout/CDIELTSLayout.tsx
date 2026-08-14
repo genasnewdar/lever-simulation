@@ -62,6 +62,34 @@ const PAGE_TURN_STYLE = {
   backfaceVisibility: "hidden" as const,
 };
 
+/**
+ * Collapsed range at viewport coordinates. Chromium/WebKit expose
+ * `caretRangeFromPoint`; Firefox exposes the standard `caretPositionFromPoint`.
+ */
+function caretRangeFromPoint(x: number, y: number): Range | null {
+  if (typeof document === "undefined") return null;
+  const doc = document as Document & {
+    caretRangeFromPoint?: (x: number, y: number) => Range | null;
+    caretPositionFromPoint?: (
+      x: number,
+      y: number,
+    ) => { offsetNode: Node; offset: number } | null;
+  };
+  if (typeof doc.caretRangeFromPoint === "function") {
+    return doc.caretRangeFromPoint(x, y);
+  }
+  const pos = doc.caretPositionFromPoint?.(x, y);
+  if (!pos) return null;
+  try {
+    const range = document.createRange();
+    range.setStart(pos.offsetNode, pos.offset);
+    range.collapse(true);
+    return range;
+  } catch {
+    return null;
+  }
+}
+
 interface CDIELTSLayoutProps {
   children: [React.ReactNode, React.ReactNode]; // [LeftPanel, RightPanel]
   title: string;
@@ -93,6 +121,22 @@ interface CDIELTSLayoutProps {
   ) => void;
   /** Highlights to apply on the questions panel via the CSS Custom Highlight API. */
   questionsHighlights?: HighlightSpec[];
+  /**
+   * Highlights currently rendered on the passage panel. Only used to decide
+   * whether the toolbar's erase action applies — the passage renders its own
+   * marks (see ReadingPassage).
+   */
+  passageHighlights?: HighlightSpec[];
+  /**
+   * Called when the user erases highlights. Removes every highlight in
+   * `container` that intersects [charStart, charEnd). A right-click on a
+   * highlight passes a single-character range covering the clicked glyph.
+   */
+  onEraseHighlights?: (
+    charStart: number,
+    charEnd: number,
+    container: HighlightContainer,
+  ) => void;
   /** Stable key (e.g. active passage id) used to invalidate the question highlight overlay when content changes. */
   questionsHighlightVersion?: string | number;
   /** Called when user double-clicks an existing highlight; lets parent surface a note editor. */
@@ -146,6 +190,8 @@ const CDIELTSLayout: React.FC<CDIELTSLayoutProps> = ({
   onUpdateNote,
   questionsHighlights,
   questionsHighlightVersion,
+  passageHighlights,
+  onEraseHighlights,
   noteEditor,
   onCloseNoteEditor,
   audioUrl,
@@ -245,12 +291,81 @@ const CDIELTSLayout: React.FC<CDIELTSLayoutProps> = ({
     version: questionsHighlightVersion,
   });
 
+  // Passage highlights live inside `.passage-prose`; offsets must be measured
+  // from that element, not the scroll panel (see computeOffsetsForContainer).
+  const containerElementFor = useCallback(
+    (container: HighlightContainer): HTMLElement | null => {
+      if (container === "questions") return questionsContainerRef.current;
+      return (
+        passageContainerRef.current?.querySelector<HTMLElement>(".passage-prose") ??
+        passageContainerRef.current
+      );
+    },
+    [],
+  );
+
+  const computeOffsetsForContainer = useCallback(
+    (container: HighlightContainer, range: Range): [number, number] | null => {
+      // Passage highlights are applied against the ReadingPassage body text
+      // (`.passage-prose`), so offsets MUST be measured from that element — not
+      // the whole scroll panel, which also holds the "Passage N" header, title
+      // and "Clear highlights" button. Measuring from the panel shifts every
+      // offset by the header length, so highlights land in the wrong place
+      // (or fail to render). The questions panel has no such wrapper text.
+      return getSelectionCharacterOffsets(containerElementFor(container), range);
+    },
+    [containerElementFor],
+  );
+
+  const highlightsFor = useCallback(
+    (container: HighlightContainer): HighlightSpec[] =>
+      (container === "questions" ? questionsHighlights : passageHighlights) ?? [],
+    [questionsHighlights, passageHighlights],
+  );
+
+  /**
+   * Erase target for the current selection: set only when the selection
+   * overlaps at least one existing highlight, so the toolbar can offer an
+   * eraser exactly when there is something to erase.
+   */
+  const [eraseTarget, setEraseTarget] = useState<{
+    start: number;
+    end: number;
+    container: HighlightContainer;
+  } | null>(null);
+
+  const syncEraseTarget = useCallback(
+    (container: HighlightContainer, range: Range) => {
+      const offsets = computeOffsetsForContainer(container, range);
+      const next =
+        offsets &&
+        highlightsFor(container).some(
+          (h) => h.start < offsets[1] && h.end > offsets[0],
+        )
+          ? { start: offsets[0], end: offsets[1], container }
+          : null;
+      // Keep the identity stable so an unchanged selection doesn't re-render.
+      setEraseTarget((prev) => {
+        if (
+          prev?.start === next?.start &&
+          prev?.end === next?.end &&
+          prev?.container === next?.container
+        ) {
+          return prev;
+        }
+        return next;
+      });
+    },
+    [computeOffsetsForContainer, highlightsFor],
+  );
+
   const captureSelection = useCallback(() => {
     const sel = window.getSelection();
     if (!sel || sel.rangeCount === 0 || sel.isCollapsed || sel.toString().length === 0) {
       setSelection(null);
       savedRangeRef.current = null;
       setActiveContainer(null);
+      setEraseTarget(null);
       return;
     }
     const range = sel.getRangeAt(0);
@@ -262,12 +377,14 @@ const CDIELTSLayout: React.FC<CDIELTSLayoutProps> = ({
       savedRangeRef.current = range.cloneRange();
       setSelection(sel);
       setActiveContainer("passage");
+      syncEraseTarget("passage", range);
     } else if (inQuestions) {
       savedRangeRef.current = range.cloneRange();
       setSelection(sel);
       setActiveContainer("questions");
+      syncEraseTarget("questions", range);
     }
-  }, []);
+  }, [syncEraseTarget]);
 
   // Track selection changes anywhere on the page so clicking the toolbar
   // doesn't clear the saved range before the action fires. When selection
@@ -292,41 +409,25 @@ const CDIELTSLayout: React.FC<CDIELTSLayoutProps> = ({
         savedRangeRef.current = range.cloneRange();
         setSelection(sel);
         setActiveContainer("passage");
+        syncEraseTarget("passage", range);
       } else if (inQuestions) {
         savedRangeRef.current = range.cloneRange();
         setSelection(sel);
         setActiveContainer("questions");
+        syncEraseTarget("questions", range);
       }
     };
     document.addEventListener("selectionchange", onSelectionChange);
     return () => document.removeEventListener("selectionchange", onSelectionChange);
-  }, []);
+  }, [syncEraseTarget]);
 
   const clearSelection = useCallback(() => {
     if (selection) selection.removeAllRanges();
     setSelection(null);
     savedRangeRef.current = null;
     setActiveContainer(null);
+    setEraseTarget(null);
   }, [selection]);
-
-  const computeOffsetsForContainer = useCallback(
-    (container: HighlightContainer, range: Range): [number, number] | null => {
-      if (container === "questions") {
-        return getSelectionCharacterOffsets(questionsContainerRef.current, range);
-      }
-      // Passage highlights are applied against the ReadingPassage body text
-      // (`.passage-prose`), so offsets MUST be measured from that element — not
-      // the whole scroll panel, which also holds the "Passage N" header, title
-      // and "Clear highlights" button. Measuring from the panel shifts every
-      // offset by the header length, so highlights land in the wrong place
-      // (or fail to render). The questions panel has no such wrapper text.
-      const passageEl =
-        passageContainerRef.current?.querySelector<HTMLElement>(".passage-prose") ??
-        passageContainerRef.current;
-      return getSelectionCharacterOffsets(passageEl, range);
-    },
-    [],
-  );
 
   const handleHighlight = useCallback(
     (color: HighlightColor) => {
@@ -374,6 +475,47 @@ const CDIELTSLayout: React.FC<CDIELTSLayoutProps> = ({
       noteEditor,
       computeOffsetsForContainer,
     ],
+  );
+
+  const handleErase = useCallback(() => {
+    if (!eraseTarget) return;
+    onEraseHighlights?.(eraseTarget.start, eraseTarget.end, eraseTarget.container);
+    clearSelection();
+  }, [eraseTarget, onEraseHighlights, clearSelection]);
+
+  /**
+   * The questions panel paints its highlights with the CSS Custom Highlight
+   * API, so there is no <mark> element to right-click (unlike the passage).
+   * Hit-test the clicked point back to a character offset instead, and erase
+   * the highlight covering it.
+   */
+  const handleQuestionsContextMenu = useCallback(
+    (e: React.MouseEvent<HTMLDivElement>) => {
+      if (!onEraseHighlights) return;
+      const container = questionsContainerRef.current;
+      if (!container || !(questionsHighlights?.length)) return;
+      // Answer fields hold their text outside the character stream we measure,
+      // so a caret hit inside one would map to a meaningless offset.
+      if (
+        (e.target as HTMLElement).closest(
+          "input, textarea, select, [contenteditable='true']",
+        )
+      ) {
+        return;
+      }
+      const range = caretRangeFromPoint(e.clientX, e.clientY);
+      if (!range || !container.contains(range.startContainer)) return;
+      const offsets = getSelectionCharacterOffsets(container, range);
+      if (!offsets) return;
+      const offset = offsets[0];
+      const hit = questionsHighlights.some(
+        (h) => h.start <= offset && h.end > offset,
+      );
+      if (!hit) return;
+      e.preventDefault();
+      onEraseHighlights(offset, offset + 1, "questions");
+    },
+    [onEraseHighlights, questionsHighlights],
   );
 
   const handleQuestionClick = (index: number) => {
@@ -527,6 +669,7 @@ const CDIELTSLayout: React.FC<CDIELTSLayoutProps> = ({
               <div
                 ref={questionsContainerRef}
                 onMouseUp={captureSelection}
+                onContextMenu={handleQuestionsContextMenu}
                 className="h-full overflow-y-auto custom-scrollbar px-8 lg:px-14 py-10 lg:py-14 bg-paper-2 right-panel-scroll select-text"
               >
                 <div
@@ -555,6 +698,7 @@ const CDIELTSLayout: React.FC<CDIELTSLayoutProps> = ({
           <div
             ref={questionsContainerRef}
             onMouseUp={captureSelection}
+            onContextMenu={handleQuestionsContextMenu}
             className="h-full overflow-y-auto custom-scrollbar px-8 lg:px-14 py-10 lg:py-14 bg-paper-2 right-panel-scroll select-text"
           >
             <div className="max-w-[68ch] mx-auto">
@@ -595,6 +739,8 @@ const CDIELTSLayout: React.FC<CDIELTSLayoutProps> = ({
           selection={selection}
           onHighlight={handleHighlight}
           onSaveNote={handleSaveNote}
+          canErase={!!eraseTarget && !!onEraseHighlights}
+          onErase={handleErase}
           noteEditor={noteEditor}
           anchorRect={noteEditor?.anchorRect ?? null}
           onCloseNoteEditor={onCloseNoteEditor}

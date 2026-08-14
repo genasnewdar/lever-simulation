@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useRef } from "react";
-import { FileText, Check, X } from "lucide-react";
+import { FileText, Check, X, Eraser } from "lucide-react";
 
 export type HighlightColor = "yellow" | "pink";
 
@@ -9,6 +9,10 @@ interface ToolbarProps {
   onHighlight: (color: HighlightColor) => void;
   onSaveNote: (color: HighlightColor, note: string) => void;
   selection: Selection | null;
+  /** True when the current selection overlaps an existing highlight. */
+  canErase?: boolean;
+  /** Remove every highlight overlapping the current selection. */
+  onErase?: () => void;
   /** When provided, the toolbar opens in note-editing mode for this initial value. */
   noteEditor?: { initialNote: string; color: HighlightColor; anchorRect?: DOMRect | null } | null;
   onCloseNoteEditor?: () => void;
@@ -22,6 +26,8 @@ const FloatingToolbar: React.FC<ToolbarProps> = ({
   onHighlight,
   onSaveNote,
   selection,
+  canErase = false,
+  onErase,
   noteEditor,
   onCloseNoteEditor,
   anchorRect,
@@ -172,6 +178,21 @@ const FloatingToolbar: React.FC<ToolbarProps> = ({
             <FileText className="w-4 h-4 text-mint-deep" />
             <span className="text-xs font-semibold">Note</span>
           </button>
+          {canErase && onErase && (
+            <>
+              <div className="w-px h-4 bg-white/20 mx-1" />
+              <button
+                type="button"
+                onMouseDown={keepSelection}
+                onClick={onErase}
+                className="flex items-center gap-2 px-3 py-1.5 hover:bg-white/10 text-white rounded transition-colors"
+                title="Remove the highlight under this selection"
+              >
+                <Eraser className="w-4 h-4" />
+                <span className="text-xs font-semibold">Erase</span>
+              </button>
+            </>
+          )}
         </div>
       ) : (
         <div className="flex flex-col gap-2 bg-gray-900 border border-white/20 rounded-lg shadow-2xl p-2 w-[280px] animate-in fade-in zoom-in-95 duration-150">

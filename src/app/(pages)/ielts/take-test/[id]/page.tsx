@@ -18,6 +18,9 @@ import { subscribeToSessionCancelled } from "@/lib/sse/sessionEvents";
 import type { MapSection } from "@/components/ielts/layout/QuestionMap";
 import ReadingPassage from "@/components/ielts/ReadingPassage";
 import type { PassageHighlight } from "@/components/ielts/ReadingPassage";
+
+/** Shared empty list so "no highlights" keeps a stable identity across renders. */
+const NO_HIGHLIGHTS: PassageHighlight[] = [];
 import type {
   AddHighlightOptions,
   HighlightContainer,
@@ -58,6 +61,10 @@ import { prepareSpeakingHandoff } from "@/lib/speaking/handoff";
 // static/client-side; every other duration (section time, post-audio Listening
 // review window) is provided by the backend content API.
 const SECTION_BREAK_SECONDS = 120;
+
+// Fallback post-audio Listening review window, used only when the backend
+// doesn't send one. Matches the CD IELTS answer-checking time.
+const DEFAULT_LISTENING_REVIEW_SECONDS = 120;
 
 const DEBUG =
   process.env.NODE_ENV === "development" ||
@@ -206,6 +213,10 @@ export default function IeltsTakeTestPage(props: PageProps) {
   // Wall-clock time when the break started — used to compensate the next
   // section's timer, since the backend counts down during the break too.
   const breakStartMsRef = useRef<number | null>(null);
+  // The section finish-section was last called for. The transition uses it to
+  // tell "the backend hasn't recorded the finish yet" apart from "this really
+  // is the current section", so a completed section is never reopened.
+  const justFinishedSectionRef = useRef<SectionId | null>(null);
 
   // ── Form ────────────────────────────────────────────────────────────────────
   const methods = useForm<Record<string, unknown>>({ defaultValues: {} });
@@ -451,15 +462,16 @@ export default function IeltsTakeTestPage(props: PageProps) {
           setIsFinished(true);
           return;
         }
-        // During the post-audio Listening review window the local 2-minute
-        // clock governs — ignore both backend timer values and any backend
-        // section advance so the review isn't cut short.
-        if (activeTab === "LISTENING" && listeningReviewActiveRef.current) {
-          return;
-        }
         // Only sync timer if still on same section
         const currentTab = overview.current_section.toUpperCase();
         if (currentTab === activeTab) {
+          // During the post-audio Listening review window the local clock
+          // governs — don't let the backend push it back up and cut the
+          // review short. The section-advance branch below still applies:
+          // it's the safety net if the local expiry path ever misses.
+          if (activeTab === "LISTENING" && listeningReviewActiveRef.current) {
+            return;
+          }
           setSectionTimerSeconds(overview.section_time_remaining_seconds);
         } else {
           // Backend says we should be on a different section — reload
@@ -1102,6 +1114,46 @@ export default function IeltsTakeTestPage(props: PageProps) {
     [activePassage, examId, setHighlightsInStore],
   );
 
+  // Stable identities: a fresh `[]` on every render would re-apply the CSS
+  // Custom Highlight ranges (and re-bind the selection listener) on each
+  // keystroke in an answer field.
+  const activeQuestionsHighlights = useMemo(
+    () =>
+      questionsHighlightKey
+        ? (highlightsByPassageId[questionsHighlightKey] ?? NO_HIGHLIGHTS)
+        : NO_HIGHLIGHTS,
+    [questionsHighlightKey, highlightsByPassageId],
+  );
+
+  const activePassageHighlights = useMemo(
+    () =>
+      activePassage
+        ? (highlightsByPassageId[activePassage.id] ?? NO_HIGHLIGHTS)
+        : NO_HIGHLIGHTS,
+    [activePassage, highlightsByPassageId],
+  );
+
+  /**
+   * Remove every highlight in `container` overlapping [start, end). Used by the
+   * toolbar's eraser and by right-clicking a highlight on the questions panel,
+   * which — unlike the passage — has no <mark> element to target.
+   */
+  const handleEraseHighlights = useCallback(
+    (start: number, end: number, container: HighlightContainer) => {
+      if (!examId) return;
+      const key = containerKeyFor(container);
+      if (!key) return;
+      setHighlightsByPassageId((prev) => {
+        const current = prev[key] || [];
+        const nextList = current.filter((h) => !(h.start < end && h.end > start));
+        if (nextList.length === current.length) return prev;
+        setHighlightsInStore(examId, key, nextList);
+        return { ...prev, [key]: nextList };
+      });
+    },
+    [examId, containerKeyFor, setHighlightsInStore],
+  );
+
   const handleClearPassageHighlights = useCallback(() => {
     if (!activePassage || !examId) return;
     setHighlightsByPassageId((prev) => {
@@ -1152,7 +1204,15 @@ export default function IeltsTakeTestPage(props: PageProps) {
     if (activeTab !== "LISTENING") return;
     if (listeningReviewActiveRef.current) return;
     listeningReviewActiveRef.current = true;
-    setSectionTimerSeconds(listeningReviewSeconds);
+    // The backend owns the window length, but an absent or zero value must not
+    // reach the clock: at <= 0 (or NaN) the timer parks and never fires
+    // onTimeExpire, so Listening never closes and the sitting stalls until the
+    // candidate reloads the page.
+    const review =
+      Number.isFinite(listeningReviewSeconds) && listeningReviewSeconds > 0
+        ? listeningReviewSeconds
+        : DEFAULT_LISTENING_REVIEW_SECONDS;
+    setSectionTimerSeconds(review);
     toast.info("Сонсголын бичлэг дууслаа. Хариултаа шалгана уу.");
   }, [activeTab, listeningReviewSeconds]);
 
@@ -1216,79 +1276,125 @@ export default function IeltsTakeTestPage(props: PageProps) {
   }, [activeTab, sectionContent, allQuestions, methods, params.id]);
 
   // ── Helper: transition to next section after finish ────────────────────────
-  const transitionToNextSection = useCallback(async () => {
-    try {
-      const overview = await fetchSectionContent(params.id);
+  /**
+   * Load whatever section comes after the one that just closed.
+   *
+   * `justFinished` is the section we just called finish-section for. The
+   * backend needs a moment to record that, and until it does the overview
+   * still names that section — loading it again would drop the candidate back
+   * into a section they have completed, with no way out but a page reload.
+   */
+  const transitionToNextSection = useCallback(
+    async (justFinished?: SectionId) => {
+      try {
+        let overview = await fetchSectionContent(params.id);
 
-      if (overview.current_section === "completed") {
-        toast.success("Шалгалт дууслаа!");
-        setIsFinished(true);
-        if (typeof window !== "undefined") {
-          sessionStorage.removeItem(sectionStorageKey);
-          sessionStorage.removeItem(currentQIndexStorageKey);
+        // Wait for the finish to land, then fall back to this test's own section
+        // order rather than reopening the finished section.
+        for (
+          let i = 0;
+          justFinished && overview.current_section === justFinished && i < 4;
+          i++
+        ) {
+          await new Promise((resolve) => setTimeout(resolve, 750));
+          overview = await fetchSectionContent(params.id);
         }
-        return;
-      }
 
-      const section = overview.current_section;
-
-      // Speaking is a different kind of section: a spoken exchange with an
-      // examiner, needing the whole viewport for the orb, transcript and mic.
-      // It lives at its own route and is entered by navigating there on the
-      // same attempt — so a four-skill test still runs as one sitting, the
-      // candidate just moves from the written paper to the interview.
-      if (section === "speaking") {
-        if (typeof window !== "undefined") {
-          sessionStorage.removeItem(sectionStorageKey);
-          sessionStorage.removeItem(currentQIndexStorageKey);
+        if (overview.current_section === "completed") {
+          toast.success("Шалгалт дууслаа!");
+          setIsFinished(true);
+          if (typeof window !== "undefined") {
+            sessionStorage.removeItem(sectionStorageKey);
+            sessionStorage.removeItem(currentQIndexStorageKey);
+          }
+          return;
         }
-        goToSpeaking();
-        return;
+
+        let section = overview.current_section;
+        if (justFinished && section === justFinished) {
+          const idx = sectionOrder.indexOf(justFinished);
+          const next = idx >= 0 ? sectionOrder[idx + 1] : undefined;
+          if (!next) {
+            toast.success("Шалгалт дууслаа!");
+            setIsFinished(true);
+            if (typeof window !== "undefined") {
+              sessionStorage.removeItem(sectionStorageKey);
+              sessionStorage.removeItem(currentQIndexStorageKey);
+            }
+            return;
+          }
+          debugLog("Backend still on finished section — using test order", {
+            justFinished,
+            next,
+          });
+          section = next;
+        }
+
+        // Speaking is a different kind of section: a spoken exchange with an
+        // examiner, needing the whole viewport for the orb, transcript and mic.
+        // It lives at its own route and is entered by navigating there on the
+        // same attempt — so a four-skill test still runs as one sitting, the
+        // candidate just moves from the written paper to the interview.
+        if (section === "speaking") {
+          if (typeof window !== "undefined") {
+            sessionStorage.removeItem(sectionStorageKey);
+            sessionStorage.removeItem(currentQIndexStorageKey);
+          }
+          goToSpeaking();
+          return;
+        }
+
+        const response = await fetchSectionContent(params.id, section);
+
+        // Compensate for backend counting down during the frontend break.
+        // The backend starts the next section timer when finish-section is called,
+        // so we add back however many seconds the break actually lasted.
+        const breakElapsed =
+          breakStartMsRef.current != null
+            ? Math.round((Date.now() - breakStartMsRef.current) / 1000)
+            : 0;
+        breakStartMsRef.current = null;
+        const compensatedTimer =
+          response.section_time_remaining_seconds + breakElapsed;
+
+        setContentMeta(response);
+        setSectionContent(response.content ?? null);
+        setSectionTimerSeconds(compensatedTimer);
+        setListeningReviewSeconds(response.listening_review_seconds);
+        setPendingSectionIntro({
+          section: section as SectionId,
+          duration: (response.content?.duration_minutes ?? 0) * 60,
+        });
+        setActiveTab(tabOf(section));
+        setCurrentQIndex(0);
+        timeExpireCalledRef.current = false;
+        justFinishedSectionRef.current = null;
+
+        if (typeof window !== "undefined") {
+          sessionStorage.setItem(sectionStorageKey, section.toUpperCase());
+        }
+
+        debugLog("Transitioned to section", { section });
+      } catch (err) {
+        // The next section's content never arrived. Switching tabs anyway would
+        // leave the candidate on an empty page with the previous section's
+        // content in state, so surface the retry screen instead — it re-runs the
+        // whole load against whatever section the backend says is current.
+        console.error("Failed to transition to next section:", err);
+        setSectionContent(null);
+        setError("Дараагийн хэсгийг ачаалж чадсангүй.");
+        setCurrentQIndex(0);
+        timeExpireCalledRef.current = false;
       }
-
-      const response = await fetchSectionContent(params.id, section);
-
-      // Compensate for backend counting down during the frontend break.
-      // The backend starts the next section timer when finish-section is called,
-      // so we add back however many seconds the break actually lasted.
-      const breakElapsed =
-        breakStartMsRef.current != null
-          ? Math.round((Date.now() - breakStartMsRef.current) / 1000)
-          : 0;
-      breakStartMsRef.current = null;
-      const compensatedTimer =
-        response.section_time_remaining_seconds + breakElapsed;
-
-      setContentMeta(response);
-      setSectionContent(response.content ?? null);
-      setSectionTimerSeconds(compensatedTimer);
-      setListeningReviewSeconds(response.listening_review_seconds);
-      setPendingSectionIntro({
-        section: section as SectionId,
-        duration: (response.content?.duration_minutes ?? 0) * 60,
-      });
-      setActiveTab(tabOf(section));
-      setCurrentQIndex(0);
-      timeExpireCalledRef.current = false;
-
-      if (typeof window !== "undefined") {
-        sessionStorage.setItem(sectionStorageKey, section.toUpperCase());
-      }
-
-      debugLog("Transitioned to section", { section });
-    } catch {
-      // Fallback: hardcoded transitions
-      if (activeTab === "LISTENING") {
-        setActiveTab("READING");
-      } else if (activeTab === "READING") {
-        setActiveTab("WRITING");
-      } else {
-        setIsFinished(true);
-      }
-      setCurrentQIndex(0);
-      timeExpireCalledRef.current = false;
-    }
-  }, [params.id, activeTab, sectionStorageKey, currentQIndexStorageKey]);
+    },
+    [
+      params.id,
+      sectionOrder,
+      sectionStorageKey,
+      currentQIndexStorageKey,
+      goToSpeaking,
+    ],
+  );
 
   // ── Auto-submit answers on change (debounced) ──────────────────────────────
   useEffect(() => {
@@ -1493,12 +1599,22 @@ export default function IeltsTakeTestPage(props: PageProps) {
       /* best-effort */
     }
 
-    // Notify backend
-    fetch("/api/ielts/finish-section", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ attempt_id: params.id, section: currentSectionId }),
-    }).catch(() => {});
+    // Notify backend. Awaited: the next section is only loaded once the
+    // backend has recorded this one as finished, otherwise the overview still
+    // names the section we just closed.
+    justFinishedSectionRef.current = currentSectionId;
+    try {
+      await fetch("/api/ielts/finish-section", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          attempt_id: params.id,
+          section: currentSectionId,
+        }),
+      });
+    } catch {
+      /* the transition retries/falls back on the test's section order */
+    }
 
     if (isLastSection) {
       toast.success("Шалгалт дууслаа!");
@@ -1520,11 +1636,19 @@ export default function IeltsTakeTestPage(props: PageProps) {
 
     try { await submitCurrentAnswers(); } catch { /* best-effort */ }
 
-    fetch("/api/ielts/finish-section", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ attempt_id: params.id, section: currentSectionId }),
-    }).catch(() => {});
+    justFinishedSectionRef.current = currentSectionId;
+    try {
+      await fetch("/api/ielts/finish-section", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          attempt_id: params.id,
+          section: currentSectionId,
+        }),
+      });
+    } catch {
+      /* the transition retries/falls back on the test's section order */
+    }
 
     if (isLastSection) {
       toast.success("Шалгалт дууслаа!");
@@ -1533,7 +1657,7 @@ export default function IeltsTakeTestPage(props: PageProps) {
       // Skip break overlay — go straight to next section
       breakStartMsRef.current = null;
       onBreakRef.current = false;
-      transitionToNextSection();
+      transitionToNextSection(currentSectionId);
     }
   }, [
     currentSectionId,
@@ -1671,7 +1795,7 @@ export default function IeltsTakeTestPage(props: PageProps) {
           onDone={() => {
             onBreakRef.current = false;
             setOnBreak(false);
-            transitionToNextSection();
+            transitionToNextSection(justFinishedSectionRef.current ?? undefined);
           }}
         />
       )}
@@ -1721,12 +1845,14 @@ export default function IeltsTakeTestPage(props: PageProps) {
               ? handleUpdateNote
               : undefined
           }
-          questionsHighlights={
-            questionsHighlightKey
-              ? (highlightsByPassageId[questionsHighlightKey] ?? [])
-              : []
-          }
+          questionsHighlights={activeQuestionsHighlights}
           questionsHighlightVersion={questionsHighlightKey ?? undefined}
+          passageHighlights={activePassageHighlights}
+          onEraseHighlights={
+            activeTab === "READING" || activeTab === "LISTENING"
+              ? handleEraseHighlights
+              : undefined
+          }
           noteEditor={noteEditor}
           onCloseNoteEditor={handleCloseNoteEditor}
           audioUrl={
@@ -1791,13 +1917,16 @@ export default function IeltsTakeTestPage(props: PageProps) {
                           Reading
                         </span>
                       </div>
-                      {(highlightsByPassageId[activePassage.id]?.length ?? 0) >
-                        0 && (
+                      {/* The button clears both panels, so it must appear when
+                          either one has highlights — not just the passage. */}
+                      {((highlightsByPassageId[activePassage.id]?.length ?? 0) > 0 ||
+                        (highlightsByPassageId[`q-${activePassage.id}`]?.length ??
+                          0) > 0) && (
                         <button
                           type="button"
                           onClick={handleClearPassageHighlights}
                           className="text-[12px] font-medium text-muted hover:text-ink-soft transition-colors"
-                          title="Remove all highlights on this passage. Right-click any highlight to remove just that one.">
+                          title="Remove all highlights on this passage and its questions. Right-click any highlight to remove just that one.">
                           Clear highlights
                         </button>
                       )}
@@ -1810,7 +1939,7 @@ export default function IeltsTakeTestPage(props: PageProps) {
                   <ReadingPassage
                     ref={passageRef}
                     content={activePassage.content}
-                    highlights={highlightsByPassageId[activePassage.id] || []}
+                    highlights={activePassageHighlights}
                     onRemoveHighlight={handleRemoveHighlight}
                     onOpenNote={handleOpenPassageNote}
                   />

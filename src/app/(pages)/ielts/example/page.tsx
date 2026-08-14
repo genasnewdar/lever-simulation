@@ -426,6 +426,20 @@ export default function IELTSReplicaPage(props: PageProps) {
     [activePassage, highlightsByPassageId, stableEmptyHighlights]
   );
 
+  /** Demo only highlights the passage, so erasing targets that container. */
+  const handleEraseHighlights = useCallback(
+    (start: number, end: number, container: HighlightContainer) => {
+      if (container !== "passage" || !activePassage) return;
+      setHighlightsByPassageId((prev) => {
+        const current = prev[activePassage.id] || [];
+        const nextList = current.filter((h) => !(h.start < end && h.end > start));
+        if (nextList.length === current.length) return prev;
+        return { ...prev, [activePassage.id]: nextList };
+      });
+    },
+    [activePassage]
+  );
+
   const instructions =
     activeTab === "READING"
       ? data.reading_test?.instructions
@@ -501,6 +515,10 @@ export default function IELTSReplicaPage(props: PageProps) {
           activeTab === "READING" ? handleHighlightText : undefined
         }
         onUpdateNote={activeTab === "READING" ? handleUpdateNote : undefined}
+        passageHighlights={currentPassageHighlights}
+        onEraseHighlights={
+          activeTab === "READING" ? handleEraseHighlights : undefined
+        }
         noteEditor={noteEditor}
         onCloseNoteEditor={handleCloseNoteEditor}
         audioUrl={
@@ -552,6 +570,9 @@ export default function IELTSReplicaPage(props: PageProps) {
                 ref={passageRef}
                 content={activePassage.content}
                 highlights={currentPassageHighlights}
+                onRemoveHighlight={(start, end) =>
+                  handleEraseHighlights(start, end, "passage")
+                }
                 onOpenNote={handleOpenPassageNote}
               />
               <span aria-hidden className="page-curl" />
