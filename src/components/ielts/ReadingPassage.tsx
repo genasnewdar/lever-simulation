@@ -53,10 +53,9 @@ type Segment =
 
 const SegmentRenderer: React.FC<{ seg: Segment; text: string }> = ({ seg, text }) => {
   if (seg.kind === "mark") {
-    const bg =
-      seg.color === "yellow"
-        ? "color-mix(in oklch, #f5d665 45%, transparent)"
-        : "color-mix(in oklch, #f498c4 40%, transparent)";
+    // The pens are tokens (see globals.css): translucent over light paper,
+    // opaque over dark, with their own absolute ink either way.
+    const bg = seg.color === "yellow" ? "var(--hl-yellow)" : "var(--hl-pink)";
     const titleText = seg.note
       ? `Note: ${seg.note}\n(Right-click to remove)`
       : "Right-click to remove highlight";
@@ -70,10 +69,8 @@ const SegmentRenderer: React.FC<{ seg: Segment; text: string }> = ({ seg, text }
         title={titleText}
         className="cursor-context-menu"
         style={{
-          backgroundColor: seg.overlap
-            ? "color-mix(in oklch, #f5d665 40%, #f498c4 40%)"
-            : bg,
-          color: "inherit",
+          backgroundColor: seg.overlap ? "var(--hl-overlap)" : bg,
+          color: "var(--hl-ink)",
           padding: "0.1em 0",
           borderRadius: "2px",
           position: "relative",
@@ -141,11 +138,9 @@ function applyHighlightToDOM(container: HTMLElement, h: PassageHighlight) {
         ? `Note: ${h.note}\n(Right-click to remove)`
         : "Right-click to remove highlight";
       mark.style.backgroundColor =
-        h.color === "yellow"
-          ? "color-mix(in oklch, #f5d665 45%, transparent)"
-          : "color-mix(in oklch, #f498c4 40%, transparent)";
+        h.color === "yellow" ? "var(--hl-yellow)" : "var(--hl-pink)";
       mark.className = "cursor-context-menu";
-      mark.style.color = "inherit";
+      mark.style.color = "var(--hl-ink)";
       mark.style.padding = "0.1em 0";
       mark.style.borderRadius = "2px";
       mark.style.position = "relative";

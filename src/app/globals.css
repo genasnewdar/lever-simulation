@@ -23,6 +23,15 @@
 
     --radius: 0.75rem;
 
+    /* Highlighter pens. Over light paper a wash reads as a soft pastel, so the
+       fills are translucent and let the paper through. */
+    --hl-yellow:  color-mix(in oklch, #f5d665 45%, transparent);
+    --hl-pink:    color-mix(in oklch, #f498c4 40%, transparent);
+    --hl-overlap: color-mix(in oklch, #f5d665 40%, #f498c4 40%);
+    /* Absolute, not var(--ink): the fill stays light in both themes, so the
+       text on it must stay dark in both themes. */
+    --hl-ink:     oklch(0.18 0.005 264);
+
     /* Page-turn motion tokens */
     --page-turn-duration: 520ms;
     --page-turn-ease: cubic-bezier(0.22, 0.61, 0.36, 1);
@@ -47,6 +56,12 @@
     --mint-soft:  oklch(0.34 0.07 158);
     --mint-deep:  oklch(0.74 0.15 158);
     --mint-ink:   oklch(0.82 0.13 158);
+
+    /* The pens go opaque: the same wash over dark paper turns to olive mud and
+       swallows the words under it. A highlighter is meant to be a bright band. */
+    --hl-yellow:  #f5d665;
+    --hl-pink:    #f498c4;
+    --hl-overlap: color-mix(in oklch, #f5d665 50%, #f498c4 50%);
   }
 
   * {
@@ -146,10 +161,11 @@
   border-radius: 2px;
   background-clip: padding-box;
   position: relative;
+  color: var(--hl-ink);
 }
 /* Blended tint where a yellow and a pink highlight overlap. */
 .passage-prose mark[data-hl-overlap="1"] {
-  background-color: color-mix(in oklch, #f5d665 40%, #f498c4 40%);
+  background-color: var(--hl-overlap);
 }
 /* Note pin sits out of the text flow so it never splits a word. */
 .passage-prose [data-note-pin="1"] {
@@ -166,10 +182,12 @@
 /* CSS Custom Highlight API decorations for the questions panel (no DOM mutation,
    so highlights survive React re-renders triggered by form input changes). */
 ::highlight(user-yellow) {
-  background-color: color-mix(in oklch, #f5d665 45%, transparent);
+  background-color: var(--hl-yellow);
+  color: var(--hl-ink);
 }
 ::highlight(user-pink) {
-  background-color: color-mix(in oklch, #f498c4 40%, transparent);
+  background-color: var(--hl-pink);
+  color: var(--hl-ink);
 }
 
 /* ── Page-curl decorative corner ──────────────────────────────────────── */
