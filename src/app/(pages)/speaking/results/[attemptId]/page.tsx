@@ -48,6 +48,11 @@ export default function SpeakingResultsPage() {
   const resultDoneRef = useRef(false);
   const feedbackDoneRef = useRef(false);
   const reportSentRef = useRef(false);
+  // Unmounting has to stop the polling without looking like both halves
+  // settled: marking them done was enough to make a poll that was still in
+  // flight mail the report with no corrections in it, and the server stores
+  // that PDF as the only one the student ever gets.
+  const cancelledRef = useRef(false);
 
   /**
    * Bands and detailed feedback are generated separately and land at different
@@ -87,6 +92,7 @@ export default function SpeakingResultsPage() {
     // Mail the PDF once both halves have settled, so the report carries the
     // corrections rather than the bands alone. The server is idempotent; this
     // guard just avoids the extra round trips.
+    if (cancelledRef.current) return;
     if (resultDoneRef.current && feedbackDoneRef.current && !reportSentRef.current) {
       reportSentRef.current = true;
       sendReport(attemptId).catch(() => {
@@ -96,6 +102,7 @@ export default function SpeakingResultsPage() {
   }, [attemptId]);
 
   useEffect(() => {
+    cancelledRef.current = false;
     resultDoneRef.current = false;
     feedbackDoneRef.current = false;
     poll();
@@ -109,8 +116,7 @@ export default function SpeakingResultsPage() {
     }, POLL_MS);
 
     return () => {
-      resultDoneRef.current = true;
-      feedbackDoneRef.current = true;
+      cancelledRef.current = true;
       window.clearInterval(interval);
     };
   }, [poll]);
