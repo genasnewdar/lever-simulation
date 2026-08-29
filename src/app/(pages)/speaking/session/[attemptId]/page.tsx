@@ -424,9 +424,17 @@ export default function SpeakingSessionPage() {
       await advance();
     } catch {
       busyRef.current = false;
-      failSession("Хариултыг илгээхэд алдаа гарлаа.");
+      // One failed submit must not end the exam. The server frequently has the
+      // answer already — it saves the response and completes the turn before
+      // anything else it does can throw — so ask it rather than assume:
+      // advancing only succeeds when the turn really is resolved, and `advance`
+      // fails the session itself when the answer is genuinely missing.
+      if (blob) {
+        uploadTurnAudio(attemptId, turn.turn_id, blob).catch(() => {});
+      }
+      await advance();
     }
-  }, [advance, armTurn, attemptId, failSession, recognition, recorder]);
+  }, [advance, armTurn, attemptId, recognition, recorder]);
 
   /** Part 2 — prep is over (tapped early or ran out), hand over the turn. */
   const endPrep = useCallback(async () => {

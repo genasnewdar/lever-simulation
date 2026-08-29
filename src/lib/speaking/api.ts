@@ -33,6 +33,29 @@ speakingApi.interceptors.request.use((config) => {
   return config;
 });
 
+/**
+ * A code that does not own this attempt is a dead end — don't leave the
+ * candidate sitting in one.
+ *
+ * The store is persisted and an exam-room machine is used by one candidate
+ * after another, so a code left over from an earlier sitting gets paired with
+ * the attempt in the URL and every request comes back 403. The candidate is
+ * then shown "This exam code does not own that attempt", in English, on a
+ * screen whose only button returns them to the same broken state. Re-entering
+ * the code clears it, so do exactly that for them: drop the stale session and
+ * ask for the code again.
+ */
+speakingApi.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    if (error?.response?.status === 403 && typeof window !== "undefined") {
+      useSpeakingStore.getState().clear();
+      window.location.assign("/speaking");
+    }
+    return Promise.reject(error);
+  },
+);
+
 const base = (attemptId: string) => `/api/public/ielts/speaking/${attemptId}`;
 
 /**
