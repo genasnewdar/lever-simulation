@@ -3,6 +3,7 @@
 import React from "react";
 import { useFormContext } from "react-hook-form";
 import { Question } from "../../../types/ielts";
+import { ReviewCheckbox } from "@/components/ielts/ReviewCheckbox";
 
 interface MatchingTaskProps {
   question: Question;
@@ -26,12 +27,11 @@ const MatchingTask: React.FC<MatchingTaskProps> = ({ question, disabled, onToggl
             {title || question.content}
           </h3>
         )}
-        {onToggleReview && (
-          <label className="flex items-center gap-2 shrink-0 cursor-pointer">
-            <span className="text-[10px] font-semibold text-muted uppercase tracking-widest">Review</span>
-            <input type="checkbox" checked={isReviewChecked?.(qNum) ?? false} onChange={() => onToggleReview(qNum)} className="w-4 h-4 rounded border-rule text-ink focus:ring-mint" />
-          </label>
-        )}
+        <ReviewCheckbox
+          questionNumber={qNum}
+          checked={isReviewChecked?.(qNum) ?? false}
+          onToggle={onToggleReview}
+        />
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-10">
@@ -85,7 +85,7 @@ const MatchingTask: React.FC<MatchingTaskProps> = ({ question, disabled, onToggl
                       <select
                         disabled={disabled}
                         {...register(registrationKey)}
-                        className={`w-full p-3 border border-rule rounded-lg focus:ring-2 focus:ring-blue-500 bg-white font-semibold text-center outline-none transition-all ${
+                        className={`w-full p-3 border border-rule rounded-lg focus:ring-2 focus:ring-blue-500 bg-paper text-ink font-semibold text-center outline-none transition-all ${
                           disabled
                             ? "bg-paper-3 cursor-not-allowed text-muted"
                             : "cursor-pointer hover:border-ink-soft"
@@ -104,7 +104,7 @@ const MatchingTask: React.FC<MatchingTaskProps> = ({ question, disabled, onToggl
                         disabled={disabled}
                         {...register(registrationKey)}
                         placeholder="e.g. A"
-                        className={`w-full p-3 border border-rule rounded-lg focus:ring-2 focus:ring-blue-500 bg-white font-semibold text-center outline-none transition-all ${
+                        className={`w-full p-3 border border-rule rounded-lg focus:ring-2 focus:ring-blue-500 bg-paper text-ink font-semibold text-center outline-none transition-all ${
                           disabled
                             ? "bg-paper-3 cursor-not-allowed text-muted"
                             : "hover:border-ink-soft"

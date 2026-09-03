@@ -8,6 +8,13 @@ interface Props {
   seconds: number;
   /** Called when the break ends — either the countdown hit 0 or the candidate skipped. */
   onDone: () => void;
+  /**
+   * The skill that just closed, e.g. "Listening". Named here rather than left
+   * implicit: the candidate has spent thirty minutes with headphones on and a
+   * clock running, and the first thing this screen should tell them is that the
+   * part they were in is behind them, not just that a timer is counting.
+   */
+  finishedSection?: string;
 }
 
 const fmt = (total: number) => {
@@ -21,7 +28,7 @@ const fmt = (total: number) => {
  * then calls `onDone`, which loads the next section automatically. While this is
  * mounted, no section timer runs.
  */
-export function BreakOverlay({ seconds, onDone }: Props) {
+export function BreakOverlay({ seconds, onDone, finishedSection }: Props) {
   const [remaining, setRemaining] = useState(seconds);
   // Guard so onDone fires exactly once (countdown-zero and click can't both win).
   const doneRef = useRef(false);
@@ -58,6 +65,14 @@ export function BreakOverlay({ seconds, onDone }: Props) {
       <div className="flex flex-col items-center gap-6 rounded-2xl border border-rule bg-paper-2 px-12 py-10 shadow-xl">
         <Coffee className="h-10 w-10 text-mint-deep" strokeWidth={1.5} />
         <div className="text-center">
+          {finishedSection && (
+            <p className="mb-3 max-w-sm text-[15px] text-ink-soft">
+              За, та амьсгаа аваарай.{" "}
+              <span className="font-semibold text-ink">
+                {finishedSection} хэсэг дууслаа.
+              </span>
+            </p>
+          )}
           <div className="text-4xl font-semibold tracking-tight text-ink">
             Завсарлага
           </div>

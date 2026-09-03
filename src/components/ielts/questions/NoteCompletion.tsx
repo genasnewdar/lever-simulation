@@ -3,6 +3,7 @@
 import React from 'react';
 import { useFormContext } from 'react-hook-form';
 import { Question } from '../../../types/ielts';
+import { ReviewCheckbox } from "@/components/ielts/ReviewCheckbox";
 
 interface NoteCompletionProps {
   question: Question;
@@ -28,12 +29,11 @@ const NoteCompletion: React.FC<NoteCompletionProps> = ({ question, disabled, onT
               Max {validationRules.maxWords} words
             </span>
           )}
-          {onToggleReview && (
-            <label className="flex items-center gap-2 cursor-pointer">
-              <span className="text-[10px] font-semibold text-muted uppercase tracking-widest">Review</span>
-              <input type="checkbox" checked={isReviewChecked?.(qNum) ?? false} onChange={() => onToggleReview(qNum)} className="w-4 h-4 rounded border-rule text-ink focus:ring-mint" />
-            </label>
-          )}
+          <ReviewCheckbox
+            questionNumber={qNum}
+            checked={isReviewChecked?.(qNum) ?? false}
+            onToggle={onToggleReview}
+          />
         </div>
       </div>
 
@@ -64,7 +64,7 @@ const NoteCompletion: React.FC<NoteCompletionProps> = ({ question, disabled, onT
                                 autoComplete="off"
                                 spellCheck={false}
                                 onContextMenu={(e) => e.preventDefault()}
-                                className={`border-b-2 border-rule/10 focus:border-ink outline-none px-4 py-1 w-36 font-semibold text-ink-soft bg-white rounded-t-lg transition-all ${
+                                className={`border-b-2 border-rule/10 focus:border-ink outline-none px-4 py-1 w-36 font-semibold text-ink-soft bg-paper rounded-t-lg transition-all ${
                                     disabled ? 'bg-paper-3 cursor-not-allowed opacity-70 border-b-transparent' : 'hover:bg-mint-soft'
                                 }`}
                             />

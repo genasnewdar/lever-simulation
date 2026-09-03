@@ -4,7 +4,8 @@ import React from "react";
 import { useFormContext } from "react-hook-form";
 import type { GroupRendererProps } from "./types";
 import type { TableLayoutData } from "@/types/ielts-simulation";
-import { LayoutCells, GroupHeader, ReviewCheckbox } from "./shared";
+import { LayoutCells, GroupHeader } from "./shared";
+import { ReviewCheckbox } from "../ReviewCheckbox";
 import { cn } from "@/lib/utils";
 
 export default function TableGroupRenderer({
@@ -88,8 +89,8 @@ export default function TableGroupRenderer({
                         <ReviewCheckbox
                           key={qNum}
                           questionNumber={qNum}
-                          reviewSet={reviewSet}
-                          toggleReview={toggleReview}
+                          checked={reviewSet.has(qNum)}
+                          onToggle={toggleReview}
                         />
                       ))}
                     </div>
@@ -174,8 +175,8 @@ function TableFallback({
                   <td className="p-2 align-middle">
                     <ReviewCheckbox
                       questionNumber={q.question_number}
-                      reviewSet={reviewSet}
-                      toggleReview={toggleReview}
+                      checked={reviewSet.has(q.question_number)}
+                      onToggle={toggleReview}
                     />
                   </td>
                 </tr>

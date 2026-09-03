@@ -4,7 +4,8 @@ import React from "react";
 import { useFormContext } from "react-hook-form";
 import type { GroupRendererProps } from "./types";
 import type { FormLayoutData } from "@/types/ielts-simulation";
-import { LayoutCells, GroupHeader, ReviewCheckbox } from "./shared";
+import { LayoutCells, GroupHeader } from "./shared";
+import { ReviewCheckbox } from "../ReviewCheckbox";
 import { cn } from "@/lib/utils";
 
 export default function FormGroupRenderer({
@@ -59,8 +60,8 @@ export default function FormGroupRenderer({
                         <ReviewCheckbox
                           key={qNum}
                           questionNumber={qNum}
-                          reviewSet={reviewSet}
-                          toggleReview={toggleReview}
+                          checked={reviewSet.has(qNum)}
+                          onToggle={toggleReview}
                         />
                       ))}
                     </td>
@@ -118,8 +119,8 @@ export default function FormGroupRenderer({
               </span>
               <ReviewCheckbox
                 questionNumber={q.question_number}
-                reviewSet={reviewSet}
-                toggleReview={toggleReview}
+                checked={reviewSet.has(q.question_number)}
+                onToggle={toggleReview}
               />
             </div>
           );

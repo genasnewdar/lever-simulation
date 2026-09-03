@@ -28,11 +28,23 @@ interface QuestionMapProps {
   onPartChange?: (partIndex: number) => void;
 }
 
+/**
+ * The navigation bar of the computer-delivered test, and it follows that one
+ * closely because candidates learn it before they sit the real exam:
+ *
+ * - every question number in the section is on screen at once, grouped by part,
+ *   and any of them can be clicked to jump straight there;
+ * - a question that has been answered carries a line under its number;
+ * - a question ticked for Review turns from a square into a circle, so the ones
+ *   to come back to are picked out at a glance;
+ * - the question being worked on is the inked box.
+ */
 const QuestionMap: React.FC<QuestionMapProps> = ({
   totalQuestions,
   currentQuestionIndex,
   onQuestionClick,
   answeredQuestions,
+  reviewQuestions,
   activeTab,
   writingTask,
   onWritingTaskChange,
@@ -63,8 +75,15 @@ const QuestionMap: React.FC<QuestionMapProps> = ({
       ? controlledPartIndex
       : Math.max(0, derivedPartIndex);
 
+  const goToQuestion = (partIndex: number, questionNumber: number) => {
+    // A number in another part: bring that part up first, then land on the
+    // question itself — the part change alone would stop at its first question.
+    if (partIndex !== activePartIndex) onPartChange?.(partIndex);
+    onQuestionClick(questionNumber - 1);
+  };
+
   return (
-    <footer className="bg-paper-2 border-t border-rule flex items-center justify-between fixed bottom-0 w-full z-50 select-none overflow-hidden h-[56px]">
+    <footer className="bg-paper-2 border-t border-rule flex items-center justify-between fixed bottom-0 w-full z-50 select-none h-[56px]">
       <div className="flex-shrink-0 flex items-center px-4 border-r border-rule h-full">
         {activeTab !== "WRITING" ? (
           <button
@@ -80,7 +99,7 @@ const QuestionMap: React.FC<QuestionMapProps> = ({
         )}
       </div>
 
-      <div className="flex-1 flex items-center justify-center h-full gap-3 px-4">
+      <div className="flex-1 flex items-center justify-center h-full gap-3 px-4 overflow-x-auto custom-scrollbar">
         {activeTab === "WRITING" ? (
           <>
             {[1, 2].map((task) => {
@@ -108,36 +127,78 @@ const QuestionMap: React.FC<QuestionMapProps> = ({
         ) : (
           <>
             {parts.map((part, pIdx) => {
-              const partStart = part.start;
-              const partEnd = part.end;
-              const count = partEnd - partStart + 1;
-              const answeredInPart = Array.from(
+              const count = part.end - part.start + 1;
+              const numbersInPart = Array.from(
                 { length: count },
-                (_, i) => partStart + i
-              ).filter((qNum) => answeredQuestions.has(qNum)).length;
+                (_, i) => part.start + i
+              );
               const isActivePart = activePartIndex === pIdx;
-
               const partTitle = part.title ?? `Section ${pIdx + 1}`;
+
               return (
-                <button
+                <div
                   key={pIdx}
-                  onClick={() => {
-                    onPartChange?.(pIdx);
-                    onQuestionClick(partStart - 1);
-                  }}
-                  className={cn(
-                    "px-3.5 py-1.5 rounded-md text-[12px] font-medium transition-all border flex items-center gap-2 tracking-tight",
-                    isActivePart
-                      ? "bg-ink text-paper border-ink"
-                      : "bg-paper text-ink-soft border-rule hover:border-ink-soft hover:text-ink"
-                  )}
-                  title={partTitle}
+                  className="flex items-center gap-2 flex-shrink-0"
                 >
-                  <span className="truncate max-w-[140px]">{partTitle}</span>
-                  <span className={cn("tabular-nums", isActivePart ? "text-paper/80" : "text-muted")}>
-                    {answeredInPart}/{count}
-                  </span>
-                </button>
+                  <button
+                    onClick={() => goToQuestion(pIdx, part.start)}
+                    className={cn(
+                      "px-1.5 py-1 rounded text-[12px] tracking-tight whitespace-nowrap transition-colors",
+                      isActivePart
+                        ? "text-ink font-semibold"
+                        : "text-muted font-medium hover:text-ink"
+                    )}
+                    title={partTitle}
+                  >
+                    <span className="truncate max-w-[120px] inline-block align-bottom">
+                      {partTitle}
+                    </span>
+                  </button>
+
+                  <div className="flex items-center gap-1">
+                    {numbersInPart.map((qNum) => {
+                      const isCurrent = qNum === currentQuestionIndex + 1;
+                      const isAnswered = answeredQuestions.has(qNum);
+                      const isFlagged = reviewQuestions?.has(qNum);
+                      return (
+                        <button
+                          key={qNum}
+                          onClick={() => goToQuestion(pIdx, qNum)}
+                          aria-current={isCurrent ? "true" : undefined}
+                          aria-label={`Question ${qNum}${
+                            isAnswered ? ", answered" : ""
+                          }${isFlagged ? ", marked for review" : ""}`}
+                          title={`Question ${qNum}${
+                            isFlagged ? " — marked for review" : ""
+                          }`}
+                          className={cn(
+                            "grid h-[26px] min-w-[26px] place-content-center border text-[12px] tabular-nums transition-all",
+                            // Square by default; a circle once it is flagged.
+                            isFlagged ? "rounded-full" : "rounded-[3px]",
+                            isCurrent
+                              ? "bg-ink text-paper border-ink font-semibold"
+                              : "border-transparent text-ink-soft hover:border-rule hover:text-ink",
+                            isFlagged &&
+                              !isCurrent &&
+                              "border-[var(--flag)] bg-[var(--flag-tint)] text-ink",
+                            isFlagged && isCurrent && "border-[var(--flag)]"
+                          )}
+                        >
+                          {/* The line under an answered number is the real
+                              test's "this one is done" mark. */}
+                          <span
+                            className={cn(
+                              "leading-none px-0.5",
+                              isAnswered && "border-b-2 border-current"
+                            )}
+                          >
+                            {qNum}
+                          </span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
               );
             })}
           </>

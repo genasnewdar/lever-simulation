@@ -10,6 +10,7 @@ import AudioPlayer from "../AudioPlayer";
 import type { HighlightColor } from "../tools/FloatingToolbar";
 import { cn, getSelectionCharacterOffsets } from "@/lib/utils";
 import { useTextHighlights, type HighlightSpec } from "@/lib/hooks/useTextHighlights";
+import { useExamLockdown } from "@/lib/hooks/useExamLockdown";
 import type { SectionTab } from "@/types/ielts-simulation";
 
 export type HighlightContainer = "passage" | "questions";
@@ -160,7 +161,6 @@ interface CDIELTSLayoutProps {
   /** When true, audio auto-plays and controls are hidden (real IELTS behavior). */
   examMode?: boolean;
   /** Map from question number (1-based) to student's answer string, for the review modal. */
-  reviewAnswers?: Record<number, string>;
   /** When set, listening audio position is persisted under this key (for resume-on-refresh). */
   audioStorageKey?: string | null;
   /** For Listening: fired once when the audio finishes playing to its end. */
@@ -201,12 +201,14 @@ const CDIELTSLayout: React.FC<CDIELTSLayoutProps> = ({
   onTimeExpire,
   hideSectionTabs = false,
   examMode = false,
-  reviewAnswers = {},
   audioStorageKey = null,
   onAudioEnded,
   onDevFinish,
 }) => {
   const [internalIndex, setInternalIndex] = useState(0);
+
+  // No copying the paper out, no browser find, no printing the screen.
+  useExamLockdown();
 
   // ── Listening timer: count down in sync with audio playback ─────────────────
   const [listeningTimerSecs, setListeningTimerSecs] = useState(initialSeconds);
@@ -542,6 +544,18 @@ const CDIELTSLayout: React.FC<CDIELTSLayoutProps> = ({
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [totalQuestions, controlledCurrentIndex]);
 
+  // Switching parts swaps what both panels show but not where they are
+  // scrolled to, so the new part would open at whatever offset the previous one
+  // was left at — halfway down, past its own instructions. The question click
+  // that rides along with the tab cannot fix this: it looks the new question up
+  // by id, and that element does not exist until this render commits.
+  useEffect(() => {
+    if (activePartIndex === undefined) return;
+    for (const el of [questionsContainerRef.current, passageContainerRef.current]) {
+      el?.scrollTo({ top: 0, behavior: "smooth" });
+    }
+  }, [activePartIndex]);
+
   // Intersection Observer for scroll tracking
   useEffect(() => {
     const options = {
@@ -571,7 +585,7 @@ const CDIELTSLayout: React.FC<CDIELTSLayoutProps> = ({
 
   return (
     <MotionConfig reducedMotion="user">
-    <div className="h-screen flex flex-col bg-paper overflow-hidden select-none font-sans">
+    <div className="exam-locked h-screen flex flex-col bg-paper overflow-hidden select-none font-sans">
       <Header
         userName={userName}
         initialSeconds={initialSeconds}

@@ -32,6 +32,13 @@
        text on it must stay dark in both themes. */
     --hl-ink:     oklch(0.18 0.005 264);
 
+    /* A part holding questions flagged for review is tinted in the same yellow
+       the student highlights text with — the colour already means "come back
+       to this", so the part tab does not have to teach a new one. Solid on the
+       badge, a wash behind the tab. */
+    --flag:       #f5d665;
+    --flag-tint:  color-mix(in oklch, #f5d665 24%, var(--paper));
+
     /* Page-turn motion tokens */
     --page-turn-duration: 520ms;
     --page-turn-ease: cubic-bezier(0.22, 0.61, 0.36, 1);
@@ -62,6 +69,8 @@
     --hl-yellow:  #f5d665;
     --hl-pink:    #f498c4;
     --hl-overlap: color-mix(in oklch, #f5d665 50%, #f498c4 50%);
+    --flag:       #f5d665;
+    --flag-tint:  color-mix(in oklch, #f5d665 26%, var(--paper));
   }
 
   * {
@@ -92,6 +101,20 @@
   h1, h2, h3, h4 {
     color: var(--ink);
     letter-spacing: -0.022em;
+  }
+
+  /* Native dropdowns paint their popup list from the control's own colours,
+     not from the page's. A select left on the browser default keeps a white
+     list in dark mode while the option text inherits the page's light ink —
+     white on white, unreadable. Both halves are pinned to the theme here so no
+     select can drift out of it. */
+  select {
+    color: var(--ink);
+  }
+
+  select option {
+    background-color: var(--paper);
+    color: var(--ink);
   }
 
   ::selection {
@@ -257,4 +280,13 @@
 .swiper-pagination-bullet-active {
   width: 24px !important;
   background: var(--mint) !important;
+}
+
+/* Printing is one more way the paper leaves the room, and Ctrl+P is not the
+   only route to it (the browser menu still has Print). Nothing of the exam
+   screen goes onto paper. */
+@media print {
+  .exam-locked {
+    display: none !important;
+  }
 }

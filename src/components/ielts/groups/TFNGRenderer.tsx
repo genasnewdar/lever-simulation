@@ -3,7 +3,8 @@
 import React from "react";
 import { useFormContext } from "react-hook-form";
 import type { GroupRendererProps } from "./types";
-import { GroupHeader, ReviewCheckbox } from "./shared";
+import { GroupHeader } from "./shared";
+import { ReviewCheckbox } from "../ReviewCheckbox";
 import { cn } from "@/lib/utils";
 
 export default function TFNGRenderer({
@@ -89,8 +90,8 @@ export default function TFNGRenderer({
               </span>
               <ReviewCheckbox
                 questionNumber={q.question_number}
-                reviewSet={reviewSet}
-                toggleReview={toggleReview}
+                checked={reviewSet.has(q.question_number)}
+                onToggle={toggleReview}
               />
             </div>
           );

@@ -20,6 +20,7 @@ import { MOCK_SIMULATION_DATA } from "./mock-data";
 import { mapBackendToQuestion } from "@/lib/ielts-mapper";
 import { cn, countWords } from "@/lib/utils";
 import type { SectionTab } from "@/types/ielts-simulation";
+import { ReviewCheckbox } from "@/components/ielts/ReviewCheckbox";
 
 type PageProps = {
   params?: Promise<Record<string, string | string[]>>;
@@ -657,17 +658,11 @@ export default function IELTSReplicaPage(props: PageProps) {
                       <span className="text-xs font-semibold text-gray-400 uppercase tracking-widest">
                         Question {q.question_number}
                       </span>
-                      <label className="flex items-center space-x-2 cursor-pointer group">
-                        <span className="text-[10px] font-semibold text-gray-400 group-hover:text-gray-600 transition-colors uppercase tracking-widest">
-                          Review
-                        </span>
-                        <input
-                          type="checkbox"
-                          checked={reviewSet.has(q.question_number)}
-                          onChange={() => toggleReview(q.question_number)}
-                          className="w-4 h-4 rounded border-bordercolor text-ink focus:ring-mint"
-                        />
-                      </label>
+                      <ReviewCheckbox
+                        questionNumber={q.question_number}
+                        checked={reviewSet.has(q.question_number)}
+                        onToggle={toggleReview}
+                      />
                     </div>
                     <QuestionFactory question={mapBackendToQuestion(q)} />
                   </div>

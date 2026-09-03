@@ -4,7 +4,8 @@ import React from "react";
 import { useFormContext } from "react-hook-form";
 import type { GroupRendererProps } from "./types";
 import type { NotesLayoutData } from "@/types/ielts-simulation";
-import { LayoutCells, GroupHeader, ReviewCheckbox } from "./shared";
+import { LayoutCells, GroupHeader } from "./shared";
+import { ReviewCheckbox } from "../ReviewCheckbox";
 import { cn } from "@/lib/utils";
 
 export default function NotesRenderer({
@@ -53,8 +54,8 @@ export default function NotesRenderer({
               <span className="text-xs text-ink-soft">Q{q.question_number}</span>
               <ReviewCheckbox
                 questionNumber={q.question_number}
-                reviewSet={reviewSet}
-                toggleReview={toggleReview}
+                checked={reviewSet.has(q.question_number)}
+                onToggle={toggleReview}
               />
             </div>
           ))}
@@ -108,8 +109,8 @@ export default function NotesRenderer({
               </span>
               <ReviewCheckbox
                 questionNumber={q.question_number}
-                reviewSet={reviewSet}
-                toggleReview={toggleReview}
+                checked={reviewSet.has(q.question_number)}
+                onToggle={toggleReview}
               />
             </div>
           );

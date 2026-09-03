@@ -182,6 +182,7 @@
 import React from "react";
 import { useFormContext } from "react-hook-form";
 import { Question } from "../../../types/ielts";
+import { ReviewCheckbox } from "@/components/ielts/ReviewCheckbox";
 
 interface SentenceCompletionProps {
   question: Question;
@@ -329,19 +330,11 @@ const SentenceCompletion: React.FC<SentenceCompletionProps> = ({
               </span>
             )}
             {/* Хүснэгтийн дотор, input-ийн ард Review checkbox */}
-            {onToggleReview && (
-              <label className="flex items-center gap-1.5 shrink-0 cursor-pointer ml-1">
-                <span className="text-[10px] font-semibold text-muted uppercase tracking-wider whitespace-nowrap">
-                  Review
-                </span>
-                <input
-                  type="checkbox"
-                  checked={isReviewChecked?.(qNum) ?? false}
-                  onChange={() => onToggleReview(qNum)}
-                  className="w-4 h-4 rounded border-rule text-ink focus:ring-mint"
-                />
-              </label>
-            )}
+            <ReviewCheckbox
+              questionNumber={qNum}
+              checked={isReviewChecked?.(qNum) ?? false}
+              onToggle={onToggleReview}
+            />
           </div>
         </div>
       </div>

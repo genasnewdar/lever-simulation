@@ -16,6 +16,14 @@ import WritingTask from "./questions/WritingTask";
 interface QuestionFactoryProps {
   question: Question;
   status?: "active" | "finished";
+  /**
+   * Flags a question for a second look. Every renderer draws this as a
+   * checkbox sitting next to the answer field, and each one carries
+   * `tabIndex={-1}`: Tab is how a candidate moves from one answer to the next,
+   * and a focusable checkbox in between sends them somewhere they didn't ask
+   * to go, silently, in the middle of a timed section. It stays clickable, and
+   * screen readers still reach it — it is only out of the typing path.
+   */
   onToggleReview?: (qNum: number) => void;
   isReviewChecked?: (qNum: number) => boolean;
 }

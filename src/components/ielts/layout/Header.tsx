@@ -2,7 +2,6 @@
 
 import React from "react";
 import Timer from "./Timer";
-import { ClipboardList } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Logo } from "@/components/Logo";
 import type { SectionTab } from "@/types/ielts-simulation";
@@ -14,7 +13,6 @@ interface HeaderProps {
   onTabChange: (tab: SectionTab) => void;
   onTimeExpire?: () => void;
   hideSectionTabs?: boolean;
-  onReviewClick?: () => void;
   controlledSeconds?: number;
   onDevFinish?: () => void;
 }
@@ -40,7 +38,6 @@ const Header: React.FC<HeaderProps> = ({
   onTabChange,
   onTimeExpire,
   hideSectionTabs = false,
-  onReviewClick,
   controlledSeconds,
   onDevFinish,
 }) => {
@@ -100,15 +97,6 @@ const Header: React.FC<HeaderProps> = ({
             className="px-2.5 py-1 rounded-md border border-rose-300 bg-rose-50 text-rose-600 text-xs font-semibold tracking-tight hover:bg-rose-100 transition-colors"
           >
             Finish section
-          </button>
-        )}
-        {onReviewClick && (
-          <button
-            onClick={onReviewClick}
-            className="flex items-center gap-1.5 text-ink-soft hover:text-ink px-2.5 py-1.5 rounded-md transition-colors"
-          >
-            <ClipboardList className="w-4 h-4" />
-            <span className="text-xs font-semibold tracking-tight">Review</span>
           </button>
         )}
       </div>

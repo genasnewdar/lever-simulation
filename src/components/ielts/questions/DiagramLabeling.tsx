@@ -4,6 +4,7 @@ import React from "react";
 import Image from "next/image";
 import { useFormContext } from "react-hook-form";
 import { Question } from "../../../types/ielts";
+import { ReviewCheckbox } from "@/components/ielts/ReviewCheckbox";
 
 interface DiagramLabelingProps {
   question: Question;
@@ -32,12 +33,11 @@ const DiagramLabeling: React.FC<DiagramLabelingProps> = ({
         <h3 className="text-xl font-semibold text-textprimary min-w-0">
           {title || "Label the Diagram"}
         </h3>
-        {onToggleReview && (
-          <label className="flex items-center gap-2 shrink-0 cursor-pointer">
-            <span className="text-[10px] font-semibold text-muted uppercase tracking-widest">Review</span>
-            <input type="checkbox" checked={isReviewChecked?.(qNum) ?? false} onChange={() => onToggleReview(qNum)} className="w-4 h-4 rounded border-rule text-ink focus:ring-mint" />
-          </label>
-        )}
+        <ReviewCheckbox
+          questionNumber={qNum}
+          checked={isReviewChecked?.(qNum) ?? false}
+          onToggle={onToggleReview}
+        />
       </div>
 
       <div className="grid grid-cols-1 xl:grid-cols-2 gap-12 items-center">
@@ -96,7 +96,7 @@ const DiagramLabeling: React.FC<DiagramLabelingProps> = ({
                   className={`flex-grow p-4 border-2 border-transparent rounded-md focus:ring-4 focus:ring-blue-500/10 focus:border-ink outline-none transition-all font-semibold text-ink-soft ${
                     disabled
                       ? "bg-paper-3 cursor-not-allowed border-transparent"
-                      : "bg-white hover:border-rule"
+                      : "bg-paper hover:border-rule"
                   }`}
                 />
               </div>

@@ -15,7 +15,8 @@ type PageStatus = "idle" | "verifying" | "verified" | "resuming";
 function IeltsMockExamPageInner() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { examCode, attemptId, setExamSession, clear } = useExamCodeStore();
+  const { examCode, attemptId, attemptStatus, setExamSession, clear } =
+    useExamCodeStore();
   const [code, setCode] = useState("");
   const [status, setStatus] = useState<PageStatus>("idle");
   const [isHydrated, setIsHydrated] = useState(false);
@@ -34,10 +35,18 @@ function IeltsMockExamPageInner() {
 
   useEffect(() => {
     if (!isHydrated) return;
+    // A finished sitting is not a session to pick up. The code is only kept
+    // past the exam so the results screens can authenticate with it, and on a
+    // shared machine the next candidate must not be offered it.
+    if (attemptStatus === "COMPLETED") {
+      clear();
+      setStatus("idle");
+      return;
+    }
     if (examCode && attemptId) {
       setStatus("resuming");
     }
-  }, [isHydrated, examCode, attemptId]);
+  }, [isHydrated, examCode, attemptId, attemptStatus, clear]);
 
   const toggleFullscreen = useCallback(async () => {
     if (!document.fullscreenElement) {

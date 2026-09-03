@@ -132,29 +132,3 @@ export function GroupHeader({
     </div>
   );
 }
-
-/** Review checkbox for a question. Renders nothing when toggleReview is omitted. */
-export function ReviewCheckbox({
-  questionNumber,
-  reviewSet,
-  toggleReview,
-}: {
-  questionNumber: number;
-  reviewSet: Set<number>;
-  toggleReview?: (n: number) => void;
-}) {
-  if (!toggleReview) return null;
-  return (
-    <label className="flex items-center gap-1.5 cursor-pointer">
-      <span className="text-[10px] font-semibold text-muted uppercase">
-        Review
-      </span>
-      <input
-        type="checkbox"
-        checked={reviewSet.has(questionNumber)}
-        onChange={() => toggleReview(questionNumber)}
-        className="w-4 h-4 rounded border-rule text-ink focus:ring-mint"
-      />
-    </label>
-  );
-}

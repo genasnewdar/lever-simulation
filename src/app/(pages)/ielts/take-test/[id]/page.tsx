@@ -44,6 +44,7 @@ import {
   loadAllSectionsFromStorage,
   splitAnswersBySection,
 } from "@/lib/stores/exam-store";
+import { wipeExamData } from "@/lib/exam-storage";
 
 import type {
   BackendQuestion,
@@ -122,9 +123,8 @@ const LEGACY_SECTION_ORDER: SectionId[] = ["listening", "reading", "writing"];
 export default function IeltsTakeTestPage(props: PageProps) {
   const params = use(props.params);
   const router = useRouter();
-  const resetMockExamStore = useMockExamStore((s) => s.reset);
   const sessionId = useMockExamStore((s) => s.sessionId);
-  const clearExamCode = useExamCodeStore((s) => s.clear);
+  const setAttempt = useExamCodeStore((s) => s.setAttempt);
   const examCode = useExamCodeStore((s) => s.examCode);
   const deviceToken = useExamCodeStore((s) => s.deviceToken);
   const setDeviceToken = useExamCodeStore((s) => s.setDeviceToken);
@@ -153,6 +153,8 @@ export default function IeltsTakeTestPage(props: PageProps) {
   // Fixed break shown between skills (Listening→Reading, Reading→Writing). While
   // true, the next section has not loaded yet, so no section timer is running.
   const [onBreak, setOnBreak] = useState(false);
+  // Which skill the break follows — shown on the break screen.
+  const [finishedSectionLabel, setFinishedSectionLabel] = useState<string | null>(null);
   // True when take-over claim fails after all retries — shows persistent banner.
   const [tokenClaimFailed, setTokenClaimFailed] = useState(false);
   // True when consecutive batch-submits fail — warns student answers may not be saving.
@@ -191,6 +193,10 @@ export default function IeltsTakeTestPage(props: PageProps) {
   }, [params.id, router]);
   const [writingTask, setWritingTask] = useState(1);
   const [reviewSet, setReviewSet] = useState<Set<number>>(new Set());
+  /** Question the navigation bar asked for, scrolled to once its part renders. */
+  const [pendingScrollQNum, setPendingScrollQNum] = useState<number | null>(
+    null,
+  );
   const [flashQuestionNumber, setFlashQuestionNumber] = useState<number | null>(
     null,
   );
@@ -236,8 +242,6 @@ export default function IeltsTakeTestPage(props: PageProps) {
   const getAnswersFromStore = useExamStore((s) => s.getAnswers);
   const setHighlightsInStore = useExamStore((s) => s.setHighlights);
   const getHighlightsFromStore = useExamStore((s) => s.getHighlights);
-  const clearHighlightsInStore = useExamStore((s) => s.clearHighlights);
-  const clearAnswersInStore = useExamStore((s) => s.clearAnswers);
   const hasHydrated = useExamStore((s) => s._hasHydrated);
 
   const examId = params.id != null ? String(params.id) : "";
@@ -603,7 +607,7 @@ export default function IeltsTakeTestPage(props: PageProps) {
 
   // ── Save answers to localStorage on change ─
   useEffect(() => {
-    if (!examId || !answersRestored || !sectionContent) return;
+    if (!examId || !answersRestored || !sectionContent || isFinished) return;
     setCurrentExamId(examId);
     const flat = formValuesToAnswers(watchAll as Record<string, unknown>);
     if (Object.keys(flat).length === 0) return;
@@ -623,6 +627,7 @@ export default function IeltsTakeTestPage(props: PageProps) {
     examId,
     answersRestored,
     sectionContent,
+    isFinished,
     sectionMappers,
     setCurrentExamId,
     setAnswersInStore,
@@ -937,51 +942,6 @@ export default function IeltsTakeTestPage(props: PageProps) {
     return answered;
   }, [watchAll, allQuestions, sectionContent]);
 
-  /** Map question number → answer string for the Review modal */
-  const reviewAnswers = useMemo(() => {
-    const map: Record<number, string> = {};
-    if (!watchAll || !sectionContent) return map;
-
-    if (watchAll.questions && typeof watchAll.questions === "object") {
-      Object.entries(watchAll.questions as Record<string, unknown>).forEach(
-        ([id, qObj]) => {
-          const obj = qObj as Record<string, unknown>;
-          const answer = obj?.answer;
-          if (answer === undefined || answer === null) return;
-          const str = Array.isArray(answer)
-            ? answer.join(", ")
-            : String(answer);
-          if (str.trim() === "") return;
-          const q = allQuestions.find((item) => item.id === id);
-          if (q) map[q.question_number] = str;
-        },
-      );
-    }
-
-    Object.keys(watchAll).forEach((key) => {
-      if (key === "questions" || key.startsWith("writing_task")) return;
-      const value = watchAll[key];
-      if (value === undefined || value === null) return;
-      const str =
-        typeof value === "string"
-          ? value
-          : Array.isArray(value)
-            ? value.join(", ")
-            : String(value);
-      if (str.trim() === "") return;
-      if (key.startsWith("gap_")) {
-        const rest = key.replace("gap_", "");
-        const num = parseInt(rest.split("_")[0], 10);
-        if (Number.isFinite(num)) map[num] = str;
-        return;
-      }
-      const q = allQuestions.find((item) => item.id === key);
-      if (q) map[q.question_number] = str;
-    });
-
-    return map;
-  }, [watchAll, allQuestions, sectionContent]);
-
   const isWritingTaskAnswered = useCallback(
     (taskNum: number) => {
       const key = `writing_task_${taskNum}`;
@@ -1019,9 +979,20 @@ export default function IeltsTakeTestPage(props: PageProps) {
     setCurrentQIndex(idx);
     const qNum = idx + 1;
     setFlashQuestionNumber(qNum);
-    const el = document.getElementById(`q-${qNum}`);
-    if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
+    setPendingScrollQNum(qNum);
   }, []);
+
+  // A number clicked in the navigation bar can belong to a part that is not on
+  // screen: the panel only renders the active part, so the element does not
+  // exist until the part switch commits. Hold the target and scroll to it once
+  // it is there.
+  useEffect(() => {
+    if (pendingScrollQNum === null) return;
+    const el = document.getElementById(`q-${pendingScrollQNum}`);
+    if (!el) return;
+    el.scrollIntoView({ behavior: "smooth", block: "start" });
+    setPendingScrollQNum(null);
+  }, [pendingScrollQNum, groupsToShow, activePartIndex]);
 
   useEffect(() => {
     if (flashQuestionNumber === null) return;
@@ -1624,6 +1595,7 @@ export default function IeltsTakeTestPage(props: PageProps) {
       // section (and its timer) only starts once the break ends, so the
       // candidate doesn't lose any of their next section's time.
       toast.info(`${SECTION_LABEL[currentSectionId]} дууслаа. Завсарлага.`);
+      setFinishedSectionLabel(SECTION_LABEL[currentSectionId]);
       breakStartMsRef.current = Date.now();
       onBreakRef.current = true;
       setOnBreak(true);
@@ -1666,6 +1638,17 @@ export default function IeltsTakeTestPage(props: PageProps) {
     params.id,
     transitionToNextSection,
   ]);
+
+  // These machines are shared: the next candidate sits down at this browser
+  // minutes later. As soon as the sitting is over, everything it wrote goes —
+  // answers, highlights and notes, the section and audio position, the mock
+  // exam session. Only the exam code stays, because the feedback and results
+  // screens authenticate with it; it goes when the candidate leaves for home.
+  useEffect(() => {
+    if (!isFinished) return;
+    wipeExamData({ keepExamCode: true });
+    if (examId) setAttempt(examId, "COMPLETED");
+  }, [isFinished, examId, setAttempt]);
 
   // ── Render: Loading ─────────────────────────────────────────────────────────
   if (isLoading) {
@@ -1735,10 +1718,8 @@ export default function IeltsTakeTestPage(props: PageProps) {
               if (document.fullscreenElement) {
                 document.exitFullscreen().catch(() => {});
               }
-              resetMockExamStore();
-              clearHighlightsInStore(examId);
-              clearAnswersInStore(examId);
-              // Don't clear exam code — results page needs it for API auth
+              // The sitting was already wiped on finish; the exam code is all
+              // that is left and the results screens still need it.
               router.push(`/ielts/finished/${params.id}`);
             }}
             className="w-full py-4 bg-primary text-white rounded-2xl font-semibold text-lg hover:bg-primary/90 transition-all shadow-xl shadow-primary/20 active:scale-95">
@@ -1750,10 +1731,7 @@ export default function IeltsTakeTestPage(props: PageProps) {
               if (document.fullscreenElement) {
                 document.exitFullscreen().catch(() => {});
               }
-              resetMockExamStore();
-              clearHighlightsInStore(examId);
-              clearAnswersInStore(examId);
-              clearExamCode();
+              wipeExamData();
               router.push("/ielts");
             }}
             className="w-full py-3 bg-paper-3 text-gray-700 rounded-2xl font-semibold text-base hover:bg-paper-3 transition-all">
@@ -1792,6 +1770,7 @@ export default function IeltsTakeTestPage(props: PageProps) {
       {onBreak && (
         <BreakOverlay
           seconds={SECTION_BREAK_SECONDS}
+          finishedSection={finishedSectionLabel ?? undefined}
           onDone={() => {
             onBreakRef.current = false;
             setOnBreak(false);
@@ -1869,7 +1848,7 @@ export default function IeltsTakeTestPage(props: PageProps) {
               setCurrentQIndex(sections[partIndex].start - 1);
             }
           }}
-          reviewAnswers={reviewAnswers}>
+        >
           {/* Left Panel: Content (Reading/Writing) */}
           <div className="space-y-12">
             {activeTab === "READING" && activePassage && (

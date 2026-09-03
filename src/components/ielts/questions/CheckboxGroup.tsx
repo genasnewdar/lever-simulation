@@ -4,6 +4,7 @@ import React from 'react';
 import { useFormContext, Controller } from 'react-hook-form';
 import { Question } from '../../../types/ielts';
 import { Checkbox } from '../../ui/checkbox';
+import { ReviewCheckbox } from "@/components/ielts/ReviewCheckbox";
 
 interface CheckboxGroupProps {
   question: Question;
@@ -28,12 +29,11 @@ const CheckboxGroup: React.FC<CheckboxGroupProps> = ({ question, disabled, onTog
           )}
           <h3 className="text-xl font-semibold text-textprimary">{title || 'Select all that apply.'}</h3>
         </div>
-        {onToggleReview && (
-          <label className="flex items-center gap-2 shrink-0 cursor-pointer">
-            <span className="text-[10px] font-semibold text-muted uppercase tracking-widest">Review</span>
-            <input type="checkbox" checked={isReviewChecked?.(qNum) ?? false} onChange={() => onToggleReview(qNum)} className="w-4 h-4 rounded border-rule text-ink focus:ring-mint" />
-          </label>
-        )}
+        <ReviewCheckbox
+          questionNumber={qNum}
+          checked={isReviewChecked?.(qNum) ?? false}
+          onToggle={onToggleReview}
+        />
       </div>
       
       <div className="space-y-3 pl-12">

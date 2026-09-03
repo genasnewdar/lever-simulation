@@ -4,7 +4,8 @@ import React from "react";
 import { useFormContext } from "react-hook-form";
 import type { GroupRendererProps } from "./types";
 import type { SentencesLayoutData } from "@/types/ielts-simulation";
-import { LayoutCells, GroupHeader, ReviewCheckbox } from "./shared";
+import { LayoutCells, GroupHeader } from "./shared";
+import { ReviewCheckbox } from "../ReviewCheckbox";
 import { cn } from "@/lib/utils";
 
 export default function SentencesRenderer({
@@ -43,8 +44,8 @@ export default function SentencesRenderer({
               <span className="text-xs text-ink-soft">Q{q.question_number}</span>
               <ReviewCheckbox
                 questionNumber={q.question_number}
-                reviewSet={reviewSet}
-                toggleReview={toggleReview}
+                checked={reviewSet.has(q.question_number)}
+                onToggle={toggleReview}
               />
             </div>
           ))}
@@ -93,8 +94,8 @@ export default function SentencesRenderer({
               ))}
               <ReviewCheckbox
                 questionNumber={q.question_number}
-                reviewSet={reviewSet}
-                toggleReview={toggleReview}
+                checked={reviewSet.has(q.question_number)}
+                onToggle={toggleReview}
               />
             </div>
           );

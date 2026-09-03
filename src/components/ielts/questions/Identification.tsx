@@ -3,6 +3,7 @@
 import React from 'react';
 import { useFormContext } from 'react-hook-form';
 import { Question } from '../../../types/ielts';
+import { ReviewCheckbox } from "@/components/ielts/ReviewCheckbox";
 
 interface IdentificationProps {
   question: Question;
@@ -41,17 +42,16 @@ const Identification: React.FC<IdentificationProps> = ({ question, disabled, onT
       </div>
       
       <div className="flex items-center gap-4 shrink-0">
-        {onToggleReview && (
-          <label className="flex items-center gap-2 cursor-pointer">
-            <span className="text-[10px] font-semibold text-muted uppercase tracking-widest">Review</span>
-            <input type="checkbox" checked={isReviewChecked?.(qNum) ?? false} onChange={() => onToggleReview(qNum)} className="w-4 h-4 rounded border-rule text-ink focus:ring-mint" />
-          </label>
-        )}
+        <ReviewCheckbox
+          questionNumber={qNum}
+          checked={isReviewChecked?.(qNum) ?? false}
+          onToggle={onToggleReview}
+        />
       <div className="flex gap-2 min-w-[200px]">
         <select
           disabled={disabled}
           {...register(registrationKey)}
-          className={`w-full p-3 border border-rule rounded-md focus:ring-1 focus:ring-mint focus:border-mint bg-foreground font-semibold text-primary outline-none transition-all ${
+          className={`w-full p-3 border border-rule rounded-md focus:ring-1 focus:ring-mint focus:border-mint bg-paper font-semibold text-ink outline-none transition-all ${
             disabled ? 'bg-paper-3 cursor-not-allowed text-muted opacity-50' : 'cursor-pointer hover:border-ink-soft'
           }`}
         >
