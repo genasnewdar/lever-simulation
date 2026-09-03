@@ -3,6 +3,13 @@
 import { useEffect, useRef, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { api } from "@/lib/axios";
+import { SpeakingReport } from "@/components/speaking/SpeakingReport";
+import type {
+  SpeakingFeedback,
+  SpeakingFeedbackSuccess,
+  SpeakingResults,
+  SpeakingResultsSuccess,
+} from "@/types/speaking";
 import {
   Loader2,
   ArrowLeft,
@@ -159,6 +166,14 @@ export default function ResultsPage() {
   const [error, setError] = useState<string | null>(null);
   const [expandedTask, setExpandedTask] = useState<number | null>(1);
   const [showEssay, setShowEssay] = useState<Record<number, boolean>>({});
+  // The speaking verdict lives behind its own endpoints — the sitting's results
+  // payload carries the band but not the examiner's feedback or the
+  // corrections, which is why this page used to show a number and nothing else.
+  const [speaking, setSpeaking] = useState<SpeakingResultsSuccess | null>(null);
+  const [speakingFeedback, setSpeakingFeedback] =
+    useState<SpeakingFeedbackSuccess | null>(null);
+  const [speakingFeedbackUnavailable, setSpeakingFeedbackUnavailable] =
+    useState(false);
 
   useEffect(() => {
     if (!attemptId) return;
@@ -206,6 +221,69 @@ export default function ResultsPage() {
       clearTimeout(pollTimer);
     };
   }, [attemptId]);
+
+  // ── Speaking: bands and corrections ────────────────────────────────────────
+  // Only for a sitting that actually had a speaking interview. The bands are
+  // already graded by the time the attempt reads GRADED; the corrections are
+  // generated on the slower model and land minutes later, so each half is
+  // polled until it settles — the same way the speaking-only page does it.
+  const speakingBand = data?.scores?.speaking?.band;
+
+  useEffect(() => {
+    if (speakingBand == null) return;
+
+    let cancelled = false;
+    let timer: ReturnType<typeof setTimeout>;
+    let resultDone = false;
+    let feedbackDone = false;
+
+    const poll = async () => {
+      if (!resultDone) {
+        try {
+          const res = await api.get<SpeakingResults>(
+            `/api/public/ielts/speaking/${attemptId}/results`,
+          );
+          if (cancelled) return;
+          if (res.data.status === "success") {
+            resultDone = true;
+            setSpeaking(res.data);
+          }
+        } catch {
+          // Nothing else on this page depends on it — stop asking.
+          resultDone = true;
+          feedbackDone = true;
+        }
+      }
+
+      if (!feedbackDone) {
+        try {
+          const res = await api.get<SpeakingFeedback>(
+            `/api/public/ielts/speaking/${attemptId}/feedback`,
+          );
+          if (cancelled) return;
+          if (res.data.status === "success") {
+            feedbackDone = true;
+            setSpeakingFeedback(res.data);
+          } else if (res.data.status === "unavailable") {
+            feedbackDone = true;
+            setSpeakingFeedbackUnavailable(true);
+          }
+        } catch {
+          // Supplementary to the bands — keep polling, never fail the page.
+        }
+      }
+
+      if (cancelled || (resultDone && feedbackDone)) return;
+      timer = setTimeout(poll, 5000);
+    };
+
+    poll();
+
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
+  }, [attemptId, speakingBand]);
 
   // ── Loading ──
   if (loading) {
@@ -512,7 +590,10 @@ export default function ResultsPage() {
                                 className="bg-paper-3 rounded-xl p-4 space-y-1"
                               >
                                 <div className="flex flex-wrap items-center gap-2 text-sm">
-                                  <span className="line-through text-mint-deep">
+                                  {/* The mistake reads red and the fix green,
+                                      the same way the speaking corrections do —
+                                      both in mint made them one colour. */}
+                                  <span className="line-through text-red-600 dark:text-red-400">
                                     {err.original}
                                   </span>
                                   <span className="text-muted">→</span>
@@ -573,10 +654,32 @@ export default function ResultsPage() {
           </section>
         )}
 
+        {/* ── Speaking Feedback ────────────────────────────── */}
+        {speakingBand != null && (
+          <section className="space-y-4">
+            <h2 className="text-xl font-semibold text-ink">
+              Speaking — Дэлгэрэнгүй үнэлгээ
+            </h2>
+            {speaking ? (
+              <SpeakingReport
+                result={speaking}
+                feedback={speakingFeedback}
+                feedbackUnavailable={speakingFeedbackUnavailable}
+                showBand={false}
+              />
+            ) : (
+              <p className="inline-flex items-center gap-2 text-[13px] text-muted">
+                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                Ярианы үнэлгээ ачааллаж байна…
+              </p>
+            )}
+          </section>
+        )}
+
         <div className="flex items-center justify-center gap-4 pb-8">
           <button
             onClick={() => router.push("/ielts")}
-            className="px-8 py-3 bg-primary text-white rounded-xl font-semibold hover:bg-primary/90 transition-colors"
+            className="px-8 py-3 bg-ink text-paper rounded-xl font-semibold hover:bg-ink-soft transition-colors"
           >
             Нүүр хуудас руу буцах
           </button>
@@ -693,7 +796,7 @@ function AnswerReviewSection({
                 onClick={() => setIncorrectOnly(false)}
                 className={`px-3 py-1.5 transition-colors ${
                   !incorrectOnly
-                    ? "bg-primary text-white"
+                    ? "bg-ink text-paper"
                     : "text-ink-soft hover:bg-paper-2"
                 }`}
               >
@@ -703,7 +806,7 @@ function AnswerReviewSection({
                 onClick={() => setIncorrectOnly(true)}
                 className={`px-3 py-1.5 transition-colors ${
                   incorrectOnly
-                    ? "bg-primary text-white"
+                    ? "bg-ink text-paper"
                     : "text-ink-soft hover:bg-paper-2"
                 }`}
               >
@@ -746,7 +849,7 @@ function ReviewRow({ item, isReading = false }: { item: ReviewResponse; isReadin
   return (
     <div
       className={`px-6 py-4 flex gap-4 ${
-        item.is_correct ? "bg-white" : "bg-paper-3"
+        item.is_correct ? "bg-paper" : "bg-paper-3"
       }`}
     >
       <div className="flex flex-col items-center gap-1 shrink-0 w-10">
@@ -756,7 +859,7 @@ function ReviewRow({ item, isReading = false }: { item: ReviewResponse; isReadin
         <span
           className={`w-6 h-6 rounded-full flex items-center justify-center ${
             item.is_correct
-              ? "bg-green-100 text-mint-deep"
+              ? "bg-mint-soft text-mint-ink"
               : "bg-paper-3 text-ink"
           }`}
           aria-label={item.is_correct ? "Зөв" : "Буруу"}
@@ -800,20 +903,20 @@ function ReviewRow({ item, isReading = false }: { item: ReviewResponse; isReadin
 
         {/* Reading passage highlight — incorrect answers only */}
         {isReading && !item.is_correct && (
-          <div className="flex items-start gap-2 pt-2 border-t border-amber-200/60">
-            <span className="shrink-0 mt-0.5 text-[10px] font-semibold text-amber-700 uppercase tracking-widest">
+          <div className="flex items-start gap-2 pt-2 border-t border-rule">
+            <span className="shrink-0 mt-0.5 text-[10px] font-semibold text-amber-700 dark:text-amber-300 uppercase tracking-widest">
               Passage
             </span>
             <div className="flex flex-wrap gap-1.5">
               {/* Student's wrong answer — red strikethrough marker */}
               {item.student_answer && (
-                <span className="inline-flex items-center gap-1 bg-red-100 text-red-800 px-2 py-0.5 rounded text-sm font-medium">
+                <span className="inline-flex items-center gap-1 bg-red-100 text-red-900 dark:bg-red-500/20 dark:text-red-200 px-2 py-0.5 rounded text-sm font-medium">
                   <X className="w-3 h-3 shrink-0" />
                   <s className="opacity-70">{studentDisplay}</s>
                 </span>
               )}
               {/* Correct answer — yellow passage highlight */}
-              <mark className="bg-yellow-200 text-yellow-900 px-2 py-0.5 rounded text-sm font-semibold not-italic leading-relaxed">
+              <mark className="bg-[var(--hl-yellow)] text-[var(--hl-ink)] px-2 py-0.5 rounded text-sm font-semibold not-italic leading-relaxed">
                 {correctDisplay}
               </mark>
             </div>
