@@ -174,6 +174,10 @@ export default function IeltsTakeTestPage(props: PageProps) {
   const isLastSection =
     sectionOrder[sectionOrder.length - 1] === currentSectionId;
 
+  // Set before a navigation the app itself makes (into Speaking, out to the
+  // results). The beforeunload guard reads it and lets that one through.
+  const leavingDeliberatelyRef = useRef(false);
+
   /**
    * Continue the sitting in the speaking interview.
    *
@@ -184,6 +188,13 @@ export default function IeltsTakeTestPage(props: PageProps) {
    * rather than dumping them on a page that will reject them.
    */
   const goToSpeaking = useCallback(() => {
+    // The sitting is moving on by our own hand, not by the candidate wandering
+    // off, so the unload guard stands down. Should this navigation ever be a
+    // full page load — a redeploy mid-sitting leaves the client on a build the
+    // router can no longer resolve, and Next falls back to one — the browser
+    // would otherwise stop the candidate with "Leave site?" between Writing and
+    // their Speaking interview.
+    leavingDeliberatelyRef.current = true;
     if (!prepareSpeakingHandoff(params.id)) {
       toast.error("Ярианы шалгалт руу шилжих боломжгүй. Шалгалтын кодоо оруулна уу.");
       router.push("/ielts/mock-exam");
@@ -1530,6 +1541,10 @@ export default function IeltsTakeTestPage(props: PageProps) {
       // browser still tries; combined with the periodic safety net below,
       // typed content is very unlikely to be lost.
       submitCurrentAnswers().catch(() => {});
+      // Only the candidate leaving on their own is worth stopping. A move the
+      // app is making — on to Speaking, out to the results — is not something
+      // to ask them to confirm.
+      if (leavingDeliberatelyRef.current) return;
       e.preventDefault();
       e.returnValue = "";
     };
@@ -1720,6 +1735,7 @@ export default function IeltsTakeTestPage(props: PageProps) {
               }
               // The sitting was already wiped on finish; the exam code is all
               // that is left and the results screens still need it.
+              leavingDeliberatelyRef.current = true;
               router.push(`/ielts/finished/${params.id}`);
             }}
             className="w-full py-4 bg-primary text-white rounded-2xl font-semibold text-lg hover:bg-primary/90 transition-all shadow-xl shadow-primary/20 active:scale-95">
@@ -1731,6 +1747,7 @@ export default function IeltsTakeTestPage(props: PageProps) {
               if (document.fullscreenElement) {
                 document.exitFullscreen().catch(() => {});
               }
+              leavingDeliberatelyRef.current = true;
               wipeExamData();
               router.push("/ielts");
             }}
