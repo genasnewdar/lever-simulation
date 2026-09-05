@@ -72,6 +72,23 @@ const SILENCE_MS = 3500;
 const SILENCE_WARN_MS = 2000;
 
 /**
+ * How long a student mid-sentence gets after their time is up.
+ *
+ * Cutting on the exact second takes the end off the answer, and the end of an
+ * answer is where the complex sentence usually is — the candidate is marked
+ * down for a machine's punctuality. So the clock running out while they are
+ * still talking buys them one grace period: the silence detector ends the turn
+ * the moment they finish, and this is the hard stop if they do not.
+ *
+ * Ten seconds because that is exactly what the server already allows — the turn
+ * timeout task fires at the limit plus the same grace, so an answer submitted
+ * inside it is still accepted. Changing this number without changing
+ * `grace_seconds` in queue_scheduler.schedule_turn_timeout would start losing
+ * answers the student was told they could give.
+ */
+const GRACE_MS = 10_000;
+
+/**
  * The pause before the examiner speaks.
  *
  * Deliberate, and the only added wait in the whole flow. A reply that starts
@@ -157,6 +174,14 @@ export default function SpeakingSessionPage() {
   const busyRef = useRef(false);
   const finishedRef = useRef(false);
   const bootedRef = useRef(false);
+
+  /** Whether this turn has already had its overtime. One per turn. */
+  const graceUsedRef = useRef(false);
+
+  /** Latest mic level reader, so the countdown can ask without re-subscribing:
+   *  putting the recorder in the interval's deps would restart the clock on
+   *  every tick's render, and it would never fire again. */
+  const levelRef = useRef<() => number>(() => 0);
 
   /** Latest flow callbacks, so timers and key handlers never call a stale one. */
   const flowRef = useRef({
@@ -279,6 +304,7 @@ export default function SpeakingSessionPage() {
     });
 
     deadlineRef.current = Date.now() + armed.limitSeconds * 1000;
+    graceUsedRef.current = false;
     setRemaining(armed.limitSeconds);
     setPhase("listening");
   }, [failSession, pushLine, recognition, recorder]);
@@ -480,6 +506,7 @@ export default function SpeakingSessionPage() {
   }, [armTurn, attemptId, failSession]);
 
   flowRef.current = { advance, startSpeaking, endTurn, endPrep };
+  levelRef.current = recorder.getLevel;
 
   // Stable identities: TalkControl keeps a window key listener keyed to these,
   // so inline arrows would resubscribe on every render.
@@ -520,13 +547,29 @@ export default function SpeakingSessionPage() {
       if (!deadline) return;
 
       const left = Math.max(0, Math.ceil((deadline - Date.now()) / 1000));
-      setRemaining(left);
+      // The clock sits at zero through the overtime rather than jumping back up
+      // to ten: their time really is up, they are only being allowed to land
+      // the sentence.
+      setRemaining(graceUsedRef.current ? 0 : left);
 
-      if (left === 0) {
-        deadlineRef.current = null;
-        if (phase === "prep") flowRef.current.endPrep();
-        else flowRef.current.endTurn();
+      if (left > 0) return;
+
+      // Still mid-sentence when the time ran out: let them land it. The silence
+      // detector is what actually ends the turn — this is only the hard stop
+      // for a candidate who keeps going.
+      if (
+        phase === "listening" &&
+        !graceUsedRef.current &&
+        levelRef.current() >= SPEECH_LEVEL
+      ) {
+        graceUsedRef.current = true;
+        deadlineRef.current = Date.now() + GRACE_MS;
+        return;
       }
+
+      deadlineRef.current = null;
+      if (phase === "prep") flowRef.current.endPrep();
+      else flowRef.current.endTurn();
     }, 250);
 
     return () => window.clearInterval(interval);
