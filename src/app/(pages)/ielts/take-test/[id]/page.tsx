@@ -63,6 +63,9 @@ import { prepareSpeakingHandoff } from "@/lib/speaking/handoff";
 // review window) is provided by the backend content API.
 const SECTION_BREAK_SECONDS = 120;
 
+// Shared so a section with no flags yet returns the same object every render.
+const EMPTY_REVIEW: Set<number> = new Set<number>();
+
 // Fallback post-audio Listening review window, used only when the backend
 // doesn't send one. Matches the CD IELTS answer-checking time.
 const DEFAULT_LISTENING_REVIEW_SECONDS = 120;
@@ -203,7 +206,13 @@ export default function IeltsTakeTestPage(props: PageProps) {
     router.push(`/speaking/session/${params.id}`);
   }, [params.id, router]);
   const [writingTask, setWritingTask] = useState(1);
-  const [reviewSet, setReviewSet] = useState<Set<number>>(new Set());
+  // Review flags belong to a section, not to a number. Question numbers restart
+  // at 1 in every section, so one shared set meant a question flagged in
+  // Writing came back flagged as question 1 of Listening the moment the
+  // candidate looked back at it.
+  const [reviewByTab, setReviewByTab] = useState<
+    Partial<Record<SectionTab, Set<number>>>
+  >({});
   /** Question the navigation bar asked for, scrolled to once its part renders. */
   const [pendingScrollQNum, setPendingScrollQNum] = useState<number | null>(
     null,
@@ -973,18 +982,22 @@ export default function IeltsTakeTestPage(props: PageProps) {
   );
 
   const timerInitialSeconds = sectionTimerSeconds;
+  const reviewSet = reviewByTab[activeTab] ?? EMPTY_REVIEW;
   const layoutMode = activeTab === "LISTENING" ? "SINGLE" : "SPLIT";
   const totalQuestions = allQuestions.length || 40;
 
   // ── Callbacks ───────────────────────────────────────────────────────────────
-  const toggleReview = useCallback((qNum: number) => {
-    setReviewSet((prev) => {
-      const next = new Set(prev);
-      if (next.has(qNum)) next.delete(qNum);
-      else next.add(qNum);
-      return next;
-    });
-  }, []);
+  const toggleReview = useCallback(
+    (qNum: number) => {
+      setReviewByTab((prev) => {
+        const next = new Set(prev[activeTab] ?? []);
+        if (next.has(qNum)) next.delete(qNum);
+        else next.add(qNum);
+        return { ...prev, [activeTab]: next };
+      });
+    },
+    [activeTab],
+  );
 
   const handleQuestionClick = useCallback((idx: number) => {
     setCurrentQIndex(idx);

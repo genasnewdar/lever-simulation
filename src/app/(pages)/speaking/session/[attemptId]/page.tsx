@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { AnimatePresence, motion } from "framer-motion";
 import { toast } from "react-toastify";
@@ -154,6 +154,18 @@ export default function SpeakingSessionPage() {
   const [phase, setPhase] = useState<SessionPhase>("connecting");
   const [started, setStarted] = useState(false);
   const [lines, setLines] = useState<TranscriptLine[]>([]);
+
+  // The candidate's own words never go on the screen. Reading your speech back
+  // as you say it turns a speaking test into a writing one: you start editing
+  // the sentence you are halfway through, and a recogniser mishearing a word
+  // reads as a mark against you when it is only a caption. The orb already
+  // shows that you are being heard, and how loudly. The examiner's turn stays
+  // printed — that is the question, and it has to be readable.
+  const examinerLines = useMemo(
+    () => lines.filter((line) => line.speaker === "examiner"),
+    [lines],
+  );
+
   const [part, setPart] = useState(1);
   const [progress, setProgress] = useState({ index: 0, total: 0 });
   const [cueCard, setCueCard] = useState<string | null>(null);
@@ -817,7 +829,7 @@ export default function SpeakingSessionPage() {
           // viewport — the page does not scroll. Two lines always remain, so a
           // tight window costs history, never the line being spoken.
           <TranscriptStream
-            lines={lines}
+            lines={examinerLines}
             className={cn(
               "mt-2 min-h-[6rem]",
               showCueCard ? "max-h-[20vh]" : "max-h-[32vh]",

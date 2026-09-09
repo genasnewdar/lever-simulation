@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect } from "react";
 
 /**
  * The candidate's own answer boxes are the one place the clipboard stays alive:
@@ -57,26 +57,23 @@ const CLIPBOARD_KEYS = new Set(["c", "x", "v", "a"]);
  * of shortcutting the reading (Ctrl+F) are simply not there during the sitting.
  */
 export function useExamLockdown(enabled: boolean = true): void {
-  // Paste is allowed only when the clipboard was filled by a copy/cut we
-  // ourselves permitted — i.e. from inside an answer box. Anything the
-  // candidate copied in another tab before the exam stays out.
-  const clipboardIsOurs = useRef(false);
-
   useEffect(() => {
     if (!enabled) return;
 
     const onCopyOrCut = (e: ClipboardEvent) => {
-      if (selectionIsInsideAnswerField()) {
-        clipboardIsOurs.current = true;
-        return;
-      }
+      if (selectionIsInsideAnswerField()) return;
       e.preventDefault();
     };
 
+    // Paste is allowed anywhere the candidate is allowed to type. It used to
+    // additionally require that the clipboard had been filled by a copy we
+    // ourselves permitted, which meant the ordinary first paste of a session
+    // silently did nothing and the feature read as broken. That gate never
+    // bought much: someone determined to paste prepared text can hold it in
+    // the answer box from the start. Moving a sentence around Task 2 is what
+    // this is for, and it has to plainly work.
     const onPaste = (e: ClipboardEvent) => {
-      if (!isAnswerField(e.target) || !clipboardIsOurs.current) {
-        e.preventDefault();
-      }
+      if (!isAnswerField(e.target)) e.preventDefault();
     };
 
     const onContextMenu = (e: MouseEvent) => {
@@ -99,9 +96,6 @@ export function useExamLockdown(enabled: boolean = true): void {
       const key = e.key.toLowerCase();
       if (CLIPBOARD_KEYS.has(key)) {
         if (isAnswerField(e.target) || isAnswerField(document.activeElement)) {
-          // Track our own copy/cut here too: the keyboard path fires the copy
-          // event as well, but Ctrl+X on an empty selection would not.
-          if (key === "c" || key === "x") clipboardIsOurs.current = true;
           return;
         }
         e.preventDefault();
