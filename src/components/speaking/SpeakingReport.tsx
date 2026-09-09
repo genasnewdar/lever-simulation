@@ -52,6 +52,14 @@ export function SpeakingReport({
   className?: string;
 }) {
   const partObservations = extractPartObservations(result.detailed_feedback);
+
+  // Worth a section only while it still says something. Per-answer bands exist
+  // on the turn-by-turn marking path but not the holistic one, and transcripts
+  // move into the corrections section as soon as it loads — leaving a list of
+  // questions the candidate was already asked and how long they talked for.
+  const hasPerAnswerDetail = result.responses.some(
+    (r) => r.band_score !== null || (!feedback && !!r.transcript?.trim()),
+  );
   const name = result.student_name || studentName;
 
   return (
@@ -131,9 +139,13 @@ export function SpeakingReport({
         </section>
       )}
 
-      {/* Per-answer bands. The words themselves move to the correction
-          section below once it arrives, so they are not printed twice. */}
-      {result.responses.length > 0 && (
+      {/* Per-answer bands. The words themselves move to the correction section
+          below once it arrives, so they are not printed twice — which is what
+          left this section printing twenty-one questions and a stopwatch and
+          nothing else: holistic marking scores the session, not each answer,
+          so there were no bands either. It renders only when it still carries
+          something a candidate can read. */}
+      {hasPerAnswerDetail && (
         <section className="mt-12">
           <h2 className="font-serif text-[1.4rem] font-semibold tracking-[-0.015em] text-ink">
             Таны хариултууд
@@ -158,11 +170,7 @@ export function SpeakingReport({
                     )}
                   </p>
                 )}
-                {response.duration !== null && (
-                  <p className="mt-2 font-mono text-[11px] text-muted">
-                    {response.duration}s
-                  </p>
-                )}
+
               </div>
             ))}
           </div>
