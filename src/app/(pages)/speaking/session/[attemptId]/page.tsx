@@ -68,8 +68,16 @@ const MIN_ANSWER_MS = 1000;
 const SPEECH_LEVEL = 0.1;
 /** Below this the room is quiet. The gap between the two stops flapping. */
 const SILENCE_LEVEL = 0.05;
-/** How long the quiet has to hold before the answer is submitted for them. */
-const SILENCE_MS = 3500;
+/**
+ * How long the quiet has to hold before the answer is submitted for them.
+ *
+ * Five seconds, not the three and a half it was: a candidate thinking mid-
+ * answer pauses for longer than a machine expects, and the pause before the
+ * interesting half of a sentence is exactly the one that was being cut off.
+ * The cost of waiting too long is a few dead seconds; the cost of cutting too
+ * early is an answer they never got to finish.
+ */
+const SILENCE_MS = 5000;
 /** When to start warning that it is about to happen. */
 const SILENCE_WARN_MS = 2000;
 
