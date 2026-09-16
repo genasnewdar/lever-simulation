@@ -16,6 +16,7 @@ import {
   fetchNextTurn,
   fetchVoiceCheck,
   markPrepDone,
+  fetchAppointment,
   startSession,
   submitTurn,
   uploadTurnAudio,
@@ -28,6 +29,7 @@ import { useVoiceRecorder } from "@/lib/speaking/useVoiceRecorder";
 import { cn } from "@/lib/utils";
 import type {
   SessionPhase,
+  SpeakingAppointment,
   SpeakingTurn,
   TranscriptLine,
   VoiceCheckResponse,
@@ -153,6 +155,15 @@ export default function SpeakingSessionPage() {
 
   const [phase, setPhase] = useState<SessionPhase>("connecting");
   const [started, setStarted] = useState(false);
+  // The interview is an appointment: the candidate finishes the written block
+  // at whichever desk they sat, walks to an interview machine and enters their
+  // code, and waits there until their window is called. Polled, because the
+  // window opens on a clock or on an invigilator's button — neither of which
+  // this screen can see.
+  const [appointment, setAppointment] = useState<SpeakingAppointment | null>(
+    null,
+  );
+  const noAppointment = appointment?.appointed === false;
   const [lines, setLines] = useState<TranscriptLine[]>([]);
 
   // The candidate's own words never go on the screen. Reading your speech back
@@ -706,6 +717,37 @@ export default function SpeakingSessionPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // Poll the appointment until it opens, then start on its own — the candidate
+  // is sitting in front of the machine waiting to be called, and should not
+  // have to notice a button appearing.
+  useEffect(() => {
+    // Nothing to wait for: no appointment on this sitting, or the candidate is
+    // already in the mic check. Keyed on a boolean, not on the appointment
+    // object — a fresh object every poll would restart the effect, and the
+    // effect checks immediately, which is a request every render.
+    if (started || noAppointment) return;
+    let cancelled = false;
+
+    const check = async () => {
+      try {
+        const next = await fetchAppointment(attemptId);
+        if (cancelled) return;
+        setAppointment(next);
+        if (next.appointed && next.open) handleBegin();
+      } catch {
+        // A sitting with no appointment endpoint, or a blip: the mic check is
+        // still usable and `/start` is the real gate.
+      }
+    };
+
+    check();
+    const timer = setInterval(check, 15_000);
+    return () => {
+      cancelled = true;
+      clearInterval(timer);
+    };
+  }, [attemptId, started, noAppointment, handleBegin]);
+
   // ── Render ────────────────────────────────────────────────────────────────
 
   const orbMode =
@@ -744,6 +786,7 @@ export default function SpeakingSessionPage() {
         onTestVoice={handleTestVoice}
         onBegin={handleBegin}
         recognitionSupported={recognition.supported}
+        appointment={appointment}
       />
     );
   }

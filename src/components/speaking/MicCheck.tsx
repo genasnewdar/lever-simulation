@@ -5,6 +5,7 @@ import { Check, Loader2, Mic, MicOff, Volume2 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import type { SpeakingAppointment } from "@/types/speaking";
 
 /** Level a voice has to clear to count as speech rather than room noise. */
 const SPEECH_LEVEL = 0.12;
@@ -23,6 +24,12 @@ interface MicCheckProps {
   /** Everything works — start the exam. */
   onBegin: () => void;
   recognitionSupported: boolean;
+  /**
+   * The interview appointment, when the sitting books one. Null while it is
+   * still being fetched; `open: false` means the candidate has finished
+   * writing, walked over to an interview machine, and now waits to be called.
+   */
+  appointment?: SpeakingAppointment | null;
 }
 
 /**
@@ -39,6 +46,7 @@ export function MicCheck({
   onTestVoice,
   onBegin,
   recognitionSupported,
+  appointment,
 }: MicCheckProps) {
   const [stage, setStage] = useState<Stage>("intro");
   const [level, setLevel] = useState(0);
@@ -215,12 +223,29 @@ export function MicCheck({
                   )}
                 </div>
 
-                <Button
-                  onClick={onBegin}
-                  className="mt-8 h-11 w-full rounded-md bg-ink text-[14px] font-medium tracking-tight text-paper hover:bg-ink-soft active:scale-[0.99]"
-                >
-                  Шалгалт эхлүүлэх
-                </Button>
+                {appointment?.appointed && !appointment.open ? (
+                  <div className="mt-8 rounded-md border border-rule bg-surface px-5 py-4 text-center">
+                    <p className="text-[13px] text-muted">
+                      Таны ярианы шалгалт
+                    </p>
+                    <p className="mt-1 text-[28px] font-semibold tabular-nums tracking-tight text-ink">
+                      {appointment.start_time}
+                    </p>
+                    <p className="mt-2 text-[12px] leading-relaxed text-muted">
+                      Цаг болмогц энэ дэлгэц өөрөө үргэлжилнэ. Хаахгүй байна уу.
+                      {appointment.mode === "HUMAN"
+                        ? " Танай шалгалтыг багш авна."
+                        : ""}
+                    </p>
+                  </div>
+                ) : (
+                  <Button
+                    onClick={onBegin}
+                    className="mt-8 h-11 w-full rounded-md bg-ink text-[14px] font-medium tracking-tight text-paper hover:bg-ink-soft active:scale-[0.99]"
+                  >
+                    Шалгалт эхлүүлэх
+                  </Button>
+                )}
               </>
             )}
           </div>

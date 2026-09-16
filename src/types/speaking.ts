@@ -72,6 +72,23 @@ export interface StartSessionResponse {
  * `audio_url` is null when the server could not synthesise it, in which case
  * `text` is what the browser speaks instead.
  */
+/**
+ * The interview appointment that follows the written block.
+ *
+ * `appointed` is false on a sitting that books no interviews — every sitting
+ * from before Speaking had windows of its own — and then `open` is true and
+ * nothing waits.
+ */
+export interface SpeakingAppointment {
+  appointed: boolean;
+  open: boolean;
+  window_id?: string;
+  start_time?: string;
+  duration_minutes?: number;
+  mode?: "AI" | "HUMAN";
+  opened_at?: string | null;
+}
+
 export interface VoiceCheckResponse {
   text: string;
   audio_url: string | null;

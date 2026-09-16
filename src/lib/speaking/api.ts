@@ -6,6 +6,7 @@ import { useSpeakingStore } from "@/lib/speaking/store";
 import type {
   NextTurnResponse,
   PrepDoneResponse,
+  SpeakingAppointment,
   SpeakingFeedback,
   SpeakingResults,
   SpeakingStateResponse,
@@ -70,6 +71,21 @@ const base = (attemptId: string) => `/api/public/ielts/speaking/${attemptId}`;
 export async function fetchVoiceCheck(attemptId: string) {
   const { data } = await speakingApi.get<VoiceCheckResponse>(
     `${base(attemptId)}/voice-check`,
+  );
+  return data;
+}
+
+/**
+ * When this candidate is due to be interviewed, and whether they may start.
+ *
+ * Six candidates sit the written block together and are interviewed a couple
+ * at a time on the two interview machines, so most of them finish Writing and
+ * then wait. The wait is the normal case, not an error — this is what the
+ * screen they wait on reads, and it is polled until `open` turns true.
+ */
+export async function fetchAppointment(attemptId: string) {
+  const { data } = await speakingApi.get<SpeakingAppointment>(
+    `${base(attemptId)}/appointment`,
   );
   return data;
 }
