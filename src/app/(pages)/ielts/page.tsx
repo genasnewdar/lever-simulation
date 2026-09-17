@@ -4,6 +4,7 @@ import { Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { ArrowRight } from "lucide-react";
 import { ThemeToggle } from "@/components/ThemeToggle";
+import { Logo } from "@/components/Logo";
 
 const IeltsPageInner = () => {
   const router = useRouter();
@@ -33,22 +34,8 @@ const IeltsPageInner = () => {
       <div className="w-full max-w-[640px] grid gap-12">
         {/* Brand mark */}
         <div className="flex items-center gap-3 text-ink-soft">
-          <span
-            aria-hidden
-            className="relative inline-flex items-center justify-center h-10 w-[78px] rounded-md bg-ink text-paper font-serif font-semibold tracking-[-0.035em] text-[15px]"
-          >
-            Lever
-            <span
-              aria-hidden
-              className="absolute right-0 bottom-0 h-3 w-3"
-              style={{
-                background:
-                  "linear-gradient(135deg, transparent 50%, var(--mint) 50%)",
-                borderBottomRightRadius: "0.375rem",
-              }}
-            />
-          </span>
-          <span className="text-[12px] uppercase tracking-[0.22em]">Mock</span>
+          <Logo size={40} priority />
+          <span className="text-[12px] uppercase tracking-[0.22em]">Simulation</span>
         </div>
 
         <div className="space-y-7">

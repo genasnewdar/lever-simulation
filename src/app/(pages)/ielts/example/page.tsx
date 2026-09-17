@@ -21,6 +21,7 @@ import { mapBackendToQuestion } from "@/lib/ielts-mapper";
 import { cn, countWords } from "@/lib/utils";
 import type { SectionTab } from "@/types/ielts-simulation";
 import { ReviewCheckbox } from "@/components/ielts/ReviewCheckbox";
+import { Logo } from "@/components/Logo";
 
 type PageProps = {
   params?: Promise<Record<string, string | string[]>>;
@@ -453,22 +454,8 @@ export default function IELTSReplicaPage(props: PageProps) {
       <div className="h-screen flex items-center justify-center bg-paper px-6">
         <div className="w-full max-w-[480px] grid gap-8">
           <div className="flex items-center gap-3 text-ink-soft">
-            <span
-              aria-hidden
-              className="relative inline-flex items-center justify-center h-9 w-[72px] rounded-md bg-ink text-paper font-serif font-semibold tracking-[-0.035em] text-[14px]"
-            >
-              Lever
-              <span
-                aria-hidden
-                className="absolute right-0 bottom-0 h-2.5 w-2.5"
-                style={{
-                  background:
-                    "linear-gradient(135deg, transparent 50%, var(--mint) 50%)",
-                  borderBottomRightRadius: "0.375rem",
-                }}
-              />
-            </span>
-            <span className="text-[12px] uppercase tracking-[0.22em]">Mock · Demo</span>
+            <Logo size={36} priority />
+            <span className="text-[12px] uppercase tracking-[0.22em]">Simulation · Demo</span>
           </div>
 
           <div className="space-y-3">

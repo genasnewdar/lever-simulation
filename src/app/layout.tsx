@@ -20,7 +20,7 @@ const serif = Literata({
 });
 
 export const metadata: Metadata = {
-  title: "Lever — IELTS Mock Exam",
+  title: "Lever — IELTS Simulation",
   description: "A calm, accurate rehearsal of the real IELTS experience.",
 };
 

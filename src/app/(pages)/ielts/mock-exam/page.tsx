@@ -223,7 +223,7 @@ function IeltsMockExamPageInner() {
         <div className="w-full max-w-[440px]">
           <div className="flex items-center gap-2 pb-7 text-[12px] uppercase tracking-[0.2em] text-muted">
             <span className="h-1 w-1 rounded-full bg-mint" />
-            IELTS Mock
+            IELTS Simulation
           </div>
 
           <h1 className="font-serif text-[2.1rem] font-semibold text-ink leading-[1.08] tracking-[-0.022em]">
