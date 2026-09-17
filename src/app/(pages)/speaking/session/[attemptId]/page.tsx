@@ -707,12 +707,31 @@ export default function SpeakingSessionPage() {
       setProgress({ index: 0, total: session.total_turns });
       await advance();
     } catch (err) {
-      const detail =
-        typeof err === "object" && err && "response" in err
-          ? ((err as { response?: { data?: { detail?: string } } }).response
-              ?.data?.detail ?? null)
-          : null;
-      failSession(detail || "Ярианы шалгалт эхлүүлэх боломжгүй байна.");
+      const response = (
+        err as { response?: { status?: number; data?: { detail?: unknown } } }
+      )?.response;
+      const detail = response?.data?.detail;
+
+      // Too early: their interview window has not been called yet. That is a
+      // wait, not a failure — put them back on the waiting screen, which polls
+      // and starts on its own. Reachable when Begin is pressed before the first
+      // appointment check has come back.
+      if (response?.status === 425 && detail && typeof detail === "object") {
+        bootedRef.current = false;
+        setStarted(false);
+        setAppointment(detail as SpeakingAppointment);
+        return;
+      }
+
+      // `detail` is a string from most endpoints and an object from some; an
+      // object printed as text is "[object Object]" on the candidate's screen.
+      const message =
+        typeof detail === "string"
+          ? detail
+          : typeof (detail as { message?: unknown })?.message === "string"
+            ? (detail as { message: string }).message
+            : null;
+      failSession(message || "Ярианы шалгалт эхлүүлэх боломжгүй байна.");
     }
   }, [advance, attemptId, failSession, recorder]);
 
