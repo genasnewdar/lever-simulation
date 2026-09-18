@@ -702,23 +702,29 @@ export default function SpeakingSessionPage() {
     setStarted(true);
     recorder.stopMonitor();
 
+    let session;
     try {
-      const session = await startSession(attemptId);
-      setProgress({ index: 0, total: session.total_turns });
-      await advance();
+      session = await startSession(attemptId);
     } catch (err) {
       const response = (
         err as { response?: { status?: number; data?: { detail?: unknown } } }
       )?.response;
       const detail = response?.data?.detail;
 
+      // Nothing was started, so the latch has to come off whatever went wrong —
+      // the poll above exists to try again, and it cannot while this ref is
+      // held. It used to be released only for 425, which left any other blip
+      // (a dropped connection, a 500) locking the interview shut for good: the
+      // poll kept asking, saw the window open, called this, and returned on the
+      // first line every time. Only reloading the page cleared it.
+      bootedRef.current = false;
+      setStarted(false);
+
       // Too early: their interview window has not been called yet. That is a
       // wait, not a failure — put them back on the waiting screen, which polls
       // and starts on its own. Reachable when Begin is pressed before the first
       // appointment check has come back.
       if (response?.status === 425 && detail && typeof detail === "object") {
-        bootedRef.current = false;
-        setStarted(false);
         setAppointment(detail as SpeakingAppointment);
         return;
       }
@@ -732,6 +738,16 @@ export default function SpeakingSessionPage() {
             ? (detail as { message: string }).message
             : null;
       failSession(message || "Ярианы шалгалт эхлүүлэх боломжгүй байна.");
+      return;
+    }
+
+    // Past here the interview is genuinely open on the server, so a failure is
+    // not something to retry by starting it a second time.
+    try {
+      setProgress({ index: 0, total: session.total_turns });
+      await advance();
+    } catch {
+      failSession("Ярианы шалгалт эхлүүлэх боломжгүй байна.");
     }
   }, [advance, attemptId, failSession, recorder]);
 
@@ -744,6 +760,14 @@ export default function SpeakingSessionPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // `handleBegin` is rebuilt on every render — it closes over `recorder`, and
+  // that hook returns a fresh object each time. Held in a ref so the poll below
+  // does not list it as a dependency.
+  const beginRef = useRef(handleBegin);
+  useEffect(() => {
+    beginRef.current = handleBegin;
+  }, [handleBegin]);
+
   // Poll the appointment until it opens, then start on its own — the candidate
   // is sitting in front of the machine waiting to be called, and should not
   // have to notice a button appearing.
@@ -752,6 +776,14 @@ export default function SpeakingSessionPage() {
     // already in the mic check. Keyed on a boolean, not on the appointment
     // object — a fresh object every poll would restart the effect, and the
     // effect checks immediately, which is a request every render.
+    //
+    // `handleBegin` is deliberately NOT a dependency, for the same reason and
+    // worse: it changed every render, so this effect tore down and restarted
+    // every render. That fired a request per render — hundreds a minute on a
+    // waiting candidate — and each teardown set `cancelled` on the answer still
+    // in flight, so the reply that said the window had opened was thrown away
+    // before it could start anything. The interview only began if the candidate
+    // reloaded the page, which is what settled the renders.
     if (started || noAppointment) return;
     let cancelled = false;
 
@@ -760,7 +792,7 @@ export default function SpeakingSessionPage() {
         const next = await fetchAppointment(attemptId);
         if (cancelled) return;
         setAppointment(next);
-        if (next.appointed && next.open) handleBegin();
+        if (next.appointed && next.open) beginRef.current();
       } catch {
         // A sitting with no appointment endpoint, or a blip: the mic check is
         // still usable and `/start` is the real gate.
@@ -773,7 +805,7 @@ export default function SpeakingSessionPage() {
       cancelled = true;
       clearInterval(timer);
     };
-  }, [attemptId, started, noAppointment, handleBegin]);
+  }, [attemptId, started, noAppointment]);
 
   // ── Render ────────────────────────────────────────────────────────────────
 
