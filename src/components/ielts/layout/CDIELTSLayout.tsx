@@ -549,12 +549,17 @@ const CDIELTSLayout: React.FC<CDIELTSLayoutProps> = ({
   // was left at — halfway down, past its own instructions. The question click
   // that rides along with the tab cannot fix this: it looks the new question up
   // by id, and that element does not exist until this render commits.
+  //
+  // A whole new skill (Listening → Reading → Writing) has the same problem and
+  // used to be missed twice over: its part index is 0 again, or undefined for
+  // Writing, so neither the dependency changed nor did the effect run. The
+  // candidate landed on question 1 of the new section with its instructions
+  // already scrolled off the top.
   useEffect(() => {
-    if (activePartIndex === undefined) return;
     for (const el of [questionsContainerRef.current, passageContainerRef.current]) {
       el?.scrollTo({ top: 0, behavior: "smooth" });
     }
-  }, [activePartIndex]);
+  }, [activePartIndex, activeTab]);
 
   // Intersection Observer for scroll tracking
   useEffect(() => {

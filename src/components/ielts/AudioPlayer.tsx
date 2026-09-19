@@ -52,6 +52,9 @@ const AudioPlayer: React.FC<AudioPlayerProps> = ({
 
   // Whether audio reached its natural end — suppresses auto-resume logic.
   const isEndedRef = useRef(false);
+  // Same thing, as state: exam mode must not offer a play button once the
+  // recording has finished, or the candidate can listen to it a second time.
+  const [hasEnded, setHasEnded] = useState(false);
   // Mirrors isPlaying state in a ref so event handlers always see the current value.
   const isPlayingRef = useRef(false);
 
@@ -106,6 +109,7 @@ const AudioPlayer: React.FC<AudioPlayerProps> = ({
     };
     const handleEnded = () => {
       isEndedRef.current = true;
+      setHasEnded(true);
       setPlaying(false);
       // Clear saved position so the next student starts from the beginning.
       if (persistKey) {
@@ -192,6 +196,7 @@ const AudioPlayer: React.FC<AudioPlayerProps> = ({
     if (!el) return;
 
     isEndedRef.current = false;
+    setHasEnded(false);
     setHasError(false);
     el.src = audioUrl;
     setDuration(0);
@@ -329,7 +334,11 @@ const AudioPlayer: React.FC<AudioPlayerProps> = ({
           className,
         )}>
         <audio ref={audioRef} preload="auto" />
-        {isPlaying ? (
+        {hasEnded ? (
+          <span className="text-[10px] font-semibold text-ink-soft uppercase tracking-wider">
+            Бичлэг дууслаа
+          </span>
+        ) : isPlaying ? (
           <div className="flex items-center gap-2">
             <div className="flex items-center gap-1">
               <span className="w-1 h-3 bg-mint rounded-full animate-pulse" />

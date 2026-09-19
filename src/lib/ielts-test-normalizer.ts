@@ -96,30 +96,73 @@ function normalizeQuestionGroups(
   });
 }
 
-/** Extract flat questions from section (from groups or direct questions) */
-function sectionQuestions(section: SectionLike, sectionId: string): BackendQuestion[] {
-  if (section.questions?.length) {
-    return section.questions.map((q) =>
-      ensureQuestionId(
-        { ...q, options: ensureOptionIds(q.options) },
-        sectionId,
-      ),
-    );
-  }
-  const groups = section.question_groups ?? [];
-  const flat: BackendQuestion[] = [];
-  for (const g of groups) {
-    const gid = g.id ?? sectionId;
-    for (const q of g.questions ?? []) {
-      flat.push(
-        ensureQuestionId(
-          { ...q, options: ensureOptionIds(q.options) },
-          gid,
-        ),
-      );
-    }
-  }
-  return flat;
+/** Everything a section holds, in one shape: one list of groups that covers
+ *  every question, and the flat list derived from it.
+ *
+ *  The backend splits a section in two — `questions` carries only the
+ *  questions that belong to no group, every other question lives inside
+ *  `question_groups` — and both sides of the app picked one half and ignored
+ *  the other. The flat list (the number bar, the answered underline,
+ *  Back/Next, the question count) took `questions` whenever it had anything in
+ *  it, so grouped questions were absent from the bar; the panel renders
+ *  `question_groups` whenever it has anything in it, so standalone questions
+ *  were never drawn. A section mixing the two lost half of itself each way —
+ *  a first group of grouped questions simply had no numbers in the bar.
+ *
+ *  Standalone questions become a group of their own, placed by question
+ *  number, so there is only one list to walk from here on.
+ */
+function firstNumber(g: { questions?: BackendQuestion[] }): number {
+  const nums = (g.questions ?? []).map((q) => q.question_number);
+  return nums.length ? Math.min(...nums) : Number.MAX_SAFE_INTEGER;
+}
+
+function sectionParts(
+  section: SectionLike,
+  sectionId: string,
+): { questions: BackendQuestion[]; question_groups?: BackendQuestionGroup[] } {
+  const groups = section.question_groups?.length
+    ? normalizeQuestionGroups(section.question_groups, sectionId)
+    : [];
+
+  const grouped = new Set(
+    groups.flatMap((g) => g.questions.map((q) => q.question_number)),
+  );
+  const standalone = normalizeGroupQuestions(
+    (section.questions ?? []).filter((q) => !grouped.has(q.question_number)),
+    sectionId,
+  );
+
+  // No groups at all: leave `question_groups` unset, which is what the panel
+  // already treats as "wrap the loose questions in one group of my own".
+  if (groups.length === 0) return { questions: standalone };
+
+  const all = standalone.length
+    ? [
+        ...groups,
+        {
+          id: `${sectionId}-ungrouped`,
+          layout_type: "NONE",
+          title: null,
+          instructions: null,
+          word_limit: null,
+          word_limit_text: null,
+          number_allowed: true,
+          layout_data: null,
+          image_url: null,
+          image_alt_text: null,
+          options_pool: null,
+          questions: standalone,
+        } as BackendQuestionGroup,
+      ].sort((a, b) => firstNumber(a) - firstNumber(b))
+    : groups;
+
+  return {
+    questions: all
+      .flatMap((g) => g.questions)
+      .sort((a, b) => a.question_number - b.question_number),
+    question_groups: all,
+  };
 }
 
 /**
@@ -144,10 +187,7 @@ export function normalizeBackendTestResponse(
       id: lt.id ?? "listening-default",
       sections: sortedSections.map((s, i) => {
         const sid = s.id ?? `sec-${s.section_number ?? i + 1}`;
-        const questions = sectionQuestions(s, sid);
-        const question_groups = s.question_groups?.length
-          ? normalizeQuestionGroups(s.question_groups, sid)
-          : undefined;
+        const { questions, question_groups } = sectionParts(s, sid);
         return {
           ...s,
           id: sid,
@@ -169,10 +209,7 @@ export function normalizeBackendTestResponse(
       id: (out.reading_test as { id?: string }).id ?? "reading-default",
       passages: sortedPassages.map((p, i) => {
         const pid = p.id ?? `pass-${p.passage_number ?? i + 1}`;
-        const questions = sectionQuestions(p, pid);
-        const question_groups = p.question_groups?.length
-          ? normalizeQuestionGroups(p.question_groups, pid)
-          : undefined;
+        const { questions, question_groups } = sectionParts(p, pid);
         return {
           ...p,
           id: pid,
@@ -224,10 +261,7 @@ export function normalizeContentResponse(raw: ContentResponse): ContentResponse 
       audio_url: hoistedAudioUrl,
       sections: sortedSections.map((s, i) => {
         const sid = s.id ?? `sec-${s.section_number ?? i + 1}`;
-        const questions = sectionQuestions(s, sid);
-        const question_groups = s.question_groups?.length
-          ? normalizeQuestionGroups(s.question_groups, sid)
-          : undefined;
+        const { questions, question_groups } = sectionParts(s, sid);
         return {
           ...s,
           id: sid,
@@ -247,10 +281,7 @@ export function normalizeContentResponse(raw: ContentResponse): ContentResponse 
       ...out.content,
       passages: sortedPassages.map((p, i) => {
         const pid = p.id ?? `pass-${p.passage_number ?? i + 1}`;
-        const questions = sectionQuestions(p, pid);
-        const question_groups = p.question_groups?.length
-          ? normalizeQuestionGroups(p.question_groups, pid)
-          : undefined;
+        const { questions, question_groups } = sectionParts(p, pid);
         return {
           ...p,
           id: pid,

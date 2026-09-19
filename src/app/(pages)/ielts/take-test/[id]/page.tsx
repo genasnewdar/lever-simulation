@@ -66,10 +66,6 @@ const SECTION_BREAK_SECONDS = 120;
 // Shared so a section with no flags yet returns the same object every render.
 const EMPTY_REVIEW: Set<number> = new Set<number>();
 
-// Fallback post-audio Listening review window, used only when the backend
-// doesn't send one. Matches the CD IELTS answer-checking time.
-const DEFAULT_LISTENING_REVIEW_SECONDS = 120;
-
 const DEBUG =
   process.env.NODE_ENV === "development" ||
   process.env.NEXT_PUBLIC_IELTS_DEBUG === "true";
@@ -146,9 +142,6 @@ export default function IeltsTakeTestPage(props: PageProps) {
   const [isFinished, setIsFinished] = useState(false);
   const [retryKey, setRetryKey] = useState(0);
   const [sectionTimerSeconds, setSectionTimerSeconds] = useState<number>(0);
-  // Post-audio Listening review window length — provided by the backend.
-  const [listeningReviewSeconds, setListeningReviewSeconds] =
-    useState<number>(0);
   const [pendingSectionIntro, setPendingSectionIntro] = useState<{
     section: SectionId;
     duration: number;
@@ -229,10 +222,6 @@ export default function IeltsTakeTestPage(props: PageProps) {
   const passageRef = useRef<HTMLDivElement>(null);
   const timeExpireCalledRef = useRef(false);
   const contentLoadFailCount = useRef(0);
-  // Set once the Listening audio finishes: the candidate then gets the
-  // backend-configured review window (listeningReviewSeconds) and the backend
-  // timer sync must not bump the clock back up during that window.
-  const listeningReviewActiveRef = useRef(false);
   // Keeps the periodic backend sync from auto-advancing sections while the
   // between-section break overlay is showing.
   const onBreakRef = useRef(false);
@@ -417,7 +406,6 @@ export default function IeltsTakeTestPage(props: PageProps) {
         setContentMeta(response);
         setSectionContent(response.content ?? null);
         setSectionTimerSeconds(response.section_time_remaining_seconds);
-        setListeningReviewSeconds(response.listening_review_seconds);
         setPendingSectionIntro({
           section: section as SectionId,
           duration: (response.content?.duration_minutes ?? 0) * 60,
@@ -489,13 +477,6 @@ export default function IeltsTakeTestPage(props: PageProps) {
         // Only sync timer if still on same section
         const currentTab = overview.current_section.toUpperCase();
         if (currentTab === activeTab) {
-          // During the post-audio Listening review window the local clock
-          // governs — don't let the backend push it back up and cut the
-          // review short. The section-advance branch below still applies:
-          // it's the safety net if the local expiry path ever misses.
-          if (activeTab === "LISTENING" && listeningReviewActiveRef.current) {
-            return;
-          }
           setSectionTimerSeconds(overview.section_time_remaining_seconds);
         } else {
           // Backend says we should be on a different section — reload
@@ -508,7 +489,6 @@ export default function IeltsTakeTestPage(props: PageProps) {
           setContentMeta(response);
           setSectionContent(response.content ?? null);
           setSectionTimerSeconds(response.section_time_remaining_seconds);
-          setListeningReviewSeconds(response.listening_review_seconds);
           setPendingSectionIntro({
             section: section as SectionId,
             duration: response.section_time_remaining_seconds,
@@ -1190,27 +1170,6 @@ export default function IeltsTakeTestPage(props: PageProps) {
 
   const handleCloseNoteEditor = useCallback(() => setNoteEditor(null), []);
 
-  // ── Listening: clamp the clock to a short review window when audio ends ─────
-  // Real IELTS gives time to transfer/check answers after the recording ends.
-  // The window length comes from the backend (listeningReviewSeconds); then the
-  // section auto-submits via the normal timer-expiry path. The ref tells the
-  // backend sync (below) not to push the clock back up during this window.
-  const handleAudioEnded = useCallback(() => {
-    if (activeTab !== "LISTENING") return;
-    if (listeningReviewActiveRef.current) return;
-    listeningReviewActiveRef.current = true;
-    // The backend owns the window length, but an absent or zero value must not
-    // reach the clock: at <= 0 (or NaN) the timer parks and never fires
-    // onTimeExpire, so Listening never closes and the sitting stalls until the
-    // candidate reloads the page.
-    const review =
-      Number.isFinite(listeningReviewSeconds) && listeningReviewSeconds > 0
-        ? listeningReviewSeconds
-        : DEFAULT_LISTENING_REVIEW_SECONDS;
-    setSectionTimerSeconds(review);
-    toast.info("Сонсголын бичлэг дууслаа. Хариултаа шалгана уу.");
-  }, [activeTab, listeningReviewSeconds]);
-
   // ── Helper: submit current answers ─────────────────────────────────────────
   const submitCurrentAnswers = useCallback(async () => {
     const formValues = methods.getValues() as Record<string, unknown>;
@@ -1355,7 +1314,6 @@ export default function IeltsTakeTestPage(props: PageProps) {
         setContentMeta(response);
         setSectionContent(response.content ?? null);
         setSectionTimerSeconds(compensatedTimer);
-        setListeningReviewSeconds(response.listening_review_seconds);
         setPendingSectionIntro({
           section: section as SectionId,
           duration: (response.content?.duration_minutes ?? 0) * 60,
@@ -1583,7 +1541,6 @@ export default function IeltsTakeTestPage(props: PageProps) {
   // ── Reset per-section flags when activeTab changes ──────────────────────────
   useEffect(() => {
     timeExpireCalledRef.current = false;
-    listeningReviewActiveRef.current = false;
   }, [activeTab]);
 
   // ── Section timer expiry ───────────────────────────────────────────────────
@@ -1629,6 +1586,17 @@ export default function IeltsTakeTestPage(props: PageProps) {
       setOnBreak(true);
     }
   }, [currentSectionId, isLastSection, submitCurrentAnswers, params.id]);
+
+  // ── Listening: the recording ending ends the section ──────────────────
+  // There used to be a review window here: the clock was clamped to a
+  // backend-supplied two minutes, and only then did the break overlay appear
+  // — two minutes of waiting, then two more on the break. The candidate has
+  // nothing to transfer (the answers are already typed in), so the audio
+  // finishing goes straight down the normal end-of-section path.
+  const handleAudioEnded = useCallback(() => {
+    if (activeTab !== "LISTENING") return;
+    void handleTimeExpire();
+  }, [activeTab, handleTimeExpire]);
 
   const handleDevFinish = useCallback(async () => {
     if (timeExpireCalledRef.current) return;

@@ -99,7 +99,15 @@ const QuestionMap: React.FC<QuestionMapProps> = ({
         )}
       </div>
 
-      <div className="flex-1 flex items-center justify-center h-full gap-3 px-4 overflow-x-auto custom-scrollbar">
+      {/* Centred with auto margins on the inner row, NOT `justify-center` on
+          the scroller: once the numbers overflow — 40 of them plus four part
+          labels pass the width of a 1366px laptop — a centred flex container
+          spills equally off BOTH ends, and `scrollLeft` cannot go below zero,
+          so the first questions were cut off with no way to scroll back to
+          them. Auto margins centre while there is room and collapse to zero
+          when there is not. */}
+      <div className="flex-1 flex items-center h-full px-4 overflow-x-auto custom-scrollbar">
+        <div className="flex items-center gap-3 m-auto">
         {activeTab === "WRITING" ? (
           <>
             {[1, 2].map((task) => {
@@ -203,6 +211,7 @@ const QuestionMap: React.FC<QuestionMapProps> = ({
             })}
           </>
         )}
+        </div>
       </div>
 
       <div className="flex-shrink-0 flex items-center px-4 border-l border-rule h-full">
