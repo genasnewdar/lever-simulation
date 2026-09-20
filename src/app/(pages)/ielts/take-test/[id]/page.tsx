@@ -221,6 +221,13 @@ export default function IeltsTakeTestPage(props: PageProps) {
   );
   const passageRef = useRef<HTMLDivElement>(null);
   const timeExpireCalledRef = useRef(false);
+  // Sections whose time is up and whose answers the backend has taken. The
+  // ten-second safety net below keeps firing while the break overlay is up —
+  // after the 2026-09-20 sitting all six candidates were still POSTing their
+  // finished Listening paper a full two minutes after it closed. Those writes
+  // can no longer change anything, and two of them landing together is what
+  // made the batch saves collide.
+  const closedSectionsRef = useRef<Set<string>>(new Set());
   const contentLoadFailCount = useRef(0);
   // Keeps the periodic backend sync from auto-advancing sections while the
   // between-section break overlay is showing.
@@ -1172,6 +1179,8 @@ export default function IeltsTakeTestPage(props: PageProps) {
 
   // ── Helper: submit current answers ─────────────────────────────────────────
   const submitCurrentAnswers = useCallback(async () => {
+    if (closedSectionsRef.current.has(currentSectionId)) return;
+
     const formValues = methods.getValues() as Record<string, unknown>;
     const attemptId = params.id;
 
@@ -1227,7 +1236,7 @@ export default function IeltsTakeTestPage(props: PageProps) {
           });
       }
     }
-  }, [activeTab, sectionContent, allQuestions, methods, params.id]);
+  }, [activeTab, currentSectionId, sectionContent, allQuestions, methods, params.id]);
 
   // ── Helper: transition to next section after finish ────────────────────────
   /**
@@ -1558,6 +1567,11 @@ export default function IeltsTakeTestPage(props: PageProps) {
     // Notify backend. Awaited: the next section is only loaded once the
     // backend has recorded this one as finished, otherwise the overview still
     // names the section we just closed.
+    // After this point the section is over: the flush above was its last, and
+    // anything the safety net sent from here on is noise the backend has to
+    // reject or redo.
+    closedSectionsRef.current.add(currentSectionId);
+
     justFinishedSectionRef.current = currentSectionId;
     try {
       await fetch("/api/ielts/finish-section", {
