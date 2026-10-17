@@ -88,6 +88,59 @@ function useDebounce<T>(value: T, delay: number): T {
   return debouncedValue;
 }
 
+// ─── Task 1 chart: hover to magnify, click for full screen ─────────────────
+// Kept in the page rather than opened in a new tab: leaving the tab counts as
+// a proctoring event.
+function ZoomableImage({ src, alt }: { src: string; alt: string }) {
+  const [origin, setOrigin] = useState<string | null>(null);
+  const [open, setOpen] = useState(false);
+
+  useEffect(() => {
+    if (!open) return;
+    const close = (e: KeyboardEvent) => e.key === "Escape" && setOpen(false);
+    window.addEventListener("keydown", close);
+    return () => window.removeEventListener("keydown", close);
+  }, [open]);
+
+  return (
+    <>
+      <div
+        className="overflow-hidden rounded cursor-zoom-in"
+        onMouseMove={(e) => {
+          const r = e.currentTarget.getBoundingClientRect();
+          const x = ((e.clientX - r.left) / r.width) * 100;
+          const y = ((e.clientY - r.top) / r.height) * 100;
+          setOrigin(`${x}% ${y}%`);
+        }}
+        onMouseLeave={() => setOrigin(null)}
+        onClick={() => setOpen(true)}
+      >
+        <img
+          src={src}
+          alt={alt}
+          className="w-full h-auto"
+          style={origin ? { transform: "scale(2)", transformOrigin: origin } : undefined}
+        />
+      </div>
+      <p className="mt-2 text-[11px] text-ink/60">
+        Томруулах бол хулганаа зураг дээр аваачна уу · дарвал бүтэн дэлгэцээр харна
+      </p>
+      {open && (
+        <div
+          className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 p-4 cursor-zoom-out"
+          onClick={() => setOpen(false)}
+        >
+          <img
+            src={src}
+            alt={alt}
+            className="max-h-full max-w-full rounded bg-white object-contain"
+          />
+        </div>
+      )}
+    </>
+  );
+}
+
 // ─── Helper: fetch content from student endpoint ───────────────────────────
 async function fetchSectionContent(
   attemptId: string,
@@ -248,6 +301,10 @@ export default function IeltsTakeTestPage(props: PageProps) {
   // it very hard to lose answers even when the section ends abruptly.
   const debouncedWatchAll = useDebounce(watchAll, 500);
   const prevSubmittedRef = useRef<string>("");
+  // Per Writing task, the text the server last accepted. Typing in one task
+  // used to re-send both on every pause (~2 requests a second per candidate);
+  // an unchanged task is now skipped.
+  const savedWritingRef = useRef<Record<string, string>>({});
 
   const sectionStorageKey = `ielts-current-section-${params.id}`;
   const writingTaskStorageKey = `lever-exam-${params.id}-writing-active-task`;
@@ -1377,6 +1434,7 @@ export default function IeltsTakeTestPage(props: PageProps) {
             const key = `writing_task_${task.task_number}`;
             const content = formValues[key];
             if (typeof content === "string" && content.trim().length > 0) {
+              if (savedWritingRef.current[task.id] === content) continue;
               const wordCount = countWords(content);
               debugLog("writing-submit", {
                 task_id: task.id,
@@ -1388,6 +1446,7 @@ export default function IeltsTakeTestPage(props: PageProps) {
                 content: content,
                 word_count: wordCount,
               });
+              savedWritingRef.current[task.id] = content;
             }
           }
         } else {
@@ -1995,10 +2054,9 @@ export default function IeltsTakeTestPage(props: PageProps) {
 
                   {activeWritingPrompt.visual_content && (
                     <div className="bg-paper-2 p-4 rounded-md border border-rule">
-                      <img
+                      <ZoomableImage
                         src={activeWritingPrompt.visual_content}
                         alt={`Visual content for ${activeWritingPrompt.title}`}
-                        className="w-full h-auto rounded"
                       />
                     </div>
                   )}
