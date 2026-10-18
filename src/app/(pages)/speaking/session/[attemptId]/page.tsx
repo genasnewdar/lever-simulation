@@ -401,7 +401,18 @@ export default function SpeakingSessionPage() {
   const advance = useCallback(async () => {
     if (finishedRef.current) return;
     try {
-      const next = await fetchNextTurn(attemptId);
+      // A blip must not end the interview: try a few times before giving up.
+      // The server hands an open question back, so a retry is always safe.
+      let next: Awaited<ReturnType<typeof fetchNextTurn>> | undefined;
+      for (let attempt = 0; ; attempt++) {
+        try {
+          next = await fetchNextTurn(attemptId);
+          break;
+        } catch (err) {
+          if (attempt >= 3) throw err;
+          await beat(1000 * 2 ** attempt);
+        }
+      }
       if ("session_complete" in next && next.session_complete) {
         await finishSession();
         return;
@@ -978,6 +989,15 @@ export default function SpeakingSessionPage() {
             <Volume2 className="h-3.5 w-3.5" />
             {repeating ? "Уншиж байна…" : "Асуултыг дахин сонсох"}
           </button>
+        )}
+
+        {phase === "error" && (
+          <Button
+            onClick={() => window.location.reload()}
+            className="h-11 rounded-md bg-ink px-8 text-[14px] font-medium tracking-tight text-paper hover:bg-ink-soft active:scale-[0.99]"
+          >
+            Дахин оролдох
+          </Button>
         )}
 
         {phase === "error" && (
