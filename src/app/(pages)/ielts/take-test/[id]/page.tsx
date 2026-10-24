@@ -1790,7 +1790,7 @@ export default function IeltsTakeTestPage(props: PageProps) {
               // The sitting was already wiped on finish; the exam code is all
               // that is left and the results screens still need it.
               leavingDeliberatelyRef.current = true;
-              router.push(`/ielts/finished/${params.id}`);
+              router.push(`/ielts/results/${params.id}`);
             }}
             className="w-full py-4 bg-primary text-white rounded-2xl font-semibold text-lg hover:bg-primary/90 transition-all shadow-xl shadow-primary/20 active:scale-95">
             Үр дүн харах

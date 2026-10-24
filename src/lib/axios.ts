@@ -20,7 +20,10 @@ api.interceptors.request.use((config) => {
     const examCode = parsed?.state?.examCode;
     const deviceToken = parsed?.state?.deviceToken;
     if (config.headers) {
-      if (examCode) config.headers["X-Exam-Code"] = examCode;
+      // A page opened from an email link sends the code it came with; the one
+      // left in this browser by some other sitting must not replace it.
+      if (examCode && !config.headers["X-Exam-Code"])
+        config.headers["X-Exam-Code"] = examCode;
       // Attach the device token on every request — only attempt-scoped
       // endpoints look at it, and harmless on the rest.
       if (deviceToken) config.headers["X-Device-Token"] = deviceToken;

@@ -1,8 +1,9 @@
 "use client";
 
 import { useState } from "react";
-import { useParams, useRouter } from "next/navigation";
-import { CheckCircle2, Star, ArrowRight, Loader2 } from "lucide-react";
+import { useParams } from "next/navigation";
+import { MessageSquareHeart, Star, Loader2 } from "lucide-react";
+import { isAxiosError } from "axios";
 import { api } from "@/lib/axios";
 
 type Category = "SUGGESTION" | "COMPLAINT" | "ERROR";
@@ -13,9 +14,13 @@ const CATEGORIES: { value: Category; label: string }[] = [
   { value: "ERROR", label: "Алдаа" },
 ];
 
-export default function FinishedPage() {
+const MIN_REVIEW = 10;
+
+/** Opened from the link in the results email — the review is asked for once
+ *  the student has their results, not while they sit waiting for them. The
+ *  exam code in the link is the only key this app has. */
+export default function ReviewPage() {
   const params = useParams<{ attemptId: string }>();
-  const router = useRouter();
 
   const [rating, setRating] = useState(0);
   const [hovered, setHovered] = useState(0);
@@ -24,26 +29,34 @@ export default function FinishedPage() {
   const [submitting, setSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [discountCode, setDiscountCode] = useState<string | null>(null);
+
+  const reviewReady = rating > 0 && content.trim().length >= MIN_REVIEW;
 
   const handleSubmit = async () => {
-    if (rating === 0) {
-      setError("Үнэлгээ өгнө үү.");
+    if (!reviewReady) {
+      setError("Од өгч, дор хаяж хэдэн үг сэтгэгдэл бичнэ үү.");
       return;
     }
     setError(null);
-    setSubmitted(true);
     setSubmitting(true);
     try {
-      await api.post("/api/student/ielts/session-feedback", {
-        attempt_id: params.attemptId,
-        rating,
-        category: category ?? undefined,
-        content: content.trim() || undefined,
-        is_public: false,
-      });
+      const code = new URLSearchParams(window.location.search).get("code") ?? "";
+      const res = await api.post(
+        `/api/public/ielts/feedback/${params.attemptId}`,
+        { rating, category: category ?? undefined, content: content.trim() },
+        { headers: { "X-Exam-Code": code } },
+      );
+      setDiscountCode(res.data.discount_code ?? null);
       setSubmitted(true);
-    } catch {
-      setError("Илгээхэд алдаа гарлаа. Дахин оролдоно уу.");
+    } catch (err) {
+      if (isAxiosError(err) && err.response?.status === 409) {
+        setSubmitted(true); // already reviewed this sitting
+      } else if (isAxiosError(err) && (err.response?.status === 401 || err.response?.status === 403)) {
+        setError("Линк буруу байна. И-мэйл дээрх линкээр дахин орно уу.");
+      } else {
+        setError("Илгээхэд алдаа гарлаа. Дахин оролдоно уу.");
+      }
     } finally {
       setSubmitting(false);
     }
@@ -54,17 +67,17 @@ export default function FinishedPage() {
       <div className="w-full max-w-md flex flex-col items-center gap-6">
         {/* Header */}
         <div className="rounded-full bg-emerald-50 p-4">
-          <CheckCircle2
+          <MessageSquareHeart
             className="h-14 w-14 text-emerald-600"
             strokeWidth={1.5}
           />
         </div>
         <div className="text-center">
           <h1 className="text-3xl font-semibold tracking-tight text-zinc-900">
-            Шалгалт дууслаа
+            Сэтгэгдлээ үлдээгээрэй
           </h1>
           <p className="mt-2 text-base text-zinc-600">
-            Маш сайн хийлээ. Та амьсгалаа аваарай.
+            Simulation шалгалт ямар байсан бэ?
           </p>
         </div>
 
@@ -73,9 +86,11 @@ export default function FinishedPage() {
           <div className="w-full rounded-xl border border-zinc-200 bg-white px-6 py-6 flex flex-col gap-5">
             <div>
               <p className="text-sm font-semibold text-zinc-700 mb-1">
-                Шалгалтын туршлагаа үнэлнэ үү
+                Таны санал шалгалтыг сайжруулахад тусална
               </p>
-              <p className="text-xs text-zinc-400">Таны санал бидэнд чухал</p>
+              <p className="text-xs text-emerald-700 font-medium">
+                Сэтгэгдэл бичвэл дараагийн simulation шалгалтаас 10% хөнгөлөлт авна.
+              </p>
             </div>
 
             {/* Star rating */}
@@ -123,8 +138,8 @@ export default function FinishedPage() {
             <textarea
               value={content}
               onChange={(e) => setContent(e.target.value)}
-              placeholder="Сэтгэгдэл бичих (заавал биш)…"
-              rows={3}
+              placeholder="Шалгалт ямар байсан бэ? Юу таалагдсан, юуг сайжруулах вэ…"
+              rows={4}
               autoComplete="off"
               spellCheck={false}
               className="w-full rounded-lg border border-zinc-200 px-3 py-2.5 text-sm text-zinc-800 placeholder:text-zinc-400 outline-none focus:border-zinc-400 resize-none"
@@ -135,27 +150,31 @@ export default function FinishedPage() {
             <button
               type="button"
               onClick={handleSubmit}
-              disabled={submitting || rating === 0}
+              disabled={submitting || !reviewReady}
               className="w-full flex items-center justify-center gap-2 rounded-lg bg-zinc-900 px-5 py-2.5 text-sm font-medium text-white transition-colors hover:bg-zinc-800 disabled:opacity-50 disabled:cursor-not-allowed">
               {submitting ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
               Илгээх
             </button>
           </div>
         ) : (
-          /* ── Post-feedback: go to results ── */
+          /* ── Thanks, and the discount code ── */
           <div className="w-full flex flex-col gap-3">
-            {rating > 0 && (
-              <p className="text-center text-sm text-zinc-500">
-                Саналыг тань хүлээн авлаа. Баярлалаа!
-              </p>
+            <p className="text-center text-sm text-zinc-500">
+              Саналыг тань хүлээн авлаа. Баярлалаа!
+            </p>
+            {discountCode && (
+              <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-5 py-4 text-center">
+                <p className="text-xs text-emerald-800">
+                  Дараагийн simulation захиалахдаа энэ кодыг оруулаад 10% хөнгөлөлт аваарай
+                </p>
+                <p className="mt-2 font-mono text-2xl font-bold tracking-widest text-emerald-900">
+                  {discountCode}
+                </p>
+                <p className="mt-1 text-[11px] text-emerald-700">
+                  Нэг удаа ашиглагдана · и-мэйлээр ч илгээсэн
+                </p>
+              </div>
             )}
-            <button
-              type="button"
-              onClick={() => router.push(`/ielts/results/${params.attemptId}`)}
-              className="w-full flex items-center justify-center gap-2 rounded-lg bg-zinc-900 px-5 py-3 text-sm font-medium text-white transition-colors hover:bg-zinc-800">
-              Үр дүн харах
-              <ArrowRight className="w-4 h-4" />
-            </button>
           </div>
         )}
       </div>
